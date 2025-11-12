@@ -1,0 +1,30 @@
+{
+  "name": "prosperitycrm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Low-budget CRM for local recruiting agencies",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "migrate": "node ./scripts/run-migrations.mjs"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "infra/*",
+    "tests/*"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.25",
+    "dotenv": "^16.4.5",
+    "pg": "^8.11.5",
+    "turbo": "^1.12.3",
+    "typescript": "^5.4.4"
+  }
+}
