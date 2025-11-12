@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, signup } from '../api/auth';
@@ -35,7 +36,7 @@ export function AuthPage() {
       navigate('/');
     } catch (err) {
       setAuthToken(null);
-      setError('Authentication failed. Check your details and try again.');
+      setError(resolveAuthError(err));
       console.error(err);
     } finally {
       setLoading(false);
@@ -43,23 +44,15 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-blue via-brand-fuchsia to-brand-green px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-brand-blue px-4 py-10">
       <form className="glass-card w-full max-w-md space-y-4" onSubmit={handleSubmit}>
         <h1 className="text-xl font-semibold text-center text-brand-blue dark:text-white">Prosperity CRM</h1>
         <div className="flex gap-2 text-sm">
-          <button
-            type="button"
-            className={`flex-1 rounded-full border px-4 py-2 shadow-inner ${mode === 'login' ? 'border-brand-blue text-brand-blue bg-white' : 'border-white/40 text-white/70'}`}
-            onClick={() => setMode('login')}
-          >
-            Login
+          <button type="button" className="btn-outline flex-1 justify-center" onClick={() => setMode('login')}>
+            <span className={mode === 'login' ? 'bg-brand-fuchsia text-white' : ''}>Login</span>
           </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-full border px-4 py-2 shadow-inner ${mode === 'signup' ? 'border-brand-blue text-brand-blue bg-white' : 'border-white/40 text-white/70'}`}
-            onClick={() => setMode('signup')}
-          >
-            Sign Up
+          <button type="button" className="btn-outline flex-1 justify-center" onClick={() => setMode('signup')}>
+            <span className={mode === 'signup' ? 'bg-brand-fuchsia text-white' : ''}>Sign Up</span>
           </button>
         </div>
 
@@ -98,14 +91,35 @@ export function AuthPage() {
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 
-        <button
-          className="w-full rounded-full bg-brand-gradient px-4 py-3 text-sm font-semibold text-white shadow-soft disabled:opacity-50"
-          type="submit"
-          disabled={loading}
-        >
+        <button className="btn-gradient w-full justify-center disabled:opacity-50" type="submit" disabled={loading}>
           {mode === 'login' ? 'Login' : 'Create Account'}
         </button>
       </form>
     </div>
   );
+}
+
+function resolveAuthError(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as any;
+    if (typeof data?.message === 'string') {
+      return data.message;
+    }
+    if (Array.isArray(data?.formErrors) && data.formErrors.length > 0) {
+      return data.formErrors[0];
+    }
+    const fieldErrors = data?.fieldErrors;
+    if (fieldErrors && typeof fieldErrors === 'object') {
+      for (const [field, messages] of Object.entries(fieldErrors)) {
+        if (Array.isArray(messages) && messages.length > 0) {
+          return `${humanize(field)}: ${messages[0]}`;
+        }
+      }
+    }
+  }
+  return 'Authentication failed. Check your details and try again.';
+}
+
+function humanize(field: string) {
+  return field.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }

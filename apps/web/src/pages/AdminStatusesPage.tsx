@@ -36,7 +36,7 @@ export function AdminStatusesPage() {
           <input className="h-4 w-4 accent-brand-fuchsia" type="checkbox" checked={form.is_terminal} onChange={(e) => setForm((prev) => ({ ...prev, is_terminal: e.target.checked }))} />
           Terminal stage
         </label>
-        <button className="rounded-full bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-soft disabled:opacity-50" type="submit" disabled={createMutation.isLoading}>
+        <button className="btn-gradient justify-center disabled:opacity-50" type="submit" disabled={createMutation.isLoading}>
           Add
         </button>
       </form>

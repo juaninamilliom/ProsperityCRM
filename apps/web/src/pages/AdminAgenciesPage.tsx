@@ -32,7 +32,7 @@ export function AdminAgenciesPage() {
           Contact Email
           <input className="pill-input" type="email" value={form.contact_email} onChange={(e) => setForm((prev) => ({ ...prev, contact_email: e.target.value }))} placeholder="talent@agency.com" />
         </label>
-        <button className="rounded-full bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-soft disabled:opacity-50" type="submit" disabled={createMutation.isLoading}>
+        <button className="btn-gradient justify-center disabled:opacity-50" type="submit" disabled={createMutation.isLoading}>
           Add Agency
         </button>
       </form>

@@ -20,7 +20,7 @@
   input,
   select,
   textarea {
-    @apply rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
+    @apply rounded-full border border-slate-200 bg-white px-6 py-3 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
   }
 
   button {
@@ -35,7 +35,7 @@
   }
 
   .pill-input {
-    @apply rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
+    @apply rounded-full border border-slate-200 bg-white px-6 py-3 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
   }
 
   .badge {
@@ -44,5 +44,26 @@
 
   .muted {
     @apply text-slate-500 dark:text-slate-400;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-full font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-fuchsia/60;
+  }
+
+  .btn-fuchsia {
+    @apply btn bg-brand-fuchsia px-6 py-2 text-sm text-white shadow-soft hover:opacity-90;
+  }
+
+  .btn-gradient {
+    @apply btn px-6 py-3 text-sm text-white shadow-soft;
+    background-image: linear-gradient(120deg, #d946ef, #22c55e, #2563eb);
+  }
+
+  .btn-outline {
+    @apply inline-flex rounded-full bg-gradient-to-r from-brand-fuchsia via-brand-green to-brand-blue p-[2px];
+  }
+
+  .btn-outline span {
+    @apply rounded-full bg-white px-6 py-2 text-sm font-semibold text-brand-fuchsia transition dark:bg-slate-900 dark:text-white;
   }
 }

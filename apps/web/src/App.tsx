@@ -1,8 +1,6 @@
 import { NavLink, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardPage } from './pages/DashboardPage';
-import { AdminStatusesPage } from './pages/AdminStatusesPage';
-import { AdminAgenciesPage } from './pages/AdminAgenciesPage';
 import { CandidateFormPage } from './pages/CandidateFormPage';
 import { AccountSettingsPage } from './pages/AccountSettingsPage';
 import { AuthPage } from './pages/AuthPage';
@@ -17,8 +15,6 @@ export default function App() {
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/candidates/new" element={<CandidateFormPage />} />
-        <Route path="/admin/statuses" element={<AdminStatusesPage />} />
-        <Route path="/admin/agencies" element={<AdminAgenciesPage />} />
         <Route path="/settings" element={<AccountSettingsPage />} />
       </Route>
     </Routes>
@@ -55,7 +51,7 @@ function ProtectedLayout() {
 
   return (
     <div className="min-h-screen bg-white px-6 py-8 text-slate-900 transition-colors dark:bg-surface-dark dark:text-slate-50">
-      <header className="rounded-[32px] bg-brand-gradient p-6 text-white shadow-soft">
+      <header className="rounded-[32px] bg-brand-blue p-6 text-white shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] opacity-80">Prosperity CRM</p>
@@ -69,23 +65,14 @@ function ProtectedLayout() {
             <NavLink className={({ isActive }) => navClass(isActive)} to="/candidates/new">
               New Candidate
             </NavLink>
-            <NavLink className={({ isActive }) => navClass(isActive)} to="/admin/statuses">
-              Statuses
-            </NavLink>
-            <NavLink className={({ isActive }) => navClass(isActive)} to="/admin/agencies">
-              Agencies
-            </NavLink>
             <NavLink className={({ isActive }) => navClass(isActive)} to="/settings">
               Settings
             </NavLink>
             </nav>
-            <button
-              className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold backdrop-blur transition hover:bg-white/30"
-              onClick={toggleTheme}
-            >
-              {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+            <button className="btn-outline" onClick={toggleTheme}>
+              <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
             </button>
-            <button className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-blue shadow-inner" onClick={handleLogout}>
+            <button className="btn-fuchsia px-5" onClick={handleLogout}>
               Logout
             </button>
           </div>
@@ -101,6 +88,6 @@ function ProtectedLayout() {
 function navClass(isActive: boolean) {
   return [
     'rounded-full px-4 py-2 transition',
-    isActive ? 'bg-white/25 text-white shadow-inner' : 'text-white/80 hover:text-white',
+    isActive ? 'bg-white/20 text-white shadow-inner' : 'text-white/80 hover:text-white',
   ].join(' ');
 }

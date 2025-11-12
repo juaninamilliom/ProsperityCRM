@@ -15,7 +15,7 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
       {candidate.flags?.length ? (
         <ul className="mt-3 flex flex-wrap gap-1 text-xs text-slate-600 dark:text-slate-300">
           {candidate.flags.map((flag) => (
-            <li key={flag} className="rounded-full bg-brand-gradient/70 px-3 py-0.5 text-white shadow-inner">
+            <li key={flag} className="rounded-full bg-brand-fuchsia/15 px-3 py-0.5 text-xs font-semibold text-brand-fuchsia">
               {flag}
             </li>
           ))}

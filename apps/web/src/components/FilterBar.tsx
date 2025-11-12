@@ -18,7 +18,7 @@ export function FilterBar({ agencies }: FilterBarProps) {
   }
 
   return (
-    <div className="flex flex-wrap gap-4 rounded-card bg-gradient-to-r from-brand-fuchsia/10 via-brand-green/10 to-brand-blue/10 p-4 shadow-soft ring-1 ring-white/40 dark:from-brand-blue/20 dark:via-brand-fuchsia/20 dark:to-brand-green/20">
+    <div className="flex flex-wrap gap-4 rounded-card bg-brand-blue/5 p-4 shadow-soft ring-1 ring-white/40 dark:bg-slate-900/70">
       <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
         <span className="font-medium">Target Agency</span>
         <select className="pill-input" value={selectedAgency ?? ''} onChange={onAgencyChange}>
