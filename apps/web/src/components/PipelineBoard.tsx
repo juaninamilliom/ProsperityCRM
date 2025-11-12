@@ -23,17 +23,19 @@ function PipelineColumn({
   return (
     <section
       ref={setNodeRef}
-      className={`flex min-h-[240px] flex-col rounded-card border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/60 ${
-        isOver ? 'ring-2 ring-brand/60' : ''
+      className={`flex min-h-[240px] flex-col rounded-[28px] border border-white/30 bg-white/80 p-4 shadow-soft transition dark:border-slate-800/70 dark:bg-slate-900/70 ${
+        isOver ? 'ring-2 ring-brand-fuchsia/60' : ''
       }`}
       data-terminal={status.is_terminal}
     >
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold">{status.name}</h3>
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-white">{status.name}</h3>
           {status.is_terminal && <p className="text-xs text-amber-500">Terminal</p>}
         </div>
-        <span className="rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">{count}</span>
+        <span className="rounded-full bg-gradient-to-r from-brand-fuchsia to-brand-blue px-3 py-0.5 text-xs font-semibold text-white shadow-inner">
+          {count}
+        </span>
       </header>
       <div className="flex flex-1 flex-col gap-3">{children}</div>
     </section>

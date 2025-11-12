@@ -12,6 +12,7 @@ import { historyRouter } from './modules/history/history.routes';
 import { organizationRouter } from './modules/organization/organization.routes';
 import { adminRouter } from './modules/admin/admin.routes';
 import { inviteRouter } from './modules/invite/invite.routes';
+import { authRouter } from './modules/auth/auth.routes';
 
 export function createApp() {
   const app = express();
@@ -35,6 +36,7 @@ export function createApp() {
   });
 
   app.use('/admin', adminRouter);
+  app.use('/auth', authRouter);
   app.use(authMiddleware);
   app.use('/users', userRouter);
   app.use('/candidates', candidateRouter);

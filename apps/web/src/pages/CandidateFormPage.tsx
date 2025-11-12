@@ -48,43 +48,23 @@ export function CandidateFormPage() {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold">New Candidate</h2>
-      <form className="card flex flex-col gap-4" onSubmit={handleSubmit}>
-        <label className="flex flex-col gap-1 text-sm">
+      <h2 className="text-lg font-semibold text-slate-700 dark:text-white">New Candidate</h2>
+      <form className="glass-card flex flex-col gap-4" onSubmit={handleSubmit}>
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Full Name
-          <input
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            value={form.name}
-            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-            required
-          />
+          <input className="pill-input" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Email
-          <input
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-            required
-          />
+          <input className="pill-input" type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} required />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Phone
-          <input
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            value={form.phone}
-            onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-          />
+          <input className="pill-input" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Target Agency
-          <select
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            value={form.target_agency_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, target_agency_id: e.target.value }))}
-            required
-          >
+          <select className="pill-input" value={form.target_agency_id} onChange={(e) => setForm((prev) => ({ ...prev, target_agency_id: e.target.value }))} required>
             <option value="" disabled>
               Select agency
             </option>
@@ -95,14 +75,9 @@ export function CandidateFormPage() {
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Status
-          <select
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            value={form.current_status_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, current_status_id: e.target.value }))}
-            required
-          >
+          <select className="pill-input" value={form.current_status_id} onChange={(e) => setForm((prev) => ({ ...prev, current_status_id: e.target.value }))} required>
             <option value="" disabled>
               Select status
             </option>
@@ -113,35 +88,21 @@ export function CandidateFormPage() {
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Recruiter ID
-          <input
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            value={form.recruiter_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, recruiter_id: e.target.value }))}
-            required
-          />
+          <input className="pill-input" value={form.recruiter_id} onChange={(e) => setForm((prev) => ({ ...prev, recruiter_id: e.target.value }))} required />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Notes
-          <textarea
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            value={form.notes}
-            onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-          />
+          <textarea className="pill-input" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
         </label>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Flags</label>
           <div className="flex gap-2">
-            <input
-              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-              value={flagInput}
-              onChange={(e) => setFlagInput(e.target.value)}
-              placeholder="Hot Prospect"
-            />
+            <input className="pill-input flex-1" value={flagInput} onChange={(e) => setFlagInput(e.target.value)} placeholder="Hot Prospect" />
             <button
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-900"
+              className="rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200"
               type="button"
               onClick={addFlag}
             >
@@ -160,11 +121,7 @@ export function CandidateFormPage() {
           </ul>
         </div>
 
-        <button
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:opacity-50"
-          type="submit"
-          disabled={createMutation.isLoading}
-        >
+        <button className="rounded-full bg-brand-gradient px-4 py-3 text-sm font-semibold text-white shadow-soft transition disabled:opacity-50" type="submit" disabled={createMutation.isLoading}>
           Create Candidate
         </button>
       </form>

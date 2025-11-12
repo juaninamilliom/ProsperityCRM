@@ -5,8 +5,9 @@ Custom CRM for recruiting agencies with candidate tracking, configurable statuse
 ## Getting Started
 
 1. Install dependencies: `npm install`
-2. Copy `.env.example` to `.env.local` and fill connection details (including `ROOT_ADMIN_TOKEN`)
-3. Start API and web: `npm run dev`
+2. Copy `.env.example` to `.env.local` and fill connection details (including `ROOT_ADMIN_TOKEN` and `LOCAL_AUTH_SECRET`)
+3. Run database migrations: `npm run migrate`
+4. Start API and web: `npm run dev`
 
 See `AGENTS.md` for contributor details.
 
@@ -18,3 +19,7 @@ See `AGENTS.md` for contributor details.
 4. Org admins can rotate roles for members (`PATCH /users/:id/role`) and manage additional invite codes from the “Settings” page in the web app.
 
 > Every user must be associated with an organization. Roles are limited to `OrgAdmin` (full admin) and `OrgEmployee` (standard user). Passcodes are single-use by default; revoke them via `/invite-codes/:code/revoke` if leaked.
+
+## Local Email/Password (Temporary)
+
+Until SSO is wired up, `/auth/signup` and `/auth/login` allow simple email/password onboarding. The `/login` page wraps those endpoints and stores the returned bearer token in `localStorage`; all app routes require that token, so logging out simply clears it. This flow is for development only (no password hashing or refresh tokens) and should be replaced/disabled once SSO + Passport are configured.

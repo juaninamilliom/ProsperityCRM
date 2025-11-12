@@ -1,56 +1,106 @@
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { DashboardPage } from './pages/DashboardPage';
 import { AdminStatusesPage } from './pages/AdminStatusesPage';
 import { AdminAgenciesPage } from './pages/AdminAgenciesPage';
 import { CandidateFormPage } from './pages/CandidateFormPage';
 import { AccountSettingsPage } from './pages/AccountSettingsPage';
+import { AuthPage } from './pages/AuthPage';
 import { useTheme } from './theme';
+import { fetchCurrentUser } from './api/users';
+import { getAuthToken, setAuthToken } from './api/client';
 
 export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<AuthPage />} />
+      <Route element={<ProtectedLayout />}>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/candidates/new" element={<CandidateFormPage />} />
+        <Route path="/admin/statuses" element={<AdminStatusesPage />} />
+        <Route path="/admin/agencies" element={<AdminAgenciesPage />} />
+        <Route path="/settings" element={<AccountSettingsPage />} />
+      </Route>
+    </Routes>
+  );
+}
+
+function ProtectedLayout() {
   const [theme, toggleTheme] = useTheme();
+  const token = getAuthToken();
+  const { data, isLoading } = useQuery({
+    queryKey: ['me'],
+    queryFn: fetchCurrentUser,
+    enabled: Boolean(token),
+    retry: false,
+  });
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (isLoading) {
+    return <p className="p-8 text-center text-sm text-slate-500">Loading account…</p>;
+  }
+
+  if (!data?.dbUser) {
+    setAuthToken(null);
+    return <Navigate to="/login" replace />;
+  }
+
+  function handleLogout() {
+    setAuthToken(null);
+    window.location.href = '/login';
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-8 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-50">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">Prosperity CRM</h1>
-          <p className="muted text-sm">Low-budget recruiting CRM</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <nav className="flex gap-4 text-sm font-medium">
-            <NavLink className={({ isActive }) => (isActive ? 'text-brand' : 'text-slate-500 dark:text-slate-400')} to="/">
-              Pipeline
-            </NavLink>
-            <NavLink className={({ isActive }) => (isActive ? 'text-brand' : 'text-slate-500 dark:text-slate-400')} to="/candidates/new">
+    <div className="min-h-screen bg-white px-6 py-8 text-slate-900 transition-colors dark:bg-surface-dark dark:text-slate-50">
+      <header className="rounded-[32px] bg-brand-gradient p-6 text-white shadow-soft">
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div>
+            <p className="text-sm uppercase tracking-[0.3em] opacity-80">Prosperity CRM</p>
+            <h1 className="text-3xl font-semibold">Recruiting Workspace</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <nav className="flex flex-wrap gap-3 text-sm font-medium">
+              <NavLink className={({ isActive }) => navClass(isActive)} to="/">
+                Pipeline
+              </NavLink>
+            <NavLink className={({ isActive }) => navClass(isActive)} to="/candidates/new">
               New Candidate
             </NavLink>
-            <NavLink className={({ isActive }) => (isActive ? 'text-brand' : 'text-slate-500 dark:text-slate-400')} to="/admin/statuses">
+            <NavLink className={({ isActive }) => navClass(isActive)} to="/admin/statuses">
               Statuses
             </NavLink>
-            <NavLink className={({ isActive }) => (isActive ? 'text-brand' : 'text-slate-500 dark:text-slate-400')} to="/admin/agencies">
+            <NavLink className={({ isActive }) => navClass(isActive)} to="/admin/agencies">
               Agencies
             </NavLink>
-            <NavLink className={({ isActive }) => (isActive ? 'text-brand' : 'text-slate-500 dark:text-slate-400')} to="/settings">
+            <NavLink className={({ isActive }) => navClass(isActive)} to="/settings">
               Settings
             </NavLink>
-          </nav>
-          <button
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm transition hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-900"
-            onClick={toggleTheme}
-          >
-            Switch to {theme === 'light' ? 'dark' : 'light'} mode
-          </button>
+            </nav>
+            <button
+              className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold backdrop-blur transition hover:bg-white/30"
+              onClick={toggleTheme}
+            >
+              {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+            </button>
+            <button className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-blue shadow-inner" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
         </div>
       </header>
       <main className="mt-8 space-y-8">
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/candidates/new" element={<CandidateFormPage />} />
-          <Route path="/admin/statuses" element={<AdminStatusesPage />} />
-          <Route path="/admin/agencies" element={<AdminAgenciesPage />} />
-          <Route path="/settings" element={<AccountSettingsPage />} />
-        </Routes>
+        <Outlet />
       </main>
     </div>
   );
+}
+
+function navClass(isActive: boolean) {
+  return [
+    'rounded-full px-4 py-2 transition',
+    isActive ? 'bg-white/25 text-white shadow-inner' : 'text-white/80 hover:text-white',
+  ].join(' ');
 }

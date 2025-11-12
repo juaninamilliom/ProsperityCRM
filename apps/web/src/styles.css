@@ -5,25 +5,41 @@
 @layer base {
   :root {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    @apply bg-slate-50 text-slate-900;
+    @apply bg-white text-slate-900;
   }
 
   :root.dark {
-    @apply bg-slate-950 text-slate-50;
+    background-color: #0f172a;
+    color: #e2e8f0;
   }
 
   body {
     @apply min-h-screen bg-inherit text-inherit transition-colors;
   }
+
+  input,
+  select,
+  textarea {
+    @apply rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
+  }
+
+  button {
+    @apply rounded-full;
+  }
 }
 
 @layer components {
-  .card {
-    @apply rounded-card border border-slate-200 bg-white p-6 shadow-card dark:border-slate-800 dark:bg-slate-900/60;
+  .glass-card {
+    @apply rounded-card border border-white/40 bg-white/90 p-6 shadow-soft backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/70;
+    box-shadow: 0 20px 40px rgba(17, 24, 39, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
+  .pill-input {
+    @apply rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
   }
 
   .badge {
-    @apply rounded-full bg-brand/20 px-2 py-0.5 text-xs font-medium text-brand dark:bg-brand/30 dark:text-brand-surface;
+    @apply rounded-full bg-gradient-to-r from-brand-fuchsia via-brand-green to-brand-blue px-3 py-0.5 text-xs font-semibold text-white shadow-inner;
   }
 
   .muted {

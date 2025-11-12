@@ -22,40 +22,25 @@ export function AdminAgenciesPage() {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold">Target Agencies</h2>
-      <form className="card flex flex-col gap-4" onSubmit={handleSubmit}>
-        <label className="flex flex-col gap-1 text-sm">
+      <h2 className="text-lg font-semibold text-slate-700 dark:text-white">Target Agencies</h2>
+      <form className="glass-card flex flex-col gap-4" onSubmit={handleSubmit}>
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Name
-          <input
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            value={form.name}
-            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-            required
-          />
+          <input className="pill-input" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Contact Email
-          <input
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            type="email"
-            value={form.contact_email}
-            onChange={(e) => setForm((prev) => ({ ...prev, contact_email: e.target.value }))}
-            placeholder="talent@agency.com"
-          />
+          <input className="pill-input" type="email" value={form.contact_email} onChange={(e) => setForm((prev) => ({ ...prev, contact_email: e.target.value }))} placeholder="talent@agency.com" />
         </label>
-        <button
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:opacity-50"
-          type="submit"
-          disabled={createMutation.isLoading}
-        >
+        <button className="rounded-full bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-soft disabled:opacity-50" type="submit" disabled={createMutation.isLoading}>
           Add Agency
         </button>
       </form>
 
       <ul className="space-y-3">
         {agencies.map((agency) => (
-          <li key={agency.agency_id} className="rounded-card border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/60">
-            <p className="font-medium">{agency.name}</p>
+          <li key={agency.agency_id} className="glass-card">
+            <p className="font-medium text-slate-700 dark:text-white">{agency.name}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">{agency.contact_email ?? 'No contact'}</p>
           </li>
         ))}

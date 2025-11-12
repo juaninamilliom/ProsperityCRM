@@ -7,15 +7,24 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          DEFAULT: '#6366f1',
-          surface: '#eef2ff',
+          fuchsia: '#d946ef',
+          green: '#22c55e',
+          blue: '#2563eb',
+        },
+        surface: {
+          light: '#ffffff',
+          dark: '#0f172a',
         },
       },
       borderRadius: {
-        card: '1rem',
+        card: '1.5rem',
       },
       boxShadow: {
-        card: '0 10px 15px rgba(15,23,42,0.08)',
+        soft: '0 25px 45px rgba(15,23,42,0.12)',
+        inner: 'inset 0 2px 6px rgba(15,23,42,0.08)',
+      },
+      backgroundImage: {
+        'brand-gradient': 'linear-gradient(135deg, #d946ef 0%, #22c55e 45%, #2563eb 100%)',
       },
     },
   },

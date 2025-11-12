@@ -38,36 +38,25 @@ export function AccountSettingsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-card border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900/60">
-        <h2 className="text-lg font-semibold">Generate Passcode</h2>
+      <div className="glass-card">
+        <h2 className="text-lg font-semibold text-slate-700 dark:text-white">Generate Passcode</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Share passcodes with teammates to onboard them via SSO. Codes are single use unless you raise the max-uses value.
         </p>
         <div className="mt-4 flex flex-wrap gap-4">
-          <label className="flex flex-col text-sm">
+          <label className="flex flex-col text-sm text-slate-600 dark:text-slate-200">
             Role
-            <select
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-              value={role}
-              onChange={(event) => setRole(event.target.value as 'OrgAdmin' | 'OrgEmployee')}
-            >
+            <select className="pill-input" value={role} onChange={(event) => setRole(event.target.value as 'OrgAdmin' | 'OrgEmployee')}>
               <option value="OrgEmployee">OrgEmployee</option>
               <option value="OrgAdmin">OrgAdmin</option>
             </select>
           </label>
-          <label className="flex flex-col text-sm">
+          <label className="flex flex-col text-sm text-slate-600 dark:text-slate-200">
             Max Uses
-            <input
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-              type="number"
-              min={1}
-              max={10}
-              value={maxUses}
-              onChange={(event) => setMaxUses(Number(event.target.value))}
-            />
+            <input className="pill-input" type="number" min={1} max={10} value={maxUses} onChange={(event) => setMaxUses(Number(event.target.value))} />
           </label>
           <button
-            className="self-end rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white"
+            className="self-end rounded-full bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-soft"
             onClick={() => createMutation.mutate()}
             disabled={createMutation.isLoading}
           >
@@ -76,12 +65,15 @@ export function AccountSettingsPage() {
         </div>
       </div>
 
-      <div className="rounded-card border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900/60">
-        <h3 className="text-base font-semibold">Active Codes</h3>
+      <div className="glass-card">
+        <h3 className="text-base font-semibold text-slate-700 dark:text-white">Active Codes</h3>
         <ul className="mt-4 space-y-3 text-sm">
           {invitesQuery.data?.length ? (
             invitesQuery.data.map((invite) => (
-              <li key={invite.code_id} className="flex items-center justify-between rounded-lg border border-slate-100 p-3 dark:border-slate-800">
+              <li
+                key={invite.code_id}
+                className="flex items-center justify-between rounded-2xl border border-white/30 bg-white/70 p-4 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70"
+              >
                 <div>
                   <p className="font-mono text-sm">{invite.code}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -89,7 +81,7 @@ export function AccountSettingsPage() {
                   </p>
                 </div>
                 {invite.status === 'active' && (
-                  <button className="text-sm text-red-500" onClick={() => revokeMutation.mutate(invite.code)}>
+                  <button className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-brand-fuchsia shadow-inner" onClick={() => revokeMutation.mutate(invite.code)}>
                     Revoke
                   </button>
                 )}

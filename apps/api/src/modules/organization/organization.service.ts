@@ -24,3 +24,8 @@ export async function updateOrganization(id: string, input: OrganizationInput) {
   );
   return result.rows[0];
 }
+
+export async function getOrganizationById(id: string) {
+  const result = await query<Organization>('select * from organizations where organization_id = $1', [id]);
+  return result.rows[0];
+}

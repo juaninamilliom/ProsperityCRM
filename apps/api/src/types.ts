@@ -5,8 +5,10 @@ export interface User {
   email: string;
   name: string;
   role: 'OrgAdmin' | 'OrgEmployee';
-  sso_id: string;
+  sso_id: string | null;
+  password?: string | null;
   organization_id: UUID;
+  is_active: boolean;
   created_at: string;
 }
 

@@ -1,6 +1,18 @@
-import 'dotenv/config';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { config as loadEnv } from 'dotenv';
 
-const REQUIRED_VARS = ['DATABASE_URL', 'API_PORT', 'OAUTH_JWKS_URL', 'ROOT_ADMIN_TOKEN'];
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootEnvPath = process.env.DOTENV_CONFIG_PATH ?? path.resolve(__dirname, '../../../.env');
+
+if (fs.existsSync(rootEnvPath)) {
+  loadEnv({ path: rootEnvPath });
+} else {
+  loadEnv();
+}
+
+const REQUIRED_VARS = ['DATABASE_URL', 'API_PORT', 'ROOT_ADMIN_TOKEN', 'LOCAL_AUTH_SECRET'];
 
 REQUIRED_VARS.forEach((key) => {
   if (!process.env[key]) {
@@ -14,4 +26,5 @@ export const config = {
   oauthJwksUrl: process.env.OAUTH_JWKS_URL ?? '',
   corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean),
   rootAdminToken: process.env.ROOT_ADMIN_TOKEN ?? '',
+  localAuthSecret: process.env.LOCAL_AUTH_SECRET ?? '',
 };

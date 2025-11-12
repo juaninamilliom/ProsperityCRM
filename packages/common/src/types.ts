@@ -5,8 +5,9 @@ export interface UserDTO {
   email: string;
   name: string;
   role: Role;
-  sso_id: string;
+  sso_id?: string | null;
   organization_id: string;
+  is_active?: boolean;
 }
 
 export interface AgencyDTO {

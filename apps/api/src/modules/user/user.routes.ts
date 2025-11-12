@@ -8,6 +8,13 @@ import { redeemInviteCode } from '../invite/invite.service';
 export const userRouter = Router();
 
 userRouter.get('/me', async (req: AuthenticatedRequest, res) => {
+  if (req.dbUser) {
+    return res.json({
+      tokenUser: req.user ?? { sub: req.dbUser.user_id, email: req.dbUser.email, name: req.dbUser.name },
+      dbUser: req.dbUser,
+    });
+  }
+
   if (!req.user?.sub) {
     return res.status(401).json({ message: 'Unauthenticated' });
   }

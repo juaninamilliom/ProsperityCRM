@@ -27,6 +27,11 @@ export async function getUserById(userId: string) {
   return result.rows[0];
 }
 
+export async function getUserByEmail(email: string) {
+  const result = await query<User>(`select * from users where email = $1`, [email]);
+  return result.rows[0];
+}
+
 export async function updateUserRoleAndOrg({
   userId,
   organizationId,
@@ -39,6 +44,22 @@ export async function updateUserRoleAndOrg({
   const result = await query<User>(
     `update users set organization_id = $1, role = $2 where user_id = $3 returning *`,
     [organizationId, role, userId]
+  );
+  return result.rows[0];
+}
+
+export async function createLocalUser(input: {
+  email: string;
+  password: string;
+  name: string;
+  organization_id: string;
+  role: 'OrgAdmin' | 'OrgEmployee';
+}) {
+  const result = await query<User>(
+    `insert into users (email, name, password, organization_id, role)
+     values ($1,$2,$3,$4,$5)
+     returning *`,
+    [input.email, input.name, input.password, input.organization_id, input.role]
   );
   return result.rows[0];
 }

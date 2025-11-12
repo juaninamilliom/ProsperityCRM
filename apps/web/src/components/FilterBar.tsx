@@ -18,14 +18,10 @@ export function FilterBar({ agencies }: FilterBarProps) {
   }
 
   return (
-    <div className="flex flex-wrap gap-4 rounded-card border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/60">
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-slate-600 dark:text-slate-300">Target Agency</span>
-        <select
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          value={selectedAgency ?? ''}
-          onChange={onAgencyChange}
-        >
+    <div className="flex flex-wrap gap-4 rounded-card bg-gradient-to-r from-brand-fuchsia/10 via-brand-green/10 to-brand-blue/10 p-4 shadow-soft ring-1 ring-white/40 dark:from-brand-blue/20 dark:via-brand-fuchsia/20 dark:to-brand-green/20">
+      <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <span className="font-medium">Target Agency</span>
+        <select className="pill-input" value={selectedAgency ?? ''} onChange={onAgencyChange}>
           <option value="">All</option>
           {agencies.map((agency) => (
             <option key={agency.agency_id} value={agency.agency_id}>
@@ -35,15 +31,9 @@ export function FilterBar({ agencies }: FilterBarProps) {
         </select>
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-slate-600 dark:text-slate-300">Flag</span>
-        <input
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          type="search"
-          placeholder="Hot Prospect"
-          value={flagQuery ?? ''}
-          onChange={onFlagChange}
-        />
+      <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <span className="font-medium">Flag</span>
+        <input className="pill-input" type="search" placeholder="Hot Prospect" value={flagQuery ?? ''} onChange={onFlagChange} />
       </label>
     </div>
   );
