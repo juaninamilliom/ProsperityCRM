@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useState } from 'react';
+import { ChangeEvent, FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, signup } from '../api/auth';
 import { setAuthToken } from '../api/client';
@@ -17,7 +17,7 @@ export function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setError(null);
@@ -46,12 +46,22 @@ export function AuthPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-brand-blue px-4 py-10">
       <form className="glass-card w-full max-w-md space-y-4" onSubmit={handleSubmit}>
-        <h1 className="text-xl font-semibold text-center text-brand-blue dark:text-white">Prosperity CRM</h1>
+        <h1 className="text-xl font-semibold text-center text-brand-blue dark:text-white">
+          Prosperity CRM
+        </h1>
         <div className="flex gap-2 text-sm">
-          <button type="button" className="btn-outline flex-1 justify-center" onClick={() => setMode('login')}>
+          <button
+            type="button"
+            className="btn-outline flex-1 justify-center"
+            onClick={() => setMode('login')}
+          >
             <span className={mode === 'login' ? 'bg-brand-fuchsia text-white' : ''}>Login</span>
           </button>
-          <button type="button" className="btn-outline flex-1 justify-center" onClick={() => setMode('signup')}>
+          <button
+            type="button"
+            className="btn-outline flex-1 justify-center"
+            onClick={() => setMode('signup')}
+          >
             <span className={mode === 'signup' ? 'bg-brand-fuchsia text-white' : ''}>Sign Up</span>
           </button>
         </div>
@@ -59,29 +69,68 @@ export function AuthPage() {
         {mode === 'signup' && (
           <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
             Full Name
-            <input className="pill-input" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
+            <input
+              className="pill-input"
+              value={form.name}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setForm((prev) => ({ ...prev, name: event.currentTarget.value }))
+              }
+              required
+            />
           </label>
         )}
 
         <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Email
-          <input className="pill-input" type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} required />
+          <input
+            className="pill-input"
+            type="email"
+            value={form.email}
+            onChange={(event: ChangeEvent<HTMLInputElement>) =>
+              setForm((prev) => ({ ...prev, email: event.currentTarget.value }))
+            }
+            required
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
           Password
-          <input className="pill-input" type="password" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} required />
+          <input
+            className="pill-input"
+            type="password"
+            value={form.password}
+            onChange={(event: ChangeEvent<HTMLInputElement>) =>
+              setForm((prev) => ({ ...prev, password: event.currentTarget.value }))
+            }
+            required
+          />
         </label>
 
         {mode === 'signup' && (
           <>
             <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
               Organization ID
-              <input className="pill-input" value={form.organization_id} onChange={(e) => setForm((prev) => ({ ...prev, organization_id: e.target.value }))} required />
+              <input
+                className="pill-input"
+                value={form.organization_id}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  setForm((prev) => ({ ...prev, organization_id: event.currentTarget.value }))
+                }
+                required
+              />
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
               Role
-              <select className="pill-input" value={form.role} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value as 'OrgAdmin' | 'OrgEmployee' }))}>
+              <select
+                className="pill-input"
+                value={form.role}
+                onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    role: event.currentTarget.value as 'OrgAdmin' | 'OrgEmployee',
+                  }))
+                }
+              >
                 <option value="OrgEmployee">OrgEmployee</option>
                 <option value="OrgAdmin">OrgAdmin</option>
               </select>
@@ -91,7 +140,11 @@ export function AuthPage() {
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 
-        <button className="btn-gradient w-full justify-center disabled:opacity-50" type="submit" disabled={loading}>
+        <button
+          className="btn-outline w-full justify-center disabled:opacity-50"
+          type="submit"
+          disabled={loading}
+        >
           {mode === 'login' ? 'Login' : 'Create Account'}
         </button>
       </form>
@@ -99,9 +152,15 @@ export function AuthPage() {
   );
 }
 
+type ApiErrorPayload = {
+  message?: string;
+  formErrors?: string[];
+  fieldErrors?: Record<string, string[]>;
+};
+
 function resolveAuthError(error: unknown) {
   if (axios.isAxiosError(error)) {
-    const data = error.response?.data as any;
+    const data = error.response?.data as ApiErrorPayload | undefined;
     if (typeof data?.message === 'string') {
       return data.message;
     }

@@ -38,8 +38,20 @@
     @apply rounded-full border border-slate-200 bg-white px-6 py-3 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
   }
 
+  .pill-select {
+    @apply pill-input pr-12 appearance-none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%231d4ed8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1.5rem center;
+    background-size: 1.3rem;
+  }
+
+  :root.dark .pill-select {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%23f472b6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
   .badge {
-    @apply rounded-full bg-gradient-to-r from-brand-fuchsia via-brand-green to-brand-blue px-3 py-0.5 text-xs font-semibold text-white shadow-inner;
+    @apply inline-flex items-center rounded-full border border-brand-fuchsia/40 bg-white/80 px-3 py-1 text-xs font-semibold text-brand-blue shadow-inner backdrop-blur dark:border-brand-fuchsia/50 dark:bg-slate-900/60 dark:text-white;
   }
 
   .muted {
@@ -51,11 +63,11 @@
   }
 
   .btn-fuchsia {
-    @apply btn bg-brand-fuchsia px-6 py-2 text-sm text-white shadow-soft hover:opacity-90;
+    @apply btn bg-brand-fuchsia px-6 py-2 text-sm text-white shadow-soft transition duration-200;
   }
 
   .btn-gradient {
-    @apply btn px-6 py-3 text-sm text-white shadow-soft;
+    @apply btn px-6 py-3 text-sm text-white shadow-soft transition duration-200;
     background-image: linear-gradient(120deg, #d946ef, #22c55e, #2563eb);
   }
 
@@ -65,5 +77,17 @@
 
   .btn-outline span {
     @apply rounded-full bg-white px-6 py-2 text-sm font-semibold text-brand-fuchsia transition dark:bg-slate-900 dark:text-white;
+  }
+
+  .btn-fuchsia:hover {
+    @apply bg-brand-fuchsia/85 shadow-md;
+  }
+
+  .btn-gradient:hover {
+    @apply opacity-95 shadow-md;
+  }
+
+  .btn-outline:hover span {
+    @apply bg-slate-200 text-brand-fuchsia dark:bg-blue-900 dark:text-white;
   }
 }

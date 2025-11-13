@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { Role } from '@prosperity/common';
-import { query } from '../../utils/sql';
-import { withTransaction } from '../../utils/transaction';
-import type { User } from '../../types';
+import { query } from '../../utils/sql.js';
+import { withTransaction } from '../../utils/transaction.js';
+import type { User } from '../../types.js';
 
 export interface InviteRecord {
   code_id: string;

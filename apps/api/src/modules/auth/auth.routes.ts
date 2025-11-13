@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { loginSchema, signupSchema } from './auth.schema';
-import { createLocalToken } from './token';
-import { createLocalUser, getUserByEmail } from '../user/user.service';
-import { getOrganizationById } from '../organization/organization.service';
+import { loginSchema, signupSchema } from './auth.schema.js';
+import { createLocalToken } from './token.js';
+import { createLocalUser, getUserByEmail } from '../user/user.service.js';
+import { getOrganizationById } from '../organization/organization.service.js';
 
 export const authRouter = Router();
 

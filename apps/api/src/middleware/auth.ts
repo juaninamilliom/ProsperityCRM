@@ -1,9 +1,9 @@
 import type { NextFunction, Request, Response } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { config } from '../config';
-import type { User } from '../types';
-import { getUserById, getUserBySsoId } from '../modules/user/user.service';
-import { verifyLocalToken } from '../modules/auth/token';
+import { config } from '../config.js';
+import type { User } from '../types.js';
+import { getUserById, getUserBySsoId } from '../modules/user/user.service.js';
+import { verifyLocalToken } from '../modules/auth/token.js';
 
 const jwks = config.oauthJwksUrl ? createRemoteJWKSet(new URL(config.oauthJwksUrl)) : null;
 

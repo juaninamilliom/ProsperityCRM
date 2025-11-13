@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { ChangeEvent, FormEvent, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchStatuses } from '../api/statuses';
 import { fetchAgencies } from '../api/agencies';
@@ -41,7 +41,7 @@ export function CandidateFormPage() {
     setForm((prev) => ({ ...prev, flags: prev.flags.filter((item) => item !== flag) }));
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     createMutation.mutate();
   }
@@ -53,26 +53,56 @@ export function CandidateFormPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Full Name
-            <input className="pill-input" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
+            <input
+              className="pill-input"
+              value={form.name}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setForm((prev) => ({ ...prev, name: event.currentTarget.value }))
+              }
+              required
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Email
-            <input className="pill-input" type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} required />
+            <input
+              className="pill-input"
+              type="email"
+              value={form.email}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setForm((prev) => ({ ...prev, email: event.currentTarget.value }))
+              }
+              required
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Phone
-            <input className="pill-input" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
+            <input
+              className="pill-input"
+              value={form.phone}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setForm((prev) => ({ ...prev, phone: event.currentTarget.value }))
+              }
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Recruiter ID
-            <input className="pill-input" value={form.recruiter_id} onChange={(e) => setForm((prev) => ({ ...prev, recruiter_id: e.target.value }))} required />
+            <input
+              className="pill-input"
+              value={form.recruiter_id}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setForm((prev) => ({ ...prev, recruiter_id: event.currentTarget.value }))
+              }
+              required
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Target Agency
             <select
-              className="pill-input md:w-[120px]"
+              className="pill-select w-auto min-w-[12rem]"
               value={form.target_agency_id}
-              onChange={(e) => setForm((prev) => ({ ...prev, target_agency_id: e.target.value }))}
+              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                setForm((prev) => ({ ...prev, target_agency_id: event.currentTarget.value }))
+              }
               required
             >
               <option value="" disabled>
@@ -88,9 +118,11 @@ export function CandidateFormPage() {
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Status
             <select
-              className="pill-input md:w-[120px]"
+              className="pill-select w-auto min-w-[12rem]"
               value={form.current_status_id}
-              onChange={(e) => setForm((prev) => ({ ...prev, current_status_id: e.target.value }))}
+              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                setForm((prev) => ({ ...prev, current_status_id: event.currentTarget.value }))
+              }
               required
             >
               <option value="" disabled>
@@ -107,20 +139,36 @@ export function CandidateFormPage() {
 
         <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
           Notes
-          <textarea className="pill-input" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
+          <textarea
+            className="pill-input"
+            value={form.notes}
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+              setForm((prev) => ({ ...prev, notes: event.currentTarget.value }))
+            }
+          />
         </label>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Flags</label>
           <div className="flex gap-2">
-            <input className="pill-input flex-1" value={flagInput} onChange={(e) => setFlagInput(e.target.value)} placeholder="Hot Prospect" />
+            <input
+              className="pill-input flex-1"
+              value={flagInput}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setFlagInput(event.currentTarget.value)
+              }
+              placeholder="Hot Prospect"
+            />
             <button className="btn-outline" type="button" onClick={addFlag}>
               <span>Add Flag</span>
             </button>
           </div>
           <ul className="flex flex-wrap gap-2 text-xs">
             {form.flags.map((flag) => (
-              <li key={flag} className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-3 py-1 text-brand dark:bg-brand/20">
+              <li
+                key={flag}
+                className="inline-flex items-center gap-2 rounded-full bg-brand/10 px-3 py-1 text-brand dark:bg-brand/20"
+              >
                 {flag}
                 <button type="button" onClick={() => removeFlag(flag)}>
                   ×
@@ -130,8 +178,8 @@ export function CandidateFormPage() {
           </ul>
         </div>
 
-        <button className="btn-outline w-full" type="submit" disabled={createMutation.isLoading}>
-          <span>Create Candidate</span>
+        <button className="btn-outline w-full" type="submit" disabled={createMutation.isPending}>
+          <span className="w-full">Create Candidate</span>
         </button>
       </form>
     </section>

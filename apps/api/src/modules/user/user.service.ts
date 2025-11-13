@@ -1,7 +1,7 @@
 import type { QueryResult } from 'pg';
-import type { User } from '../../types';
-import { query } from '../../utils/sql';
-import type { UpsertUserInput } from './user.schema';
+import type { User } from '../../types.js';
+import { query } from '../../utils/sql.js';
+import type { UpsertUserInput } from './user.schema.js';
 
 export async function upsertUser(input: UpsertUserInput): Promise<User> {
   const result: QueryResult<User> = await query(

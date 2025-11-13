@@ -1,7 +1,7 @@
-import type { Candidate } from '../../types';
-import { query } from '../../utils/sql';
-import { withTransaction } from '../../utils/transaction';
-import type { CreateCandidateInput, UpdateCandidateInput } from './candidate.schema';
+import type { Candidate } from '../../types.js';
+import { query } from '../../utils/sql.js';
+import { withTransaction } from '../../utils/transaction.js';
+import type { CreateCandidateInput, UpdateCandidateInput } from './candidate.schema.js';
 
 const candidateSelect = `select c.*, s.name as status_name, s.order_index, a.name as agency_name
   from candidates c

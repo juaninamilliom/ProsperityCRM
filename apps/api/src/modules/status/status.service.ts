@@ -1,6 +1,6 @@
-import type { StatusConfig } from '../../types';
-import { query } from '../../utils/sql';
-import type { StatusInput } from './status.schema';
+import type { StatusConfig } from '../../types.js';
+import { query } from '../../utils/sql.js';
+import type { StatusInput } from './status.schema.js';
 
 export async function listStatuses() {
   const result = await query<StatusConfig>('select * from status_config order by order_index asc');

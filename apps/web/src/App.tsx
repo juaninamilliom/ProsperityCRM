@@ -50,7 +50,7 @@ function ProtectedLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-white px-6 py-8 text-slate-900 transition-colors dark:bg-surface-dark dark:text-slate-50">
+    <div className="min-h-screen bg-white px-6 py-8 text-slate-900 transition-colors dark:bg-surface-dark dark:text-slate-50" data-theme={theme}>
       <header className="rounded-[32px] bg-brand-blue p-6 text-white shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
@@ -69,9 +69,6 @@ function ProtectedLayout() {
               Settings
             </NavLink>
             </nav>
-            <button className="btn-outline" onClick={toggleTheme}>
-              <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
-            </button>
             <button className="btn-fuchsia px-5" onClick={handleLogout}>
               Logout
             </button>
@@ -79,7 +76,7 @@ function ProtectedLayout() {
         </div>
       </header>
       <main className="mt-8 space-y-8">
-        <Outlet />
+        <Outlet context={{ theme, toggleTheme }} />
       </main>
     </div>
   );

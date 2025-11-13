@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { requireRole } from '../../middleware/auth';
-import { statusInputSchema } from './status.schema';
-import { createStatus, deleteStatus, listStatuses, updateStatus } from './status.service';
+import { requireRole } from '../../middleware/auth.js';
+import { statusInputSchema } from './status.schema.js';
+import { createStatus, deleteStatus, listStatuses, updateStatus } from './status.service.js';
 
 export const statusRouter = Router();
 

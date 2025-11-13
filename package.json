@@ -22,7 +22,9 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.25",
+    "@types/pg": "^8.15.6",
     "dotenv": "^16.4.5",
+    "eslint-config-prettier": "^10.1.8",
     "pg": "^8.11.5",
     "turbo": "^1.12.3",
     "typescript": "^5.4.4"

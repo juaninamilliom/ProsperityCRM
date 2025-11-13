@@ -12,3 +12,6 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 .turbo
+apps/web/src/**/*.js
+apps/web/src/**/*.d.ts
+.turbo

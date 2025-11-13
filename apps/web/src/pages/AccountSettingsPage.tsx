@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { ChangeEvent, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCurrentUser } from '../api/users';
 import { createInviteCode, fetchInviteCodes, revokeInvite } from '../api/invites';
 import { AdminStatusesPage } from './AdminStatusesPage';
 import { AdminAgenciesPage } from './AdminAgenciesPage';
-import { useTheme } from '../theme';
 
 const tabs = ['General', 'Invites', 'Statuses', 'Agencies'] as const;
+type ThemeContext = { theme: 'light' | 'dark'; toggleTheme: () => void };
 
 export function AccountSettingsPage() {
   const queryClient = useQueryClient();
@@ -16,7 +17,7 @@ export function AccountSettingsPage() {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('General');
   const [role, setRole] = useState<'OrgAdmin' | 'OrgEmployee'>('OrgEmployee');
   const [maxUses, setMaxUses] = useState(1);
-  const [theme, toggleTheme] = useTheme();
+  const { theme, toggleTheme } = useOutletContext<ThemeContext>();
 
   const invitesQuery = useQuery({
     queryKey: ['invites', organizationId],
@@ -47,7 +48,9 @@ export function AccountSettingsPage() {
           <button
             key={tab}
             className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              activeTab === tab ? 'bg-brand-fuchsia text-white shadow-soft' : 'text-slate-500 dark:text-slate-300'
+              activeTab === tab
+                ? 'bg-brand-fuchsia text-white shadow-soft'
+                : 'text-slate-500 dark:text-slate-300'
             }`}
             onClick={() => setActiveTab(tab)}
           >
@@ -61,7 +64,9 @@ export function AccountSettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-700 dark:text-white">Theme</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Choose the preferred color mode for this device.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Choose the preferred color mode for this device.
+              </p>
             </div>
             <button className="btn-outline" onClick={toggleTheme}>
               <span>{theme === 'light' ? 'Enable Dark Mode' : 'Enable Light Mode'}</span>
@@ -73,24 +78,46 @@ export function AccountSettingsPage() {
       {showInviteTab && isOrgAdmin && (
         <>
           <div className="glass-card">
-            <h2 className="text-lg font-semibold text-slate-700 dark:text-white">Generate Passcode</h2>
+            <h2 className="text-lg font-semibold text-slate-700 dark:text-white">
+              Generate Passcode
+            </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Share passcodes with teammates to onboard them via SSO. Codes are single use unless you raise the max-uses value.
+              Share passcodes with teammates to onboard them via SSO. Codes are single use unless
+              you raise the max-uses value.
             </p>
             <div className="mt-4 flex flex-wrap gap-4">
               <label className="flex flex-col text-sm font-semibold text-slate-600 dark:text-slate-200">
                 Role
-                <select className="pill-input" value={role} onChange={(event) => setRole(event.target.value as 'OrgAdmin' | 'OrgEmployee')}>
+                <select
+                  className="pill-select"
+                  value={role}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    setRole(event.currentTarget.value as 'OrgAdmin' | 'OrgEmployee')
+                  }
+                >
                   <option value="OrgEmployee">OrgEmployee</option>
                   <option value="OrgAdmin">OrgAdmin</option>
                 </select>
               </label>
               <label className="flex flex-col text-sm font-semibold text-slate-600 dark:text-slate-200">
                 Max Uses
-                <input className="pill-input" type="number" min={1} max={10} value={maxUses} onChange={(event) => setMaxUses(Number(event.target.value))} />
+                <input
+                  className="pill-input"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={maxUses}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setMaxUses(Number(event.currentTarget.value))
+                  }
+                />
               </label>
-              <button className="btn-gradient self-end disabled:opacity-50" onClick={() => createMutation.mutate()} disabled={createMutation.isLoading}>
-                Generate Code
+              <button
+                className="btn-outline"
+                onClick={() => createMutation.mutate()}
+                disabled={createMutation.isPending}
+              >
+                <span className="w-full">Generate Code</span>
               </button>
             </div>
           </div>
@@ -107,11 +134,15 @@ export function AccountSettingsPage() {
                     <div>
                       <p className="font-mono text-sm">{invite.code}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Role {invite.role} • {invite.used_count}/{invite.max_uses} uses • {invite.status}
+                        Role {invite.role} • {invite.used_count}/{invite.max_uses} uses •{' '}
+                        {invite.status}
                       </p>
                     </div>
                     {invite.status === 'active' && (
-                      <button className="btn-outline" onClick={() => revokeMutation.mutate(invite.code)}>
+                      <button
+                        className="btn-outline"
+                        onClick={() => revokeMutation.mutate(invite.code)}
+                      >
                         <span>Revoke</span>
                       </button>
                     )}
@@ -125,7 +156,11 @@ export function AccountSettingsPage() {
         </>
       )}
 
-      {showInviteTab && !isOrgAdmin && <p className="text-sm text-slate-500">Only organization administrators can manage invite codes.</p>}
+      {showInviteTab && !isOrgAdmin && (
+        <p className="text-sm text-slate-500">
+          Only organization administrators can manage invite codes.
+        </p>
+      )}
 
       {activeTab === 'Statuses' && (
         <div className="glass-card">

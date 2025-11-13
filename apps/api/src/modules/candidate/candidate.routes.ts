@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import type { AuthenticatedRequest } from '../../middleware/auth';
-import { createCandidate, deleteCandidate, listCandidates, moveCandidate, updateCandidate } from './candidate.service';
+import type { AuthenticatedRequest } from '../../middleware/auth.js';
+import { createCandidate, deleteCandidate, listCandidates, moveCandidate, updateCandidate } from './candidate.service.js';
 import {
   candidateQuerySchema,
   createCandidateSchema,
   moveCandidateSchema,
   updateCandidateSchema,
-} from './candidate.schema';
+} from './candidate.schema.js';
 
 export const candidateRouter = Router();
 

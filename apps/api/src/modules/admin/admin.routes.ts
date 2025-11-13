@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { organizationInputSchema } from '../organization/organization.schema';
-import { createOrganization } from '../organization/organization.service';
-import { updateUserRoleAndOrg } from '../user/user.service';
-import { createInviteSchema } from '../invite/invite.schema';
-import { createInviteCode } from '../invite/invite.service';
-import { requireRootAdmin } from '../../middleware/root-admin';
+import { organizationInputSchema } from '../organization/organization.schema.js';
+import { createOrganization } from '../organization/organization.service.js';
+import { updateUserRoleAndOrg } from '../user/user.service.js';
+import { createInviteSchema } from '../invite/invite.schema.js';
+import { createInviteCode } from '../invite/invite.service.js';
+import { requireRootAdmin } from '../../middleware/root-admin.js';
 
 export const adminRouter = Router();
 
@@ -22,7 +22,11 @@ adminRouter.post('/organizations/:id/admins', requireRootAdmin, async (req, res)
   if (!user_id) {
     return res.status(400).json({ message: 'user_id required' });
   }
-  const updated = await updateUserRoleAndOrg({ userId: user_id, organizationId: req.params.id, role: 'OrgAdmin' });
+  const updated = await updateUserRoleAndOrg({
+    userId: user_id,
+    organizationId: req.params.id,
+    role: 'OrgAdmin',
+  });
   res.json(updated);
 });
 

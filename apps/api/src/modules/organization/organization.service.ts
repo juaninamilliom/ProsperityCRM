@@ -1,6 +1,6 @@
-import type { Organization } from '../../types';
-import { query } from '../../utils/sql';
-import type { OrganizationInput } from './organization.schema';
+import type { Organization } from '../../types.js';
+import { query } from '../../utils/sql.js';
+import type { OrganizationInput } from './organization.schema.js';
 
 export async function listOrganizations() {
   const result = await query<Organization>('select * from organizations order by created_at desc');

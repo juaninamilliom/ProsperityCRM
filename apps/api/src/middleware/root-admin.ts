@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { config } from '../config';
+import { config } from '../config.js';
 
 export function requireRootAdmin(req: Request, res: Response, next: NextFunction) {
   const token = req.headers['x-admin-token'];

@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { requireRole } from '../../middleware/auth';
-import { agencyInputSchema } from './agency.schema';
-import { createAgency, deleteAgency, listAgencies, updateAgency } from './agency.service';
+import { requireRole } from '../../middleware/auth.js';
+import { agencyInputSchema } from './agency.schema.js';
+import { createAgency, deleteAgency, listAgencies, updateAgency } from './agency.service.js';
 
 export const agencyRouter = Router();
 

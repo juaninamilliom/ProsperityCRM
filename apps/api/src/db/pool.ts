@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { config } from '../config';
+import { config } from '../config.js';
 
 if (!config.databaseUrl) {
   console.warn('[db] DATABASE_URL not set. API routes will fail without a DB connection.');

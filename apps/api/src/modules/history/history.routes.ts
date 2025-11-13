@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCandidateHistory, getPlacementMetrics } from './history.service';
+import { getCandidateHistory, getPlacementMetrics } from './history.service.js';
 
 export const historyRouter = Router();
 

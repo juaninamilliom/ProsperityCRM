@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { requireRole } from '../../middleware/auth';
-import { organizationInputSchema } from './organization.schema';
-import { createOrganization, listOrganizations, updateOrganization } from './organization.service';
+import { requireRole } from '../../middleware/auth.js';
+import { organizationInputSchema } from './organization.schema.js';
+import { createOrganization, listOrganizations, updateOrganization } from './organization.service.js';
 
 export const organizationRouter = Router();
 

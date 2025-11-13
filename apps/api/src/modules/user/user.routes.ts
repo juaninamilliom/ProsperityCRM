@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import type { AuthenticatedRequest } from '../../middleware/auth';
-import { requireRole } from '../../middleware/auth';
-import { ssoSignupSchema, updateRoleSchema } from './user.schema';
-import { getUserById, getUserBySsoId, updateUserRoleAndOrg, upsertUser } from './user.service';
-import { redeemInviteCode } from '../invite/invite.service';
+import type { AuthenticatedRequest } from '../../middleware/auth.js';
+import { requireRole } from '../../middleware/auth.js';
+import { ssoSignupSchema, updateRoleSchema } from './user.schema.js';
+import { getUserById, getUserBySsoId, updateUserRoleAndOrg, upsertUser } from './user.service.js';
+import { redeemInviteCode } from '../invite/invite.service.js';
 
 export const userRouter = Router();
 

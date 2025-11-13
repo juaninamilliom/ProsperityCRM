@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
-import { config } from '../../config';
-import type { User } from '../../types';
+import { config } from '../../config.js';
+import type { User } from '../../types.js';
 
 const localSecret = new TextEncoder().encode(config.localAuthSecret);
 

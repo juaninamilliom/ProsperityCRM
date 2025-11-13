@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import type { AuthenticatedRequest } from '../../middleware/auth';
-import { requireRole } from '../../middleware/auth';
-import { createInviteSchema } from './invite.schema';
-import { createInviteCode, getInviteByCode, getInviteCodesForOrg, revokeInviteCode } from './invite.service';
+import type { AuthenticatedRequest } from '../../middleware/auth.js';
+import { requireRole } from '../../middleware/auth.js';
+import { createInviteSchema } from './invite.schema.js';
+import { createInviteCode, getInviteByCode, getInviteCodesForOrg, revokeInviteCode } from './invite.service.js';
 
 export const inviteRouter = Router();
 

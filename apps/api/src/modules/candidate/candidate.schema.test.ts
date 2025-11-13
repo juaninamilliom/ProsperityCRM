@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCandidateSchema } from './candidate.schema';
+import { createCandidateSchema } from './candidate.schema.js';
 
 describe('createCandidateSchema', () => {
   it('requires mandatory fields', () => {

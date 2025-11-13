@@ -1,18 +1,18 @@
 import 'express-async-errors';
 import cors from 'cors';
 import express from 'express';
-import { config } from './config';
-import { errorHandler } from './middleware/error-handler';
-import { authMiddleware } from './middleware/auth';
-import { candidateRouter } from './modules/candidate/candidate.routes';
-import { statusRouter } from './modules/status/status.routes';
-import { agencyRouter } from './modules/agency/agency.routes';
-import { userRouter } from './modules/user/user.routes';
-import { historyRouter } from './modules/history/history.routes';
-import { organizationRouter } from './modules/organization/organization.routes';
-import { adminRouter } from './modules/admin/admin.routes';
-import { inviteRouter } from './modules/invite/invite.routes';
-import { authRouter } from './modules/auth/auth.routes';
+import { config } from './config.js';
+import { errorHandler } from './middleware/error-handler.js';
+import { authMiddleware } from './middleware/auth.js';
+import { candidateRouter } from './modules/candidate/candidate.routes.js';
+import { statusRouter } from './modules/status/status.routes.js';
+import { agencyRouter } from './modules/agency/agency.routes.js';
+import { userRouter } from './modules/user/user.routes.js';
+import { historyRouter } from './modules/history/history.routes.js';
+import { organizationRouter } from './modules/organization/organization.routes.js';
+import { adminRouter } from './modules/admin/admin.routes.js';
+import { inviteRouter } from './modules/invite/invite.routes.js';
+import { authRouter } from './modules/auth/auth.routes.js';
 
 export function createApp() {
   const app = express();

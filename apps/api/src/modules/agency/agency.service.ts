@@ -1,6 +1,6 @@
-import type { TargetAgency } from '../../types';
-import { query } from '../../utils/sql';
-import type { AgencyInput } from './agency.schema';
+import type { TargetAgency } from '../../types.js';
+import { query } from '../../utils/sql.js';
+import type { AgencyInput } from './agency.schema.js';
 
 export async function listAgencies() {
   const result = await query<TargetAgency>('select * from target_agency order by name asc');

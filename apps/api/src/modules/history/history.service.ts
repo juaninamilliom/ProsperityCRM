@@ -1,4 +1,4 @@
-import { query } from '../../utils/sql';
+import { query } from '../../utils/sql.js';
 
 export async function getCandidateHistory(candidateId: string) {
   const result = await query(
