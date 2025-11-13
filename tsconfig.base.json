@@ -12,6 +12,7 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
+      "@prosperity/common": ["packages/common/src/index.ts"],
       "@prosperity/common/*": ["packages/common/src/*"]
     }
   }

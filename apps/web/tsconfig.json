@@ -9,6 +9,7 @@
     "types": ["vite/client"],
     "baseUrl": "./src",
     "paths": {
+      "@prosperity/common": ["../../packages/common/src/index.ts"],
       "@prosperity/common/*": ["../../packages/common/src/*"]
     }
   },
