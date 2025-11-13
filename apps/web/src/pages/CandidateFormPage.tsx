@@ -56,9 +56,10 @@ export function CandidateFormPage() {
             <input
               className="pill-input"
               value={form.name}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setForm((prev) => ({ ...prev, name: event.currentTarget.value }))
-              }
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                const { value } = event.currentTarget;
+                setForm((prev) => ({ ...prev, name: value }));
+              }}
               required
             />
           </label>
@@ -68,9 +69,10 @@ export function CandidateFormPage() {
               className="pill-input"
               type="email"
               value={form.email}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setForm((prev) => ({ ...prev, email: event.currentTarget.value }))
-              }
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                const { value } = event.currentTarget;
+                setForm((prev) => ({ ...prev, email: value }));
+              }}
               required
             />
           </label>
@@ -79,9 +81,10 @@ export function CandidateFormPage() {
             <input
               className="pill-input"
               value={form.phone}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setForm((prev) => ({ ...prev, phone: event.currentTarget.value }))
-              }
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                const { value } = event.currentTarget;
+                setForm((prev) => ({ ...prev, phone: value }));
+              }}
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
@@ -89,9 +92,10 @@ export function CandidateFormPage() {
             <input
               className="pill-input"
               value={form.recruiter_id}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setForm((prev) => ({ ...prev, recruiter_id: event.currentTarget.value }))
-              }
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                const { value } = event.currentTarget;
+                setForm((prev) => ({ ...prev, recruiter_id: value }));
+              }}
               required
             />
           </label>
@@ -100,9 +104,10 @@ export function CandidateFormPage() {
             <select
               className="pill-select w-auto min-w-[12rem]"
               value={form.target_agency_id}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                setForm((prev) => ({ ...prev, target_agency_id: event.currentTarget.value }))
-              }
+              onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+                const { value } = event.currentTarget;
+                setForm((prev) => ({ ...prev, target_agency_id: value }));
+              }}
               required
             >
               <option value="" disabled>
@@ -120,9 +125,10 @@ export function CandidateFormPage() {
             <select
               className="pill-select w-auto min-w-[12rem]"
               value={form.current_status_id}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                setForm((prev) => ({ ...prev, current_status_id: event.currentTarget.value }))
-              }
+              onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+                const { value } = event.currentTarget;
+                setForm((prev) => ({ ...prev, current_status_id: value }));
+              }}
               required
             >
               <option value="" disabled>
@@ -142,9 +148,10 @@ export function CandidateFormPage() {
           <textarea
             className="pill-input"
             value={form.notes}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-              setForm((prev) => ({ ...prev, notes: event.currentTarget.value }))
-            }
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+              const { value } = event.currentTarget;
+              setForm((prev) => ({ ...prev, notes: value }));
+            }}
           />
         </label>
 
@@ -154,9 +161,10 @@ export function CandidateFormPage() {
             <input
               className="pill-input flex-1"
               value={flagInput}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setFlagInput(event.currentTarget.value)
-              }
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                const { value } = event.currentTarget;
+                setFlagInput(value);
+              }}
               placeholder="Hot Prospect"
             />
             <button className="btn-outline" type="button" onClick={addFlag}>
