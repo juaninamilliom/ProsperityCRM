@@ -1,0 +1,4 @@
+{
+  "buildCommand": "npx turbo run build --filter=@prosperity/web...",
+  "outputDirectory": "apps/web/dist"
+}
