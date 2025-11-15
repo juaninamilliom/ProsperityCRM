@@ -1,5 +1,18 @@
 {
   "version": 2,
-  "buildCommand": "npx turbo run build --filter=@prosperity/web...",
-  "outputDirectory": "apps/web/dist"
+  "builds": [
+    {
+      "src": "apps/web/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist",
+        "buildCommand": "npm run build",
+        "installCommand": "npm install"
+      }
+    }
+  ],
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 }
