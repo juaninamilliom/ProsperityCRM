@@ -18,7 +18,7 @@
     "tests/*"
   ],
   "engines": {
-    "node": "20.19.5"
+    "node": "20.19.4"
   },
   "devDependencies": {
     "@types/node": "^20.11.25",
