@@ -28,5 +28,8 @@
     "pg": "^8.11.5",
     "turbo": "^1.12.3",
     "typescript": "^5.4.4"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.53.2"
   }
 }
