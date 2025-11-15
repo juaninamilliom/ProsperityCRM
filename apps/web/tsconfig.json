@@ -4,14 +4,23 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "noEmit": true,
-    "types": ["vite/client"],
-    "baseUrl": "./src",
+    "types": [
+      "vite/client"
+    ],
+    "baseUrl": ".",
     "paths": {
-      "@prosperity/common": ["../../packages/common/src/index.ts"],
-      "@prosperity/common/*": ["../../packages/common/src/*"]
+      "src/*": [
+        "src/*"
+      ]
     }
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

@@ -1,4 +1,4 @@
-import type { CandidateDTO, CandidateWithMeta } from '@prosperity/common';
+import type { CandidateDTO, CandidateWithMeta } from 'src/common';
 import { apiClient } from './client';
 
 export interface CandidateFilters {

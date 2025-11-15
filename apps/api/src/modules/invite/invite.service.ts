@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { PoolClient } from 'pg';
-import type { Role } from '@prosperity/common';
+import type { Role } from '../../common/types.js';
 import { query } from '../../utils/sql.js';
 import { withTransaction } from '../../utils/transaction.js';
 import type { User } from '../../types.js';

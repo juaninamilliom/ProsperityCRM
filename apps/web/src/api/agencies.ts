@@ -1,4 +1,4 @@
-import type { AgencyDTO } from '@prosperity/common';
+import type { AgencyDTO } from 'src/common';
 import { apiClient } from './client';
 
 export async function fetchAgencies() {

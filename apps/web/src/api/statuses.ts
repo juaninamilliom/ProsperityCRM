@@ -1,4 +1,4 @@
-import type { StatusDTO } from '@prosperity/common';
+import type { StatusDTO } from 'src/common';
 import { apiClient } from './client';
 
 export async function fetchStatuses() {

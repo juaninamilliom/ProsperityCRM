@@ -1,4 +1,4 @@
-import type { Role } from '@prosperity/common';
+import type { Role } from 'src/common';
 import { apiClient } from './client';
 
 export interface InviteCode {

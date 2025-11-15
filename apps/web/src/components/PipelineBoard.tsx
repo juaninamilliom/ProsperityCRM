@@ -1,4 +1,4 @@
-import type { CandidateWithMeta, StatusDTO } from '@prosperity/common';
+import type { CandidateWithMeta, StatusDTO } from 'src/common';
 import type { ReactNode } from 'react';
 import { DndContext, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { DraggableCandidateCard } from './DraggableCandidateCard';

@@ -1,4 +1,4 @@
-import type { CandidateWithMeta } from '@prosperity/common';
+import type { CandidateWithMeta } from 'src/common';
 
 interface CandidateCardProps {
   candidate: CandidateWithMeta;

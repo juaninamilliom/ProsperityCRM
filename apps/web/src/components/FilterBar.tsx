@@ -1,4 +1,4 @@
-import type { AgencyDTO } from '@prosperity/common';
+import type { AgencyDTO } from 'src/common';
 import type { ChangeEvent } from 'react';
 import { useFiltersStore } from '../store/filters';
 
