@@ -30,9 +30,10 @@ export function AdminAgenciesPage() {
           <input
             className="pill-input"
             value={form.name}
-            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              setForm((prev) => ({ ...prev, name: event.currentTarget.value }))
-            }
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const value = event.currentTarget.value;
+              setForm((prev) => ({ ...prev, name: value }));
+            }}
             required
           />
         </label>
@@ -42,9 +43,10 @@ export function AdminAgenciesPage() {
             className="pill-input"
             type="email"
             value={form.contact_email}
-            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              setForm((prev) => ({ ...prev, contact_email: event.currentTarget.value }))
-            }
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const value = event.currentTarget.value;
+              setForm((prev) => ({ ...prev, contact_email: value }));
+            }}
             placeholder="talent@agency.com"
           />
         </label>

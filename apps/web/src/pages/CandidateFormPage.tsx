@@ -3,6 +3,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchStatuses } from '../api/statuses';
 import { fetchAgencies } from '../api/agencies';
 import { createCandidate } from '../api/candidates';
+import { fetchCurrentUser } from '../api/users';
+
+const PHONE_REGEX = /^\(\d{3}\) \d{3}-\d{4}$/;
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 10);
+  const len = digits.length;
+  if (len < 4) {
+    return digits;
+  }
+  if (len < 7) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  }
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
 
 const initialState = {
   name: '',
@@ -10,7 +25,6 @@ const initialState = {
   phone: '',
   target_agency_id: '',
   current_status_id: '',
-  recruiter_id: '',
   notes: '',
   flags: [] as string[],
 };
@@ -19,15 +33,19 @@ export function CandidateFormPage() {
   const queryClient = useQueryClient();
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: fetchStatuses });
   const { data: agencies = [] } = useQuery({ queryKey: ['agencies'], queryFn: fetchAgencies });
+  const { data: currentUser } = useQuery({ queryKey: ['me'], queryFn: fetchCurrentUser });
   const [form, setForm] = useState(initialState);
   const [flagInput, setFlagInput] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const recruiterId = currentUser?.dbUser?.user_id ?? '';
 
   const createMutation = useMutation({
-    mutationFn: () => createCandidate(form),
+    mutationFn: () => createCandidate({ ...form, recruiter_id: recruiterId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['candidates'] });
       setForm(initialState);
       setFlagInput('');
+      setPhoneError(null);
     },
   });
 
@@ -43,6 +61,14 @@ export function CandidateFormPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!recruiterId) {
+      return;
+    }
+    if (form.phone && !PHONE_REGEX.test(form.phone.trim())) {
+      setPhoneError('Enter a valid phone number (digits, spaces, parentheses, hyphen).');
+      return;
+    }
+    setPhoneError(null);
     createMutation.mutate();
   }
 
@@ -81,23 +107,20 @@ export function CandidateFormPage() {
             <input
               className="pill-input"
               value={form.phone}
+              inputMode="tel"
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                const { value } = event.currentTarget;
+                const value = formatPhone(event.currentTarget.value);
                 setForm((prev) => ({ ...prev, phone: value }));
+                if (!value.trim()) {
+                  setPhoneError(null);
+                } else if (!PHONE_REGEX.test(value.trim())) {
+                  setPhoneError('Format as (555) 123-4567.');
+                } else {
+                  setPhoneError(null);
+                }
               }}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
-            Recruiter ID
-            <input
-              className="pill-input"
-              value={form.recruiter_id}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                const { value } = event.currentTarget;
-                setForm((prev) => ({ ...prev, recruiter_id: value }));
-              }}
-              required
-            />
+            {phoneError && <span className="text-xs text-red-500">{phoneError}</span>}
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Target Agency
@@ -186,10 +209,16 @@ export function CandidateFormPage() {
           </ul>
         </div>
 
-        <button className="btn-outline w-full" type="submit" disabled={createMutation.isPending}>
-          <span className="w-full">Create Candidate</span>
+        <button
+          className="btn-outline w-full"
+          type="submit"
+          disabled={createMutation.isPending || !recruiterId || Boolean(phoneError)}
+        >
+          <span className="w-full">
+            {!recruiterId ? 'Loading your account…' : 'Create Candidate'}
+          </span>
         </button>
-      </form>
-    </section>
-  );
+     </form>
+   </section>
+ );
 }

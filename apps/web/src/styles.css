@@ -72,11 +72,11 @@
   }
 
   .btn-outline {
-    @apply inline-flex rounded-full bg-gradient-to-r from-brand-fuchsia via-brand-green to-brand-blue p-[2px];
+    @apply flex rounded-full bg-gradient-to-r from-brand-fuchsia via-brand-green to-brand-blue p-[2px];
   }
 
   .btn-outline span {
-    @apply rounded-full bg-white px-6 py-2 text-sm font-semibold text-brand-fuchsia transition dark:bg-slate-900 dark:text-white;
+    @apply block w-full rounded-full bg-white px-6 py-2 text-center text-sm font-semibold text-brand-fuchsia transition dark:bg-slate-900 dark:text-white;
   }
 
   .btn-fuchsia:hover {

@@ -44,7 +44,7 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-brand-blue px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-blue-100 px-4 py-10">
       <form className="glass-card w-full max-w-md space-y-4" onSubmit={handleSubmit}>
         <h1 className="text-xl font-semibold text-center text-brand-blue dark:text-white">
           Prosperity CRM
@@ -55,14 +55,18 @@ export function AuthPage() {
             className="btn-outline flex-1 justify-center"
             onClick={() => setMode('login')}
           >
-            <span className={mode === 'login' ? 'bg-brand-fuchsia text-white' : ''}>Login</span>
+            <span className={mode === 'login' ? 'bg-brand-fuchsia text-white w-full' : 'w-full'}>
+              Login
+            </span>
           </button>
           <button
             type="button"
             className="btn-outline flex-1 justify-center"
             onClick={() => setMode('signup')}
           >
-            <span className={mode === 'signup' ? 'bg-brand-fuchsia text-white' : ''}>Sign Up</span>
+            <span className={mode === 'signup' ? 'bg-brand-fuchsia text-white w-full' : 'w-full'}>
+              Sign Up
+            </span>
           </button>
         </div>
 
@@ -72,9 +76,10 @@ export function AuthPage() {
             <input
               className="pill-input"
               value={form.name}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setForm((prev) => ({ ...prev, name: event.currentTarget.value }))
-              }
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                const value = event.currentTarget.value;
+                setForm((prev) => ({ ...prev, name: value }));
+              }}
               required
             />
           </label>
@@ -86,9 +91,10 @@ export function AuthPage() {
             className="pill-input"
             type="email"
             value={form.email}
-            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              setForm((prev) => ({ ...prev, email: event.currentTarget.value }))
-            }
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const value = event.currentTarget.value;
+              setForm((prev) => ({ ...prev, email: value }));
+            }}
             required
           />
         </label>
@@ -99,9 +105,10 @@ export function AuthPage() {
             className="pill-input"
             type="password"
             value={form.password}
-            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              setForm((prev) => ({ ...prev, password: event.currentTarget.value }))
-            }
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const value = event.currentTarget.value;
+              setForm((prev) => ({ ...prev, password: value }));
+            }}
             required
           />
         </label>
@@ -113,9 +120,10 @@ export function AuthPage() {
               <input
                 className="pill-input"
                 value={form.organization_id}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setForm((prev) => ({ ...prev, organization_id: event.currentTarget.value }))
-                }
+                onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                  const value = event.currentTarget.value;
+                  setForm((prev) => ({ ...prev, organization_id: value }));
+                }}
                 required
               />
             </label>
@@ -124,12 +132,13 @@ export function AuthPage() {
               <select
                 className="pill-input"
                 value={form.role}
-                onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+                  const value = event.currentTarget.value as 'OrgAdmin' | 'OrgEmployee';
                   setForm((prev) => ({
                     ...prev,
-                    role: event.currentTarget.value as 'OrgAdmin' | 'OrgEmployee',
-                  }))
-                }
+                    role: value,
+                  }));
+                }}
               >
                 <option value="OrgEmployee">OrgEmployee</option>
                 <option value="OrgAdmin">OrgAdmin</option>
@@ -145,7 +154,7 @@ export function AuthPage() {
           type="submit"
           disabled={loading}
         >
-          {mode === 'login' ? 'Login' : 'Create Account'}
+          <span>{mode === 'login' ? 'Login' : 'Create Account'}</span>
         </button>
       </form>
     </div>

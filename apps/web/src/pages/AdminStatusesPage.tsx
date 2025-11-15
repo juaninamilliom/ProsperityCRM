@@ -29,9 +29,10 @@ export function AdminStatusesPage() {
           <input
             className="pill-input"
             value={form.name}
-            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              setForm((prev) => ({ ...prev, name: event.currentTarget.value }))
-            }
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const value = event.currentTarget.value;
+              setForm((prev) => ({ ...prev, name: value }));
+            }}
             required
           />
         </label>
@@ -42,9 +43,10 @@ export function AdminStatusesPage() {
             type="number"
             value={form.order_index}
             min={0}
-            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              setForm((prev) => ({ ...prev, order_index: Number(event.currentTarget.value) }))
-            }
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const value = Number(event.currentTarget.value);
+              setForm((prev) => ({ ...prev, order_index: value }));
+            }}
             required
           />
         </label>
