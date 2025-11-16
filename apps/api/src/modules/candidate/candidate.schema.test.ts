@@ -17,6 +17,7 @@ describe('createCandidateSchema', () => {
       recruiter_id: 'user-1',
       job_requisition_id: '550e8400-e29b-41d4-a716-446655440000',
       flags: ['Hot Prospect'],
+      skills: ['React', 'SQL'],
       notes: 'Team lead referral',
     });
 

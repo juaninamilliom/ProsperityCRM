@@ -43,6 +43,7 @@ export interface Candidate {
   target_agency_id: string;
   recruiter_id: string;
   flags: string[];
+  skills: string[];
   notes: string | null;
   created_at: string;
 }
@@ -54,4 +55,11 @@ export interface CandidateStatusHistory {
   to_status_id: string;
   change_date: string;
   changed_by: string;
+}
+
+export interface OrganizationSkill {
+  skill_id: string;
+  organization_id: string;
+  name: string;
+  created_at: string;
 }

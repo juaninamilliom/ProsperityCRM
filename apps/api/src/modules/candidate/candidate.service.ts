@@ -2,6 +2,7 @@ import type { Candidate } from '../../types.js';
 import { query } from '../../utils/sql.js';
 import { withTransaction } from '../../utils/transaction.js';
 import type { CreateCandidateInput, UpdateCandidateInput } from './candidate.schema.js';
+import { ensureOrganizationSkills, normalizeSkillNames } from '../skill/skill.service.js';
 
 const candidateSelect = `select c.*, s.name as status_name, s.order_index, a.name as agency_name, j.title as job_title, j.status as job_status
   from candidates c
@@ -15,6 +16,7 @@ export async function listCandidates(filters: {
   job_id?: string;
   status_id?: string;
   search?: string;
+  skills?: string[];
 }) {
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -45,6 +47,11 @@ export async function listCandidates(filters: {
     conditions.push(`(lower(c.name) like $${idx} or lower(c.email) like $${idx} or lower(coalesce(j.title, '')) like $${idx})`);
   }
 
+  if (filters.skills?.length) {
+    params.push(JSON.stringify(filters.skills));
+    conditions.push(`c.skills @> $${params.length}::jsonb`);
+  }
+
   const where = conditions.length ? `where ${conditions.join(' and ')}` : '';
   const sql = `${candidateSelect} ${where} order by s.order_index asc, c.created_at desc`;
 
@@ -52,10 +59,12 @@ export async function listCandidates(filters: {
   return result.rows;
 }
 
-export async function createCandidate(input: CreateCandidateInput) {
+export async function createCandidate(input: CreateCandidateInput, organizationId: string) {
+  const normalizedSkills = normalizeSkillNames(input.skills ?? []);
+  await ensureOrganizationSkills(organizationId, normalizedSkills);
   const result = await query<Candidate>(
-    `insert into candidates (name, email, phone, target_agency_id, current_status_id, recruiter_id, job_requisition_id, flags, notes)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `insert into candidates (name, email, phone, target_agency_id, current_status_id, recruiter_id, job_requisition_id, flags, skills, notes)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      returning *`,
     [
       input.name,
@@ -66,25 +75,39 @@ export async function createCandidate(input: CreateCandidateInput) {
       input.recruiter_id,
       input.job_requisition_id ?? null,
       JSON.stringify(input.flags ?? []),
+      JSON.stringify(normalizedSkills),
       input.notes ?? null,
     ]
   );
   return result.rows[0];
 }
 
-export async function updateCandidate(id: string, input: UpdateCandidateInput) {
+export async function updateCandidate(id: string, input: UpdateCandidateInput, organizationId: string) {
   const fields: string[] = [];
   const params: unknown[] = [];
+  let normalizedSkills: string[] | null = null;
 
   Object.entries(input).forEach(([key, value]) => {
     if (value === undefined) return;
-    params.push(key === 'flags' ? JSON.stringify(value) : value);
+    if (key === 'flags') {
+      params.push(JSON.stringify(value));
+    } else if (key === 'skills') {
+      const nextSkills = normalizeSkillNames((value as string[] | undefined) ?? []);
+      normalizedSkills = nextSkills;
+      params.push(JSON.stringify(nextSkills));
+    } else {
+      params.push(value);
+    }
     fields.push(`${key} = $${params.length}`);
   });
 
   if (!fields.length) {
     const current = await query<Candidate>('select * from candidates where candidate_id = $1', [id]);
     return current.rows[0];
+  }
+
+  if (normalizedSkills) {
+    await ensureOrganizationSkills(organizationId, normalizedSkills);
   }
 
   params.push(id);

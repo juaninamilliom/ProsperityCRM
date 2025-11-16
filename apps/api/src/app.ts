@@ -14,6 +14,7 @@ import { adminRouter } from './modules/admin/admin.routes.js';
 import { inviteRouter } from './modules/invite/invite.routes.js';
 import { jobRouter } from './modules/job/job.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
+import { skillRouter } from './modules/skill/skill.routes.js';
 
 export function createApp() {
   const app = express();
@@ -46,6 +47,7 @@ export function createApp() {
   app.use('/history', historyRouter);
   app.use('/organizations', organizationRouter);
   app.use('/jobs', jobRouter);
+  app.use('/skills', skillRouter);
   app.use(inviteRouter);
 
   app.use(errorHandler);

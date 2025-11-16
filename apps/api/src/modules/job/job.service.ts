@@ -106,7 +106,7 @@ export async function getJobWithStats(jobId: string) {
 
 export async function getJobCandidates(jobId: string) {
   const result = await query(
-    `select c.candidate_id, c.name, c.email, c.current_status_id, s.name as status_name, c.flags
+    `select c.candidate_id, c.name, c.email, c.current_status_id, s.name as status_name, c.flags, c.skills
      from candidates c
      join status_config s on c.current_status_id = s.status_id
      where c.job_requisition_id = $1
@@ -144,16 +144,31 @@ export async function replaceJobSplits(
   );
   const dealBase = Number(jobInfo.rows[0]?.deal_amount ?? 0);
   const weightedBase = Number(jobInfo.rows[0]?.weighted_deal_amount ?? 0);
+  let leadDealAccumulator = 0;
+  let leadWeightedAccumulator = 0;
 
   await query('delete from job_deal_splits where job_id = $1', [jobId]);
   for (const split of splits) {
-    const percent = Number(split.split_percent ?? 0);
-    const totalDeal = split.total_deal ? Number(split.total_deal) : (dealBase * percent) / 100;
-    const weightedDeal = split.weighted_deal ? Number(split.weighted_deal) : (weightedBase * percent) / 100;
+    const normalizedRole = split.role?.toLowerCase() === 'secondary' ? 'secondary' : 'lead';
+    const percentValue = Number(split.split_percent ?? 0);
+    const ratio = percentValue / 100;
+    let totalDeal: number;
+    let weightedDeal: number;
+    if (normalizedRole === 'secondary' && leadDealAccumulator > 0) {
+      totalDeal = split.total_deal ? Number(split.total_deal) : leadDealAccumulator * ratio;
+      weightedDeal = split.weighted_deal ? Number(split.weighted_deal) : leadWeightedAccumulator * ratio;
+    } else {
+      totalDeal = split.total_deal ? Number(split.total_deal) : dealBase * ratio;
+      weightedDeal = split.weighted_deal ? Number(split.weighted_deal) : weightedBase * ratio;
+      if (normalizedRole === 'lead') {
+        leadDealAccumulator += totalDeal;
+        leadWeightedAccumulator += weightedDeal;
+      }
+    }
     await query(
       `insert into job_deal_splits (job_id, teammate_name, teammate_status, split_percent, role, total_deal, weighted_deal)
        values ($1,$2,$3,$4,$5,$6,$7)`,
-      [jobId, split.teammate_name, split.teammate_status ?? 'active', percent, split.role ?? null, totalDeal, weightedDeal]
+      [jobId, split.teammate_name, split.teammate_status ?? 'active', percentValue, normalizedRole, totalDeal, weightedDeal]
     );
   }
   return listJobSplits(jobId);

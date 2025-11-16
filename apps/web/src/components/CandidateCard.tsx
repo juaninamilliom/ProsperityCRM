@@ -21,17 +21,36 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
       {candidate.job_title && (
         <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Job: {candidate.job_title}</p>
       )}
-      {candidate.flags?.length ? (
-        <ul className="mt-3 flex flex-wrap gap-1 text-xs text-slate-600 dark:text-slate-300">
-          {candidate.flags.map((flag: string) => (
-            <li key={flag} className="rounded-full bg-brand-fuchsia/15 px-3 py-0.5 text-xs font-semibold text-brand-fuchsia">
-              {flag}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted mt-3 text-xs">No flags yet</p>
-      )}
+      <div className="mt-3 space-y-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Skills</p>
+          {candidate.skills?.length ? (
+            <ul className="mt-1 flex flex-wrap gap-1 text-xs text-slate-600 dark:text-slate-300">
+              {candidate.skills.map((skill: string) => (
+                <li key={skill} className="rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  {skill}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-slate-500 dark:text-slate-500">No skills tagged</p>
+          )}
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Flags</p>
+          {candidate.flags?.length ? (
+            <ul className="mt-1 flex flex-wrap gap-1 text-xs text-slate-600 dark:text-slate-300">
+              {candidate.flags.map((flag: string) => (
+                <li key={flag} className="rounded-full bg-brand-fuchsia/15 px-3 py-0.5 text-xs font-semibold text-brand-fuchsia">
+                  {flag}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-slate-500 dark:text-slate-500">No flags yet</p>
+          )}
+        </div>
+      </div>
     </article>
   );
 }

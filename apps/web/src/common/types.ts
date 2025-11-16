@@ -47,7 +47,7 @@ export interface JobDealSplitDTO {
   split_id: string;
   teammate_name: string;
   teammate_status?: string | null;
-  role?: string | null;
+  role?: 'lead' | 'secondary' | null;
   split_percent: number;
   total_deal?: number | null;
   weighted_deal?: number | null;
@@ -63,6 +63,7 @@ export interface CandidateDTO {
   recruiter_id: string;
   job_requisition_id?: string | null;
   flags: string[];
+  skills: string[];
   notes?: string | null;
 }
 
@@ -77,4 +78,11 @@ export interface OrganizationDTO {
   organization_id: string;
   name: string;
   slug: string;
+}
+
+export interface OrganizationSkillDTO {
+  skill_id: string;
+  organization_id: string;
+  name: string;
+  created_at: string;
 }

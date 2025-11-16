@@ -17,6 +17,13 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleDateString();
 }
 
+function formatRoleLabel(role?: string | null) {
+  if (!role) return '—';
+  if (role === 'lead') return 'Lead';
+  if (role === 'secondary') return 'Secondary';
+  return role;
+}
+
 export function JobDealPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
@@ -71,14 +78,30 @@ export function JobDealPage() {
   const splits = detail?.splits ?? [];
   const candidates = detail?.candidates ?? [];
 
-  const totalSplit = useMemo(() => draftSplits.reduce((acc, split) => acc + (Number(split.split_percent) || 0), 0), [draftSplits]);
+  const totalSplit = useMemo(() => draftSplits.reduce((acc, split) => acc + (Number(split.split_percent ?? '0') || 0), 0), [draftSplits]);
   const dealTotals = useMemo(() => {
     const base = Number(job?.deal_amount ?? 0);
     const weighted = Number(job?.weighted_deal_amount ?? 0);
-    return draftSplits.map((split) => ({
-      total_deal: base * ((Number(split.split_percent) || 0) / 100),
-      weighted_deal: weighted * ((Number(split.split_percent) || 0) / 100),
-    }));
+    let leadAccumulated = 0;
+    let leadWeightedAccumulated = 0;
+    return draftSplits.map((split) => {
+      const percent = Number(split.split_percent ?? '0') / 100;
+      const role = split.role ?? 'lead';
+      let totalDeal: number;
+      let weightedDeal: number;
+      if (role === 'secondary' && leadAccumulated > 0) {
+        totalDeal = leadAccumulated * percent;
+        weightedDeal = leadWeightedAccumulated * percent;
+      } else {
+        totalDeal = base * percent;
+        weightedDeal = weighted * percent;
+        if (role === 'lead') {
+          leadAccumulated += totalDeal;
+          leadWeightedAccumulated += weightedDeal;
+        }
+      }
+      return { total_deal: totalDeal, weighted_deal: weightedDeal };
+    });
   }, [draftSplits, job?.deal_amount, job?.weighted_deal_amount]);
 
   useEffect(() => {
@@ -122,13 +145,14 @@ export function JobDealPage() {
         ? splits.map((split) => ({
             teammate_name: split.teammate_name,
             teammate_status: split.teammate_status ?? undefined,
-            role: split.role ?? undefined,
+            role: (split.role as 'lead' | 'secondary') ?? 'lead',
             split_percent: split.split_percent != null ? String(split.split_percent) : '',
           }))
         : [
             {
               teammate_name: '',
               split_percent: '0',
+              role: 'lead',
             },
           ]
     );
@@ -146,7 +170,7 @@ export function JobDealPage() {
   }
 
   function addSplitRow() {
-    setDraftSplits((prev) => [...prev, { teammate_name: '', split_percent: '0' }]);
+    setDraftSplits((prev) => [...prev, { teammate_name: '', split_percent: '0', role: 'lead' }]);
   }
 
   function removeSplitRow(index: number) {
@@ -330,7 +354,7 @@ export function JobDealPage() {
             <label className="md:col-span-2 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
               Description
               <textarea
-                className="pill-input"
+                className="pill-input rounded-lg"
                 rows={3}
                 value={jobForm.description}
                 onChange={(event) => {
@@ -413,7 +437,10 @@ export function JobDealPage() {
                         </select>
                       </td>
                       <td>
-                        <input className="pill-input" value={split.role ?? ''} onChange={(event) => updateSplit(index, 'role', event.currentTarget.value)} />
+                        <select className="pill-select" value={split.role ?? 'lead'} onChange={(event) => updateSplit(index, 'role', event.currentTarget.value as 'lead' | 'secondary')}>
+                          <option value="lead">Lead</option>
+                          <option value="secondary">Secondary</option>
+                        </select>
                       </td>
                       <td>
                         <input className="pill-input" type="number" value={split.split_percent ?? '0'} onChange={(event) => updateSplit(index, 'split_percent', event.currentTarget.value)} />
@@ -432,7 +459,7 @@ export function JobDealPage() {
                       <td className="py-2">
                         <span className="font-semibold text-slate-800 dark:text-white">{split.teammate_name || 'Unassigned'}</span>
                       </td>
-                      <td>{split.role || '—'}</td>
+                      <td>{formatRoleLabel(split.role)}</td>
                       <td>{`${split.split_percent ?? 0}%`}</td>
                       <td>{formatCurrency(split.total_deal)}</td>
                       <td>{formatCurrency(split.weighted_deal)}</td>
@@ -463,7 +490,11 @@ export function JobDealPage() {
                   <p className="font-semibold text-slate-800 dark:text-white">{candidate.name}</p>
                   <p className="text-xs text-slate-500">{candidate.status_name}</p>
                 </div>
-                <span className="text-xs text-slate-500">{candidate.flags?.join(', ')}</span>
+                <div className="text-right text-xs text-slate-500">
+                  {candidate.skills?.length ? <p>Skills: {candidate.skills.join(', ')}</p> : null}
+                  {candidate.flags?.length ? <p>Flags: {candidate.flags.join(', ')}</p> : null}
+                  {!candidate.skills?.length && !candidate.flags?.length && <p>No tags yet</p>}
+                </div>
               </li>
             ))
           ) : (

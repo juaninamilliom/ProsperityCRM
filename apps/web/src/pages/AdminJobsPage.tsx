@@ -202,7 +202,7 @@ export function AdminJobsPage() {
         </label>
         <label className="md:col-span-2">
           <textarea
-            className="pill-input"
+            className="pill-input rounded-lg"
             placeholder="Notes about requirements, hiring manager, etc."
             rows={3}
             value={form.description}

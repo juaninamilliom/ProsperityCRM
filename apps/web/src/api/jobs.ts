@@ -34,10 +34,8 @@ export async function fetchJobDetail(jobId: string) {
 export type JobSplitInput = {
   teammate_name: string;
   teammate_status?: string;
-  role?: string;
+  role?: 'lead' | 'secondary';
   split_percent?: string;
-  total_deal?: string;
-  weighted_deal?: string;
 };
 
 export async function saveJobSplits(jobId: string, splits: JobSplitInput[]) {

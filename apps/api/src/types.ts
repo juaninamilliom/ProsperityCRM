@@ -59,6 +59,7 @@ export interface Candidate {
   recruiter_id: UUID;
   job_requisition_id: UUID | null;
   flags: string[];
+  skills: string[];
   notes: string | null;
   created_at: string;
 }
@@ -70,4 +71,11 @@ export interface CandidateStatusHistory {
   to_status_id: UUID;
   change_date: string;
   changed_by: UUID;
+}
+
+export interface OrganizationSkill {
+  skill_id: UUID;
+  organization_id: UUID;
+  name: string;
+  created_at: string;
 }

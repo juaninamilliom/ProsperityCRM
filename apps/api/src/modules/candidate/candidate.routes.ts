@@ -21,6 +21,7 @@ candidateRouter.get('/', async (req, res) => {
     job_id: parsed.data.job_id,
     status_id: parsed.data.status_id,
     search: parsed.data.search,
+    skills: parsed.data.skills,
   });
   res.json(rows);
 });
@@ -34,20 +35,26 @@ candidateRouter.get('/:id', async (req, res) => {
 });
 
 candidateRouter.post('/', async (req: AuthenticatedRequest, res) => {
+  if (!req.dbUser) {
+    return res.status(403).json({ message: 'User context not available' });
+  }
   const parsed = createCandidateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(parsed.error.flatten());
   }
-  const candidate = await createCandidate(parsed.data);
+  const candidate = await createCandidate(parsed.data, req.dbUser.organization_id);
   res.status(201).json(candidate);
 });
 
-candidateRouter.put('/:id', async (req, res) => {
+candidateRouter.put('/:id', async (req: AuthenticatedRequest, res) => {
+  if (!req.dbUser) {
+    return res.status(403).json({ message: 'User context not available' });
+  }
   const parsed = updateCandidateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(parsed.error.flatten());
   }
-  const updated = await updateCandidate(req.params.id, parsed.data);
+  const updated = await updateCandidate(req.params.id, parsed.data, req.dbUser.organization_id);
   res.json(updated);
 });
 

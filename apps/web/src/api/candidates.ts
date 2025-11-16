@@ -7,10 +7,16 @@ export interface CandidateFilters {
   job_id?: string;
   status_id?: string;
   search?: string;
+  skills?: string[];
 }
 
 export async function fetchCandidates(filters: CandidateFilters = {}) {
-  const response = await apiClient.get<CandidateWithMeta[]>('/candidates', { params: filters });
+  const response = await apiClient.get<CandidateWithMeta[]>('/candidates', {
+    params: {
+      ...filters,
+      skills: filters.skills?.length ? filters.skills.join(',') : undefined,
+    },
+  });
   return response.data;
 }
 
