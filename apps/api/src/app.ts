@@ -12,6 +12,7 @@ import { historyRouter } from './modules/history/history.routes.js';
 import { organizationRouter } from './modules/organization/organization.routes.js';
 import { adminRouter } from './modules/admin/admin.routes.js';
 import { inviteRouter } from './modules/invite/invite.routes.js';
+import { jobRouter } from './modules/job/job.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 
 export function createApp() {
@@ -44,6 +45,7 @@ export function createApp() {
   app.use('/agencies', agencyRouter);
   app.use('/history', historyRouter);
   app.use('/organizations', organizationRouter);
+  app.use('/jobs', jobRouter);
   app.use(inviteRouter);
 
   app.use(errorHandler);

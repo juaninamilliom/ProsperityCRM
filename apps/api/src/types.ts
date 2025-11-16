@@ -26,6 +26,16 @@ export interface TargetAgency {
   created_at: string;
 }
 
+export interface JobRequisition {
+  job_id: UUID;
+  title: string;
+  department: string | null;
+  location: string | null;
+  status: string;
+  description: string | null;
+  created_at: string;
+}
+
 export interface StatusConfig {
   status_id: UUID;
   name: string;
@@ -42,6 +52,7 @@ export interface Candidate {
   current_status_id: UUID;
   target_agency_id: UUID;
   recruiter_id: UUID;
+  job_requisition_id: UUID | null;
   flags: string[];
   notes: string | null;
   created_at: string;

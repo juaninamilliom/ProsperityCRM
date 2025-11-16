@@ -1,12 +1,13 @@
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCurrentUser } from '../api/users';
 import { createInviteCode, fetchInviteCodes, revokeInvite } from '../api/invites';
 import { AdminStatusesPage } from './AdminStatusesPage';
 import { AdminAgenciesPage } from './AdminAgenciesPage';
+import { AdminJobsPage } from './AdminJobsPage';
 
-const tabs = ['General', 'Invites', 'Statuses', 'Agencies'] as const;
+const tabs = ['General', 'Invites', 'Statuses', 'Agencies', 'Jobs'] as const;
 type ThemeContext = { theme: 'light' | 'dark'; toggleTheme: () => void };
 
 export function AccountSettingsPage() {
@@ -18,6 +19,10 @@ export function AccountSettingsPage() {
   const [role, setRole] = useState<'OrgAdmin' | 'OrgEmployee'>('OrgEmployee');
   const [maxUses, setMaxUses] = useState(1);
   const { theme, toggleTheme } = useOutletContext<ThemeContext>();
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [revokeMessage, setRevokeMessage] = useState<string | null>(null);
+  const [revokeError, setRevokeError] = useState<string | null>(null);
 
   const invitesQuery = useQuery({
     queryKey: ['invites', organizationId],
@@ -29,6 +34,12 @@ export function AccountSettingsPage() {
     mutationFn: () => createInviteCode(organizationId!, { role, maxUses }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invites', organizationId] });
+      setInviteMessage('Passcode generated.');
+      setInviteError(null);
+    },
+    onError: () => {
+      setInviteError('Failed to generate passcode. Try again.');
+      setInviteMessage(null);
     },
   });
 
@@ -36,8 +47,25 @@ export function AccountSettingsPage() {
     mutationFn: (code: string) => revokeInvite(code),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invites', organizationId] });
+      setRevokeMessage('Passcode revoked.');
+      setRevokeError(null);
+    },
+    onError: () => {
+      setRevokeError('Failed to revoke passcode. Try again.');
+      setRevokeMessage(null);
     },
   });
+
+  useEffect(() => {
+    if (!inviteMessage && !inviteError && !revokeMessage && !revokeError) return;
+    const timer = setTimeout(() => {
+      setInviteMessage(null);
+      setInviteError(null);
+      setRevokeMessage(null);
+      setRevokeError(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [inviteMessage, inviteError, revokeMessage, revokeError]);
 
   const showInviteTab = activeTab === 'Invites';
 
@@ -119,6 +147,8 @@ export function AccountSettingsPage() {
               >
                 <span className="w-full">Generate Code</span>
               </button>
+              {inviteMessage && <p className="text-xs text-emerald-600">{inviteMessage}</p>}
+              {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
             </div>
           </div>
 
@@ -152,6 +182,8 @@ export function AccountSettingsPage() {
                 <p className="text-sm text-slate-500">No codes yet.</p>
               )}
             </ul>
+            {revokeMessage && <p className="mt-3 text-xs text-emerald-600">{revokeMessage}</p>}
+            {revokeError && <p className="mt-3 text-xs text-red-500">{revokeError}</p>}
           </div>
         </>
       )}
@@ -173,6 +205,15 @@ export function AccountSettingsPage() {
           <AdminAgenciesPage />
         </div>
       )}
+
+      {activeTab === 'Jobs' &&
+        (isOrgAdmin ? (
+          <div className="glass-card">
+            <AdminJobsPage />
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">Only organization administrators can manage job requisitions.</p>
+        ))}
     </section>
   );
 }

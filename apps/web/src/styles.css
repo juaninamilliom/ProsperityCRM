@@ -62,6 +62,13 @@
     @apply inline-flex items-center justify-center rounded-full font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-fuchsia/60;
   }
 
+  .btn:disabled,
+  .btn-outline:disabled,
+  .btn-fuchsia:disabled,
+  .btn-gradient:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+
   .btn-fuchsia {
     @apply btn bg-brand-fuchsia px-6 py-2 text-sm text-white shadow-soft transition duration-200;
   }

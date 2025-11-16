@@ -1,68 +1,77 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
 import { fetchStatuses } from '../api/statuses';
 import { fetchAgencies } from '../api/agencies';
 import { fetchJobs } from '../api/jobs';
-import { createCandidate } from '../api/candidates';
-import { fetchCurrentUser } from '../api/users';
-import { PHONE_REGEX, formatPhone, isPhoneValid } from '../utils/phone';
+import { fetchCandidate, updateCandidate } from '../api/candidates';
+import { formatPhone, isPhoneValid } from '../utils/phone';
 
-const initialState = {
-  name: '',
-  email: '',
-  phone: '',
-  target_agency_id: '',
-  current_status_id: '',
-  job_requisition_id: '',
-  notes: '',
-  flags: [] as string[],
-};
-
-export function CandidateFormPage() {
+export function CandidateEditPage() {
+  const { candidateId } = useParams<{ candidateId: string }>();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    target_agency_id: '',
+    current_status_id: '',
+    job_requisition_id: '',
+    notes: '',
+    flags: [] as string[],
+  });
+  const [flagInput, setFlagInput] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
+  const candidateQuery = useQuery({
+    queryKey: ['candidate', candidateId],
+    queryFn: () => fetchCandidate(candidateId!),
+    enabled: Boolean(candidateId),
+  });
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: fetchStatuses });
   const { data: agencies = [] } = useQuery({ queryKey: ['agencies'], queryFn: fetchAgencies });
   const { data: jobs = [] } = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
-  const { data: currentUser } = useQuery({ queryKey: ['me'], queryFn: fetchCurrentUser });
-  const [form, setForm] = useState(initialState);
-  const [flagInput, setFlagInput] = useState('');
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const recruiterId = currentUser?.dbUser?.user_id ?? '';
 
-  const createMutation = useMutation({
+  useEffect(() => {
+    if (!candidateQuery.data) return;
+    const candidate = candidateQuery.data;
+    setForm({
+      name: candidate.name,
+      email: candidate.email,
+      phone: candidate.phone ?? '',
+      target_agency_id: candidate.target_agency_id,
+      current_status_id: candidate.current_status_id,
+      job_requisition_id: candidate.job_requisition_id ?? '',
+      notes: candidate.notes ?? '',
+      flags: candidate.flags ?? [],
+    });
+  }, [candidateQuery.data]);
+
+  const updateMutation = useMutation({
     mutationFn: () =>
-      createCandidate({
+      updateCandidate(candidateId!, {
         ...form,
-        recruiter_id: recruiterId,
+        phone: form.phone || undefined,
         job_requisition_id: form.job_requisition_id || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['candidates'] });
-      setForm(initialState);
-      setFlagInput('');
-      setPhoneError(null);
-      setSuccessMessage('Candidate created successfully.');
-      setErrorMessage(null);
-    },
-    onError: () => {
-      setErrorMessage('Failed to create candidate. Please check the form and try again.');
-      setSuccessMessage(null);
+      queryClient.invalidateQueries({ queryKey: ['candidate', candidateId] });
+      navigate('/');
     },
   });
 
-  useEffect(() => {
-    if (!successMessage) return;
-    const timer = setTimeout(() => setSuccessMessage(null), 4000);
-    return () => clearTimeout(timer);
-  }, [successMessage]);
-
-  useEffect(() => {
-    if (!errorMessage) return;
-    const timer = setTimeout(() => setErrorMessage(null), 4000);
-    return () => clearTimeout(timer);
-  }, [errorMessage]);
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!candidateId) return;
+    if (form.phone && !isPhoneValid(form.phone)) {
+      setPhoneError('Enter a valid phone number.');
+      return;
+    }
+    setPhoneError(null);
+    updateMutation.mutate();
+  }
 
   function addFlag() {
     if (!flagInput.trim()) return;
@@ -74,22 +83,26 @@ export function CandidateFormPage() {
     setForm((prev) => ({ ...prev, flags: prev.flags.filter((item) => item !== flag) }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!recruiterId) {
-      return;
-    }
-    if (form.phone && !isPhoneValid(form.phone)) {
-      setPhoneError('Enter a valid phone number.');
-      return;
-    }
-    setPhoneError(null);
-    createMutation.mutate();
+  if (candidateQuery.isLoading) {
+    return <p className="text-sm text-slate-500">Loading candidate…</p>;
+  }
+
+  if (!candidateQuery.data) {
+    return <p className="text-sm text-red-500">Candidate not found.</p>;
   }
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-700 dark:text-white">New Candidate</h2>
+      <header className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-700 dark:text-white">Edit Candidate</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{candidateQuery.data.name}</p>
+        </div>
+        <button className="btn-outline" type="button" onClick={() => navigate(-1)}>
+          <span>Back</span>
+        </button>
+      </header>
+
       <form className="glass-card flex flex-col gap-6" onSubmit={handleSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
@@ -240,17 +253,8 @@ export function CandidateFormPage() {
           </ul>
         </div>
 
-        {successMessage && <p className="text-sm text-emerald-600">{successMessage}</p>}
-        {errorMessage && <p className="text-sm text-red-500">{errorMessage}</p>}
-
-        <button
-          className="btn-outline w-full"
-          type="submit"
-          disabled={createMutation.isPending || !recruiterId || Boolean(phoneError) || !jobs.length}
-        >
-          <span className="w-full">
-            {!recruiterId ? 'Loading your account…' : 'Create Candidate'}
-          </span>
+        <button className="btn-outline w-full" type="submit" disabled={updateMutation.isPending || Boolean(phoneError) || !jobs.length}>
+          <span className="w-full">{updateMutation.isPending ? 'Saving…' : 'Save Changes'}</span>
         </button>
       </form>
     </section>

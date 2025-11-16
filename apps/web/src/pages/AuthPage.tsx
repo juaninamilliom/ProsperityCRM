@@ -140,8 +140,8 @@ export function AuthPage() {
                   }));
                 }}
               >
-                <option value="OrgEmployee">OrgEmployee</option>
-                <option value="OrgAdmin">OrgAdmin</option>
+                <option value="OrgEmployee">Employee</option>
+                <option value="OrgAdmin">Admin</option>
               </select>
             </label>
           </>

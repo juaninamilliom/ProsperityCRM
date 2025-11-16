@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createAgency, fetchAgencies } from '../api/agencies';
 
@@ -6,6 +6,8 @@ export function AdminAgenciesPage() {
   const queryClient = useQueryClient();
   const { data: agencies = [] } = useQuery({ queryKey: ['agencies'], queryFn: fetchAgencies });
   const [form, setForm] = useState({ name: '', contact_email: '' });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -13,6 +15,12 @@ export function AdminAgenciesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agencies'] });
       setForm({ name: '', contact_email: '' });
+      setSuccessMessage('Agency added.');
+      setErrorMessage(null);
+    },
+    onError: () => {
+      setErrorMessage('Failed to add agency. Please try again.');
+      setSuccessMessage(null);
     },
   });
 
@@ -20,6 +28,15 @@ export function AdminAgenciesPage() {
     event.preventDefault();
     createMutation.mutate();
   }
+
+  useEffect(() => {
+    if (!successMessage && !errorMessage) return;
+    const timer = setTimeout(() => {
+      setSuccessMessage(null);
+      setErrorMessage(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [successMessage, errorMessage]);
 
   return (
     <section className="space-y-4">
@@ -50,8 +67,10 @@ export function AdminAgenciesPage() {
             placeholder="talent@agency.com"
           />
         </label>
+        {successMessage && <p className="text-xs text-emerald-600">{successMessage}</p>}
+        {errorMessage && <p className="text-xs text-red-500">{errorMessage}</p>}
         <button className="btn-outline" type="submit" disabled={createMutation.isPending}>
-          <span className="w-full">Add Agency</span>
+          <span className="w-full">{createMutation.isPending ? 'Adding…' : 'Add Agency'}</span>
         </button>
       </form>
 

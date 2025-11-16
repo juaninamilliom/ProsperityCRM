@@ -3,24 +3,29 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAgencies } from '../api/agencies';
 import { fetchCandidates, moveCandidate } from '../api/candidates';
 import { fetchStatuses } from '../api/statuses';
+import { fetchJobs } from '../api/jobs';
 import { FilterBar } from '../components/FilterBar';
 import { PipelineBoard } from '../components/PipelineBoard';
 import { useFiltersStore } from '../store/filters';
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
-  const { selectedAgency, flagQuery } = useFiltersStore();
+  const { selectedAgency, flagQuery, jobId, statusId, searchTerm } = useFiltersStore();
 
   const filters = useMemo(
     () => ({
       agency_id: selectedAgency,
       flag: flagQuery,
+      job_id: jobId,
+      status_id: statusId,
+      search: searchTerm,
     }),
-    [selectedAgency, flagQuery]
+    [selectedAgency, flagQuery, jobId, statusId, searchTerm]
   );
 
   const agenciesQuery = useQuery({ queryKey: ['agencies'], queryFn: fetchAgencies });
   const statusesQuery = useQuery({ queryKey: ['statuses'], queryFn: fetchStatuses });
+  const jobsQuery = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
   const candidatesQuery = useQuery({
     queryKey: ['candidates', filters],
     queryFn: () => fetchCandidates(filters),
@@ -45,7 +50,7 @@ export function DashboardPage() {
 
   return (
     <section className="space-y-4">
-      <FilterBar agencies={agenciesQuery.data ?? []} />
+      <FilterBar agencies={agenciesQuery.data ?? []} jobs={jobsQuery.data ?? []} statuses={statusesQuery.data ?? []} />
       <PipelineBoard
         statuses={statusesQuery.data ?? []}
         candidates={candidatesQuery.data ?? []}

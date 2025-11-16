@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
-import { createCandidate, deleteCandidate, listCandidates, moveCandidate, updateCandidate } from './candidate.service.js';
+import { createCandidate, deleteCandidate, getCandidateById, listCandidates, moveCandidate, updateCandidate } from './candidate.service.js';
 import {
   candidateQuerySchema,
   createCandidateSchema,
@@ -18,8 +18,19 @@ candidateRouter.get('/', async (req, res) => {
   const rows = await listCandidates({
     flag: parsed.data.flag,
     agency_id: parsed.data.agency_id,
+    job_id: parsed.data.job_id,
+    status_id: parsed.data.status_id,
+    search: parsed.data.search,
   });
   res.json(rows);
+});
+
+candidateRouter.get('/:id', async (req, res) => {
+  const candidate = await getCandidateById(req.params.id);
+  if (!candidate) {
+    return res.status(404).json({ message: 'Candidate not found' });
+  }
+  res.json(candidate);
 });
 
 candidateRouter.post('/', async (req: AuthenticatedRequest, res) => {

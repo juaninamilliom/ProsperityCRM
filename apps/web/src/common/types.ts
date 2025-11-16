@@ -23,6 +23,15 @@ export interface StatusDTO {
   is_terminal: boolean;
 }
 
+export interface JobRequisitionDTO {
+  job_id: string;
+  title: string;
+  department?: string | null;
+  location?: string | null;
+  status: 'open' | 'on_hold' | 'closed';
+  description?: string | null;
+}
+
 export interface CandidateDTO {
   candidate_id: string;
   name: string;
@@ -31,6 +40,7 @@ export interface CandidateDTO {
   current_status_id: string;
   target_agency_id: string;
   recruiter_id: string;
+  job_requisition_id?: string | null;
   flags: string[];
   notes?: string | null;
 }
@@ -38,6 +48,8 @@ export interface CandidateDTO {
 export interface CandidateWithMeta extends CandidateDTO {
   status_name?: string;
   agency_name?: string;
+  job_title?: string | null;
+  job_status?: string | null;
 }
 
 export interface OrganizationDTO {

@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createStatus, fetchStatuses } from '../api/statuses';
 
@@ -6,12 +6,20 @@ export function AdminStatusesPage() {
   const queryClient = useQueryClient();
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: fetchStatuses });
   const [form, setForm] = useState({ name: '', order_index: 0, is_terminal: false });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: () => createStatus(form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['statuses'] });
       setForm({ name: '', order_index: 0, is_terminal: false });
+      setSuccessMessage('Status added.');
+      setErrorMessage(null);
+    },
+    onError: () => {
+      setErrorMessage('Failed to add status. Please check the form and try again.');
+      setSuccessMessage(null);
     },
   });
 
@@ -19,6 +27,15 @@ export function AdminStatusesPage() {
     event.preventDefault();
     createMutation.mutate();
   }
+
+  useEffect(() => {
+    if (!successMessage && !errorMessage) return;
+    const timer = setTimeout(() => {
+      setSuccessMessage(null);
+      setErrorMessage(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [successMessage, errorMessage]);
 
   return (
     <section className="space-y-4">
@@ -61,8 +78,10 @@ export function AdminStatusesPage() {
           />
           Terminal stage
         </label>
+        {successMessage && <p className="text-xs text-emerald-600">{successMessage}</p>}
+        {errorMessage && <p className="text-xs text-red-500">{errorMessage}</p>}
         <button className="btn-outline" type="submit" disabled={createMutation.isPending}>
-          <span className="w-full">Add</span>
+          <span className="w-full">{createMutation.isPending ? 'Adding…' : 'Add'}</span>
         </button>
       </form>
 

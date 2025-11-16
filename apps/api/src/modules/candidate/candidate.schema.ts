@@ -9,6 +9,7 @@ export const createCandidateSchema = z.object({
   target_agency_id: z.string().min(1),
   current_status_id: z.string().min(1),
   recruiter_id: z.string().min(1),
+  job_requisition_id: z.string().uuid().optional(),
   flags: z.array(z.string()).default([]),
   notes: z.string().optional(),
 });
@@ -22,6 +23,9 @@ export const moveCandidateSchema = z.object({
 export const candidateQuerySchema = z.object({
   flag: z.string().optional(),
   agency_id: z.string().optional(),
+  job_id: z.string().uuid().optional(),
+  status_id: z.string().uuid().optional(),
+  search: z.string().optional(),
 });
 
 export type CreateCandidateInput = z.infer<typeof createCandidateSchema>;
