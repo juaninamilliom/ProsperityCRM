@@ -48,6 +48,11 @@ export async function updateUserRoleAndOrg({
   return result.rows[0];
 }
 
+export async function listUsersByOrg(organizationId: string) {
+  const result = await query<User>(`select * from users where organization_id = $1 order by name asc`, [organizationId]);
+  return result.rows;
+}
+
 export async function createLocalUser(input: {
   email: string;
   password: string;

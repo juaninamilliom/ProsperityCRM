@@ -6,6 +6,8 @@ import { CandidateEditPage } from './pages/CandidateEditPage';
 import { AccountSettingsPage } from './pages/AccountSettingsPage';
 import { AuthPage } from './pages/AuthPage';
 import { UserGuidePage } from './pages/UserGuidePage';
+import { JobsPage } from './pages/JobsPage';
+import { JobDealPage } from './pages/JobDealPage';
 import { useTheme } from './theme';
 import { fetchCurrentUser } from './api/users';
 import { getAuthToken, setAuthToken } from './api/client';
@@ -16,6 +18,8 @@ export default function App() {
       <Route path="/login" element={<AuthPage />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/jobs" element={<JobsPage />} />
+        <Route path="/jobs/:jobId" element={<JobDealPage />} />
         <Route path="/candidates/new" element={<CandidateFormPage />} />
         <Route path="/candidates/:candidateId/edit" element={<CandidateEditPage />} />
         <Route path="/settings" element={<AccountSettingsPage />} />
@@ -65,6 +69,9 @@ function ProtectedLayout() {
             <nav className="flex flex-wrap gap-3 text-sm font-medium">
               <NavLink className={({ isActive }) => navClass(isActive)} to="/">
                 Pipeline
+              </NavLink>
+              <NavLink className={({ isActive }) => navClass(isActive)} to="/jobs">
+                Jobs
               </NavLink>
               <NavLink className={({ isActive }) => navClass(isActive)} to="/candidates/new">
                 New Candidate

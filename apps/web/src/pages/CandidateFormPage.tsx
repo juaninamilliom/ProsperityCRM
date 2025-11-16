@@ -64,6 +64,18 @@ export function CandidateFormPage() {
     return () => clearTimeout(timer);
   }, [errorMessage]);
 
+  const isSubmitDisabled =
+    createMutation.isPending ||
+    !recruiterId ||
+    !jobs.length ||
+    !form.name.trim() ||
+    !form.email.trim() ||
+    !form.target_agency_id ||
+    !form.current_status_id ||
+    !form.job_requisition_id ||
+    Boolean(phoneError) ||
+    (form.phone.trim() ? !isPhoneValid(form.phone) : false);
+
   function addFlag() {
     if (!flagInput.trim()) return;
     setForm((prev) => ({ ...prev, flags: [...prev.flags, flagInput.trim()] }));
@@ -243,11 +255,7 @@ export function CandidateFormPage() {
         {successMessage && <p className="text-sm text-emerald-600">{successMessage}</p>}
         {errorMessage && <p className="text-sm text-red-500">{errorMessage}</p>}
 
-        <button
-          className="btn-outline w-full"
-          type="submit"
-          disabled={createMutation.isPending || !recruiterId || Boolean(phoneError) || !jobs.length}
-        >
+        <button className="btn-outline w-full" type="submit" disabled={isSubmitDisabled}>
           <span className="w-full">
             {!recruiterId ? 'Loading your account…' : 'Create Candidate'}
           </span>

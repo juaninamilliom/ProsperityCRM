@@ -30,6 +30,27 @@ export interface JobRequisitionDTO {
   location?: string | null;
   status: 'open' | 'on_hold' | 'closed';
   description?: string | null;
+  close_date?: string | null;
+  deal_amount?: number | null;
+  weighted_deal_amount?: number | null;
+  owner_name?: string | null;
+  stage?: string | null;
+  total_candidates?: number;
+}
+
+export interface JobDetailDTO extends JobRequisitionDTO {
+  total_candidates: number;
+  placements: number;
+}
+
+export interface JobDealSplitDTO {
+  split_id: string;
+  teammate_name: string;
+  teammate_status?: string | null;
+  role?: string | null;
+  split_percent: number;
+  total_deal?: number | null;
+  weighted_deal?: number | null;
 }
 
 export interface CandidateDTO {

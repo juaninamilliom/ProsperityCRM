@@ -2,10 +2,18 @@ import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/auth.js';
 import { ssoSignupSchema, updateRoleSchema } from './user.schema.js';
-import { getUserById, getUserBySsoId, updateUserRoleAndOrg, upsertUser } from './user.service.js';
+import { getUserById, getUserBySsoId, listUsersByOrg, updateUserRoleAndOrg, upsertUser } from './user.service.js';
 import { redeemInviteCode } from '../invite/invite.service.js';
 
 export const userRouter = Router();
+
+userRouter.get('/', async (req: AuthenticatedRequest, res) => {
+  if (!req.dbUser) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  const users = await listUsersByOrg(req.dbUser.organization_id);
+  res.json(users);
+});
 
 userRouter.get('/me', async (req: AuthenticatedRequest, res) => {
   if (req.dbUser) {

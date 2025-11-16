@@ -15,6 +15,11 @@ export async function fetchCurrentUser() {
   return response.data;
 }
 
+export async function fetchOrgUsers() {
+  const response = await apiClient.get<UserDTO[]>('/users');
+  return response.data;
+}
+
 export async function updateUserRole(userId: string, role: 'OrgAdmin' | 'OrgEmployee') {
   const response = await apiClient.patch<UserDTO>(`/users/${userId}/role`, { role });
   return response.data;

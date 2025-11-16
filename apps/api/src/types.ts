@@ -36,6 +36,11 @@ export interface JobRequisition {
   created_at: string;
 }
 
+export interface JobRequisitionWithStats extends JobRequisition {
+  total_candidates: number;
+  placements: number;
+}
+
 export interface StatusConfig {
   status_id: UUID;
   name: string;

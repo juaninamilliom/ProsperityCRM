@@ -1,6 +1,8 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createJob, deleteJob, fetchJobs } from '../api/jobs';
+import { fetchOrgUsers } from '../api/users';
+import DatePicker from 'react-datepicker';
 import type { JobRequisitionDTO } from 'src/common';
 
 type JobFormState = {
@@ -9,6 +11,11 @@ type JobFormState = {
   location: string;
   status: JobRequisitionDTO['status'];
   description: string;
+  close_date: string;
+  deal_amount: string;
+  weighted_deal_amount: string;
+  owner_name: string;
+  stage: string;
 };
 
 const defaultForm: JobFormState = {
@@ -17,18 +24,29 @@ const defaultForm: JobFormState = {
   location: '',
   status: 'open',
   description: '',
+  close_date: '',
+  deal_amount: '',
+  weighted_deal_amount: '',
+  owner_name: '',
+  stage: '',
 };
 
 export function AdminJobsPage() {
   const queryClient = useQueryClient();
   const { data: jobs = [] } = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
+  const { data: orgUsers = [] } = useQuery({ queryKey: ['org-users'], queryFn: fetchOrgUsers });
   const [form, setForm] = useState<JobFormState>(defaultForm);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: () => createJob({ ...form }),
+    mutationFn: () =>
+      createJob({
+        ...form,
+        deal_amount: form.deal_amount ? Number(form.deal_amount) : undefined,
+        weighted_deal_amount: form.weighted_deal_amount ? Number(form.weighted_deal_amount) : undefined,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       setForm(defaultForm);
@@ -117,6 +135,70 @@ export function AdminJobsPage() {
             <option value="on_hold">On Hold</option>
             <option value="closed">Closed</option>
           </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+          Close Date
+          <DatePicker
+            selected={form.close_date ? new Date(form.close_date) : null}
+            onChange={(date: Date | null) => {
+              setForm((prev) => ({ ...prev, close_date: date ? date.toISOString().split('T')[0] : '' }));
+            }}
+            className="pill-input"
+            placeholderText="Select date"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+          Deal Amount
+          <input
+            className="pill-input"
+            type="number"
+            value={form.deal_amount}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const value = event.currentTarget.value;
+              setForm((prev) => ({ ...prev, deal_amount: value }));
+            }}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+          Weighted Deal Amount
+          <input
+            className="pill-input"
+            type="number"
+            value={form.weighted_deal_amount}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const value = event.currentTarget.value;
+              setForm((prev) => ({ ...prev, weighted_deal_amount: value }));
+            }}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+          Owner
+          <select
+            className="pill-select"
+            value={form.owner_name}
+            onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+              const value = event.currentTarget.value;
+              setForm((prev) => ({ ...prev, owner_name: value }));
+            }}
+          >
+            <option value="">Unassigned</option>
+            {orgUsers.map((user) => (
+              <option key={user.user_id} value={user.name}>
+                {user.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+          Stage
+          <input
+            className="pill-input"
+            value={form.stage}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              const value = event.currentTarget.value;
+              setForm((prev) => ({ ...prev, stage: value }));
+            }}
+          />
         </label>
         <label className="md:col-span-2">
           <textarea
