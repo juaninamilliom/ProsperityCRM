@@ -6,11 +6,39 @@
   :root {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     @apply bg-white text-slate-900;
+    --select-control-border: theme('colors.slate.200');
+    --select-control-border-focus: theme('colors.blue.600');
+    --select-control-border-hover: theme('colors.blue.600');
+    --select-menu-bg: theme('colors.white');
+    --select-menu-color: theme('colors.slate.900');
+    --select-option-hover-bg: theme('colors.sky.100');
+    --select-option-selected-color: theme('colors.blue.800');
+    --select-option-color: theme('colors.slate.900');
+    --select-option-active-bg: theme('colors.blue.200');
+    --select-multi-bg: rgb(37 99 235 / 0.15);
+    --select-multi-text: theme('colors.blue.900');
+    --select-multi-remove-hover-bg: theme('colors.blue.600');
+    --select-value-color: theme('colors.slate.900');
+    --select-placeholder-color: theme('colors.slate.400');
   }
 
   :root.dark {
     background-color: #0f172a;
     color: #e2e8f0;
+    --select-control-border: theme('colors.slate.600');
+    --select-control-border-focus: theme('colors.indigo.500');
+    --select-control-border-hover: theme('colors.indigo.500');
+    --select-menu-bg: theme('colors.slate.800');
+    --select-menu-color: theme('colors.slate.200');
+    --select-option-hover-bg: theme('colors.slate.600');
+    --select-option-selected-color: theme('colors.slate.200');
+    --select-option-color: theme('colors.slate.200');
+    --select-option-active-bg: theme('colors.slate.700');
+    --select-multi-bg: theme('colors.slate.700');
+    --select-multi-text: theme('colors.white');
+    --select-multi-remove-hover-bg: theme('colors.slate.600');
+    --select-value-color: theme('colors.slate.50');
+    --select-placeholder-color: theme('colors.slate.400');
   }
 
   body {
@@ -98,5 +126,3 @@
     @apply bg-slate-200 text-brand-fuchsia dark:bg-blue-900 dark:text-white;
   }
 }
-
-

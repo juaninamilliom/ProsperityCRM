@@ -37,7 +37,8 @@ export function DashboardPage() {
   const candidatesQuery = useQuery({
     queryKey: ['candidates', filters],
     queryFn: () => fetchCandidates(filters),
-    enabled: Boolean(statusesQuery.data?.length),
+    enabled: statusesQuery.isSuccess,
+    placeholderData: (previousData) => previousData,
   });
 
   const moveMutation = useMutation({
@@ -49,13 +50,20 @@ export function DashboardPage() {
     },
   });
 
-  if (statusesQuery.isLoading || candidatesQuery.isLoading) {
+  if (statusesQuery.isLoading) {
     return <p className="text-sm text-slate-500 dark:text-slate-400">Loading pipeline…</p>;
   }
 
   if (statusesQuery.error || candidatesQuery.error) {
     return <p className="text-sm text-red-500">Failed to load data. Check API connection.</p>;
   }
+
+  const isInitialCandidatesLoad = candidatesQuery.isLoading && !candidatesQuery.data;
+  if (isInitialCandidatesLoad) {
+    return <p className="text-sm text-slate-500 dark:text-slate-400">Loading pipeline…</p>;
+  }
+
+  const isRefreshing = candidatesQuery.isFetching && !isInitialCandidatesLoad;
 
   return (
     <section className="space-y-4">
@@ -69,6 +77,9 @@ export function DashboardPage() {
         theme={theme}
       />
       <div className="flex items-center justify-end gap-2">
+        {isRefreshing && (
+          <span className="text-xs text-slate-500 dark:text-slate-400">Updating…</span>
+        )}
         <button
           onClick={() => setViewMode('board')}
           className={`px-3 py-1 text-sm rounded-md ${
