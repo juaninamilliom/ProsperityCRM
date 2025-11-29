@@ -6,9 +6,10 @@ import { fetchAgencies } from '../api/agencies';
 import { fetchJobs } from '../api/jobs';
 import { fetchCandidate, updateCandidate } from '../api/candidates';
 import { fetchSkills, createSkill } from '../api/skills';
-import Select, { type MultiValue, type StylesConfig } from 'react-select';
+import Select, { type MultiValue } from 'react-select';
 import { formatPhone, isPhoneValid } from '../utils/phone';
 import { useTheme } from '../theme';
+import { getSelectStyles } from '../components/selectStyles';
 
 type SelectOption = { value: string; label: string };
 
@@ -69,69 +70,7 @@ export function CandidateEditPage() {
     [skillOptions, form.skills],
   );
 
-  const selectStyles: StylesConfig<SelectOption, false> = {
-    control: (provided, state) => ({
-      ...provided,
-      borderRadius: 9999,
-      minHeight: '2.75rem',
-      borderColor: state.isFocused ? '#7c3aed' : provided.borderColor,
-      boxShadow: 'none',
-      ':hover': {
-        borderColor: '#7c3aed',
-      },
-    }),
-    valueContainer: (provided) => ({
-      ...provided,
-      paddingTop: '4px',
-      paddingBottom: '4px',
-    }),
-    menu: (provided) => ({
-      ...provided,
-      borderRadius: 16,
-      backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-      color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.isFocused
-        ? theme === 'dark'
-          ? '#475569'
-          : '#e0f2fe'
-        : provided.backgroundColor,
-      color: state.isSelected
-        ? theme === 'dark'
-          ? '#e2e8f0'
-          : '#1d4ed8'
-        : theme === 'dark'
-        ? '#e2e8f0'
-        : '#0f172a',
-      ':active': {
-        backgroundColor: theme === 'dark' ? '#334155' : '#bfdbfe',
-      },
-    }),
-  };
-
-  const skillSelectStyles: StylesConfig<SelectOption, true> = {
-    ...selectStyles,
-    multiValue: (provided) => ({
-      ...provided,
-      borderRadius: 9999,
-      backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    }),
-    multiValueLabel: (provided) => ({
-      ...provided,
-      color: '#047857',
-      fontWeight: 600,
-    }),
-    multiValueRemove: (provided) => ({
-      ...provided,
-      borderRadius: 9999,
-      ':hover': {
-        backgroundColor: '#10b981',
-        color: '#fff',
-      },
-    }),
-  };
+  const selectStyles = getSelectStyles(theme);
 
   useEffect(() => {
     if (!candidateQuery.data) return;
@@ -381,7 +320,7 @@ export function CandidateEditPage() {
                 onChange={handleSkillSelectChange}
                 placeholder="Search skills…"
                 isDisabled={skillsLoadFailed}
-                styles={skillSelectStyles}
+                styles={selectStyles}
               />
             ) : (
               <p className="text-xs text-slate-500 dark:text-slate-400">

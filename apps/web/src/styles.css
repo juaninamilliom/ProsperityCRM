@@ -20,7 +20,7 @@
   input,
   select,
   textarea {
-    @apply rounded-full border border-slate-200 bg-white px-6 py-3 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
+    @apply rounded-full border border-slate-200 bg-white px-6 py-2 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
   }
 
   button {
@@ -35,7 +35,7 @@
   }
 
   .pill-input {
-    @apply rounded-full border border-slate-200 bg-white px-6 py-3 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
+    @apply rounded-full border border-slate-200 bg-white px-6 py-2 text-sm shadow-inner dark:border-slate-700 dark:bg-slate-900/70;
   }
 
   .pill-select {

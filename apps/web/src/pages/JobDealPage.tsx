@@ -1,14 +1,15 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import Select, { type StylesConfig } from 'react-select';
+import Select from 'react-select';
 import { fetchJobDetail, saveJobSplits, updateJob, type JobSplitInput } from '../api/jobs';
 import type { JobRequisitionDTO } from 'src/common';
 import type { CurrentUserResponse } from '../api/users';
 import { fetchOrgUsers } from '../api/users';
 import DatePicker from 'react-datepicker';
 import { Icon } from '../components/Icon';
-import { useTheme, type Theme } from '../theme';
+import { useTheme } from '../theme';
+import { getSelectStyles } from '../components/selectStyles';
 
 function formatCurrency(value?: number | null) {
   if (value === null || value === undefined) return '—';
@@ -18,6 +19,7 @@ function formatCurrency(value?: number | null) {
     maximumFractionDigits: 0,
   }).format(value);
 }
+
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not set';
@@ -169,51 +171,7 @@ export function JobDealPage() {
     },
   });
 
-  const selectStyles: StylesConfig<SelectOption, false> = {
-    control: (provided, state) => ({
-      ...provided,
-      borderRadius: 9999,
-      minHeight: '2rem',
-      fontSize: '0.875rem',
-      borderColor: state.isFocused
-        ? theme === 'dark'
-          ? '#6366f1' // indigo-500
-          : '#2563eb' // blue-600
-        : theme === 'dark'
-        ? '#475569' // slate-600
-        : 'rgb(226 232 240 / var(--tw-border-opacity))', // slate-200
-      boxShadow: 'none',
-      ':hover': {
-        borderColor: theme === 'dark' ? '#6366f1' : '#2563eb',
-      },
-      backgroundColor: 'transparent',
-    }),
-    menu: (provided) => ({
-      ...provided,
-      borderRadius: 16,
-      backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff', // slate-800 / white
-      color: theme === 'dark' ? '#e2e8f0' : '#0f172a', // slate-200 / slate-900
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.isFocused
-        ? theme === 'dark'
-          ? '#475569' // slate-600
-          : '#e0f2fe' // blue-50
-        : provided.backgroundColor,
-      color: state.isSelected
-        ? theme === 'dark'
-          ? '#e2e8f0' // slate-200
-          : '#1d4ed8' // blue-800
-        : theme === 'dark'
-        ? '#e2e8f0' // slate-200
-        : '#0f172a', // slate-900
-      ':active': {
-        backgroundColor: theme === 'dark' ? '#334155' : '#bfdbfe', // slate-700 / blue-200
-      },
-    }),
-  };
+  const selectStyles = getSelectStyles(theme);
 
   if (detailQuery.isLoading || !job) {
     return (

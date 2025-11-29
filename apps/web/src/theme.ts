@@ -3,12 +3,21 @@ import { useEffect, useState } from 'react';
 export type Theme = 'light' | 'dark';
 
 export function useTheme(): [Theme, () => void] {
-  const prefersDark =
-    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const [theme, setTheme] = useState<Theme>(() => (prefersDark ? 'dark' : 'light'));
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') {
+      return 'light';
+    }
+    const savedTheme = window.localStorage.getItem('theme') as Theme | null;
+    if (savedTheme) {
+      return savedTheme;
+    }
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefersDark ? 'dark' : 'light';
+  });
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
+    window.localStorage.setItem('theme', theme);
   }, [theme]);
 
   function toggleTheme() {

@@ -1,11 +1,12 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Select, { type StylesConfig } from 'react-select';
+import Select from 'react-select';
 import { createJob, deleteJob, fetchJobs } from '../api/jobs';
 import { fetchOrgUsers } from '../api/users';
 import DatePicker from 'react-datepicker';
 import type { JobRequisitionDTO } from 'src/common';
 import { useTheme } from '../theme';
+import { getSelectStyles } from '../components/selectStyles';
 
 type SelectOption = { value: string; label: string };
 
@@ -103,47 +104,7 @@ export function AdminJobsPage() {
     return () => clearTimeout(timer);
   }, [successMessage, errorMessage, deleteMessage]);
 
-  const selectStyles: StylesConfig<SelectOption, false> = {
-    control: (provided, state) => ({
-      ...provided,
-      borderRadius: 9999,
-      minHeight: '2.75rem',
-      borderColor: state.isFocused ? '#7c3aed' : provided.borderColor,
-      boxShadow: 'none',
-      ':hover': {
-        borderColor: '#7c3aed',
-      },
-    }),
-    valueContainer: (provided) => ({
-      ...provided,
-      paddingTop: '4px',
-      paddingBottom: '4px',
-    }),
-    menu: (provided) => ({
-      ...provided,
-      borderRadius: 16,
-      backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-      color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.isFocused
-        ? theme === 'dark'
-          ? '#475569'
-          : '#e0f2fe'
-        : provided.backgroundColor,
-      color: state.isSelected
-        ? theme === 'dark'
-          ? '#e2e8f0'
-          : '#1d4ed8'
-        : theme === 'dark'
-        ? '#e2e8f0'
-        : '#0f172a',
-      ':active': {
-        backgroundColor: theme === 'dark' ? '#334155' : '#bfdbfe',
-      },
-    }),
-  };
+  const selectStyles = getSelectStyles(theme);
 
   return (
     <section className="space-y-4">
@@ -260,7 +221,7 @@ export function AdminJobsPage() {
         </label>
         <label className="md:col-span-2">
           <textarea
-            className="pill-input rounded-lg"
+            className="pill-input w-full rounded-lg"
             placeholder="Notes about requirements, hiring manager, etc."
             rows={3}
             value={form.description}

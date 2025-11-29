@@ -1,10 +1,11 @@
 import axios from 'axios';
 import { ChangeEvent, FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Select, { type StylesConfig } from 'react-select';
+import Select from 'react-select';
 import { login, signup } from '../api/auth';
 import { setAuthToken } from '../api/client';
 import { useTheme } from '../theme';
+import { getSelectStyles } from '../components/selectStyles';
 
 type SelectOption = { value: string; label: string };
 
@@ -53,47 +54,7 @@ export function AuthPage() {
     }
   }
 
-  const selectStyles: StylesConfig<SelectOption, false> = {
-    control: (provided, state) => ({
-      ...provided,
-      borderRadius: 9999,
-      minHeight: '2.75rem',
-      borderColor: state.isFocused ? '#7c3aed' : provided.borderColor,
-      boxShadow: 'none',
-      ':hover': {
-        borderColor: '#7c3aed',
-      },
-    }),
-    valueContainer: (provided) => ({
-      ...provided,
-      paddingTop: '4px',
-      paddingBottom: '4px',
-    }),
-    menu: (provided) => ({
-      ...provided,
-      borderRadius: 16,
-      backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-      color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.isFocused
-        ? theme === 'dark'
-          ? '#475569'
-          : '#e0f2fe'
-        : provided.backgroundColor,
-      color: state.isSelected
-        ? theme === 'dark'
-          ? '#e2e8f0'
-          : '#1d4ed8'
-        : theme === 'dark'
-        ? '#e2e8f0'
-        : '#0f172a',
-      ':active': {
-        backgroundColor: theme === 'dark' ? '#334155' : '#bfdbfe',
-      },
-    }),
-  };
+  const selectStyles = getSelectStyles(theme);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-blue-100 px-4 py-10">

@@ -1,12 +1,13 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Select, { type StylesConfig } from 'react-select';
+import Select from 'react-select';
 import { fetchCurrentUser } from '../api/users';
 import { createInviteCode, fetchInviteCodes, revokeInvite } from '../api/invites';
 import { AdminStatusesPage } from './AdminStatusesPage';
 import { AdminAgenciesPage } from './AdminAgenciesPage';
 import { AdminJobsPage } from './AdminJobsPage';
 import { useTheme } from 'src/theme';
+import { getSelectStyles } from 'src/components/selectStyles';
 
 const tabs = ['General', 'Invites', 'Statuses', 'Agencies', 'Jobs'] as const;
 type SelectOption = { value: string; label: string };
@@ -75,52 +76,8 @@ export function AccountSettingsPage() {
 
   const showInviteTab = activeTab === 'Invites';
 
-  const selectStyles: StylesConfig<SelectOption, false> = {
-    control: (provided, state) => ({
-      ...provided,
-      borderRadius: 9999,
-      minHeight: '2rem',
-      fontSize: '0.875rem',
-      borderColor: state.isFocused
-        ? theme === 'dark'
-          ? '#6366f1' // indigo-500
-          : '#2563eb' // blue-600
-        : theme === 'dark'
-        ? '#475569' // slate-600
-        : 'rgb(226 232 240 / var(--tw-border-opacity))', // slate-200
-      boxShadow: 'none',
-      ':hover': {
-        borderColor: theme === 'dark' ? '#6366f1' : '#2563eb',
-      },
-      backgroundColor: 'transparent',
-    }),
-    menu: (provided) => ({
-      ...provided,
-      borderRadius: 16,
-      backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff', // slate-800 / white
-      color: theme === 'dark' ? '#e2e8f0' : '#0f172a', // slate-200 / slate-900
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.isFocused
-        ? theme === 'dark'
-          ? '#475569' // slate-600
-          : '#e0f2fe' // blue-50
-        : provided.backgroundColor,
-      color: state.isSelected
-        ? theme === 'dark'
-          ? '#e2e8f0' // slate-200
-          : '#1d4ed8' // blue-800
-        : theme === 'dark'
-        ? '#e2e8f0' // slate-200
-        : '#0f172a', // slate-900
-      ':active': {
-        backgroundColor: theme === 'dark' ? '#334155' : '#bfdbfe', // slate-700 / blue-200
-      },
-    }),
-  };
-
+  const selectStyles = getSelectStyles(theme);
+  
   return (
     <section className="space-y-6">
       <div className="flex gap-3 overflow-x-auto rounded-full border border-slate-200 px-3 py-2 dark:border-slate-800">
