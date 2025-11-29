@@ -8,48 +8,9 @@ import { createCandidate } from '../api/candidates';
 import { fetchCurrentUser } from '../api/users';
 import { fetchSkills, createSkill } from '../api/skills';
 import { formatPhone, isPhoneValid } from '../utils/phone';
+import { useTheme } from '../theme';
 
-type SkillOption = { value: string; label: string };
-
-const skillSelectStyles: StylesConfig<SkillOption, true> = {
-  control: (provided, state) => ({
-    ...provided,
-    borderRadius: 9999,
-    minHeight: '2.75rem',
-    borderColor: state.isFocused ? '#7c3aed' : provided.borderColor,
-    boxShadow: 'none',
-    ':hover': {
-      borderColor: '#7c3aed',
-    },
-  }),
-  valueContainer: (provided) => ({
-    ...provided,
-    paddingTop: '4px',
-    paddingBottom: '4px',
-  }),
-  menu: (provided) => ({
-    ...provided,
-    borderRadius: 16,
-  }),
-  multiValue: (provided) => ({
-    ...provided,
-    borderRadius: 9999,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  }),
-  multiValueLabel: (provided) => ({
-    ...provided,
-    color: '#047857',
-    fontWeight: 600,
-  }),
-  multiValueRemove: (provided) => ({
-    ...provided,
-    borderRadius: 9999,
-    ':hover': {
-      backgroundColor: '#10b981',
-      color: '#fff',
-    },
-  }),
-};
+type SelectOption = { value: string; label: string };
 
 const initialState = {
   name: '',
@@ -65,6 +26,7 @@ const initialState = {
 
 export function CandidateFormPage() {
   const queryClient = useQueryClient();
+  const [theme] = useTheme();
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: fetchStatuses });
   const { data: agencies = [] } = useQuery({ queryKey: ['agencies'], queryFn: fetchAgencies });
   const { data: jobs = [] } = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
@@ -82,18 +44,91 @@ export function CandidateFormPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [skillError, setSkillError] = useState<string | null>(null);
   const skillsLoadFailed = Boolean(skillsErrorState);
-  const skillOptions: SkillOption[] = useMemo(
+  const agencyOptions = useMemo(
+    () => agencies.map((a) => ({ value: a.agency_id, label: a.name })),
+    [agencies],
+  );
+  const jobOptions = useMemo(() => jobs.map((j) => ({ value: j.job_id, label: j.title })), [jobs]);
+  const statusOptions = useMemo(
+    () => statuses.map((s) => ({ value: s.status_id, label: s.name })),
+    [statuses],
+  );
+  const skillOptions: SelectOption[] = useMemo(
     () => orgSkills.map((skill) => ({ value: skill.name, label: skill.name })),
-    [orgSkills]
+    [orgSkills],
   );
   const selectedLibrarySkills = useMemo(
     () =>
       skillOptions.filter((option) =>
-        form.skills.some((skill) => skill.toLowerCase() === option.value.toLowerCase())
+        form.skills.some((skill) => skill.toLowerCase() === option.value.toLowerCase()),
       ),
-    [skillOptions, form.skills]
+    [skillOptions, form.skills],
   );
   const recruiterId = currentUser?.dbUser?.user_id ?? '';
+
+  const selectStyles: StylesConfig<SelectOption, false> = {
+    control: (provided, state) => ({
+      ...provided,
+      borderRadius: 9999,
+      minHeight: '2.75rem',
+      borderColor: state.isFocused ? '#7c3aed' : provided.borderColor,
+      boxShadow: 'none',
+      ':hover': {
+        borderColor: '#7c3aed',
+      },
+    }),
+    valueContainer: (provided) => ({
+      ...provided,
+      paddingTop: '4px',
+      paddingBottom: '4px',
+    }),
+    menu: (provided) => ({
+      ...provided,
+      borderRadius: 16,
+      backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+      color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.isFocused
+        ? theme === 'dark'
+          ? '#475569'
+          : '#e0f2fe'
+        : provided.backgroundColor,
+      color: state.isSelected
+        ? theme === 'dark'
+          ? '#e2e8f0'
+          : '#1d4ed8'
+        : theme === 'dark'
+        ? '#e2e8f0'
+        : '#0f172a',
+      ':active': {
+        backgroundColor: theme === 'dark' ? '#334155' : '#bfdbfe',
+      },
+    }),
+  };
+
+  const skillSelectStyles: StylesConfig<SelectOption, true> = {
+    ...selectStyles,
+    multiValue: (provided) => ({
+      ...provided,
+      borderRadius: 9999,
+      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    }),
+    multiValueLabel: (provided) => ({
+      ...provided,
+      color: '#047857',
+      fontWeight: 600,
+    }),
+    multiValueRemove: (provided) => ({
+      ...provided,
+      borderRadius: 9999,
+      ':hover': {
+        backgroundColor: '#10b981',
+        color: '#fff',
+      },
+    }),
+  };
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -173,7 +208,7 @@ export function CandidateFormPage() {
     setForm((prev) => ({ ...prev, skills: prev.skills.filter((item) => item !== skill) }));
   }
 
-  function handleSkillSelectChange(options: MultiValue<SkillOption>) {
+  function handleSkillSelectChange(options: MultiValue<SelectOption>) {
     const selected = options.map((option) => option.value);
     setForm((prev) => ({ ...prev, skills: selected }));
   }
@@ -243,74 +278,54 @@ export function CandidateFormPage() {
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
                 const value = formatPhone(event.currentTarget.value);
                 setForm((prev) => ({ ...prev, phone: value }));
-                setPhoneError(!value.trim() || isPhoneValid(value) ? null : 'Format as (555) 123-4567.');
+                setPhoneError(
+                  !value.trim() || isPhoneValid(value) ? null : 'Format as (555) 123-4567.',
+                );
               }}
             />
             {phoneError && <span className="text-xs text-red-500">{phoneError}</span>}
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Target Agency
-            <select
-              className="pill-select w-auto min-w-[12rem]"
-              value={form.target_agency_id}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-                const { value } = event.currentTarget;
-                setForm((prev) => ({ ...prev, target_agency_id: value }));
-              }}
+            <Select
+              options={agencyOptions}
+              value={agencyOptions.find((o) => o.value === form.target_agency_id)}
+              onChange={(option) =>
+                setForm((prev) => ({ ...prev, target_agency_id: option?.value ?? '' }))
+              }
+              styles={selectStyles}
+              classNamePrefix="skill-select"
               required
-            >
-              <option value="" disabled>
-                Select agency
-              </option>
-              {agencies.map((agency) => (
-                <option key={agency.agency_id} value={agency.agency_id}>
-                  {agency.name}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Job Requisition
-            <select
-              className="pill-select w-auto min-w-[12rem]"
-              value={form.job_requisition_id}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-                const { value } = event.currentTarget;
-                setForm((prev) => ({ ...prev, job_requisition_id: value }));
-              }}
+            <Select
+              options={jobOptions}
+              value={jobOptions.find((o) => o.value === form.job_requisition_id)}
+              onChange={(option) =>
+                setForm((prev) => ({ ...prev, job_requisition_id: option?.value ?? '' }))
+              }
+              styles={selectStyles}
+              classNamePrefix="skill-select"
               required
-            >
-              <option value="" disabled>
-                Select job
-              </option>
-              {jobs.map((job) => (
-                <option key={job.job_id} value={job.job_id}>
-                  {job.title}
-                </option>
-              ))}
-            </select>
-            {!jobs.length && <span className="text-xs text-amber-600">Create a job in Settings → Jobs first.</span>}
+            />
+            {!jobs.length && (
+              <span className="text-xs text-amber-600">Create a job in Settings → Jobs first.</span>
+            )}
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             Status
-            <select
-              className="pill-select w-auto min-w-[12rem]"
-              value={form.current_status_id}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-                const { value } = event.currentTarget;
-                setForm((prev) => ({ ...prev, current_status_id: value }));
-              }}
+            <Select
+              options={statusOptions}
+              value={statusOptions.find((o) => o.value === form.current_status_id)}
+              onChange={(option) =>
+                setForm((prev) => ({ ...prev, current_status_id: option?.value ?? '' }))
+              }
+              styles={selectStyles}
+              classNamePrefix="skill-select"
               required
-            >
-              <option value="" disabled>
-                Select status
-              </option>
-              {statuses.map((status) => (
-                <option key={status.status_id} value={status.status_id}>
-                  {status.name}
-                </option>
-              ))}
-            </select>
+            />
           </label>
         </div>
 
@@ -331,7 +346,10 @@ export function CandidateFormPage() {
           {form.skills.length ? (
             <ul className="flex flex-wrap gap-2 text-xs">
               {form.skills.map((skill) => (
-                <li key={skill} className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:text-emerald-300">
+                <li
+                  key={skill}
+                  className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:text-emerald-300"
+                >
                   {skill}
                   <button type="button" onClick={() => removeSkill(skill)}>
                     ×
@@ -343,9 +361,13 @@ export function CandidateFormPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400">No skills selected yet.</p>
           )}
           <div className="space-y-2 rounded-2xl bg-white/70 p-3 shadow-inner dark:bg-slate-900/40">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Select from library</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Select from library
+            </p>
             {isSkillsLoading ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">Loading available skills…</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Loading available skills…
+              </p>
             ) : skillsLoadFailed ? (
               <p className="text-xs text-red-500">Failed to load skills. Refresh to retry.</p>
             ) : skillOptions.length ? (
@@ -360,11 +382,15 @@ export function CandidateFormPage() {
                 styles={skillSelectStyles}
               />
             ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">No saved skills. Add a new one below to get started.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                No saved skills. Add a new one below to get started.
+              </p>
             )}
           </div>
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Add new skill</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Add new skill
+            </p>
             <div className="flex gap-2">
               <input
                 className="pill-input flex-1"
@@ -376,7 +402,12 @@ export function CandidateFormPage() {
                 onKeyDown={handleSkillInputKeyDown}
                 placeholder="React, sourcing, bilingual…"
               />
-              <button className="btn-outline whitespace-nowrap" type="button" onClick={addSkillToLibrary} disabled={addSkillMutation.isPending}>
+              <button
+                className="btn-outline whitespace-nowrap"
+                type="button"
+                onClick={addSkillToLibrary}
+                disabled={addSkillMutation.isPending}
+              >
                 <span>{addSkillMutation.isPending ? 'Adding…' : 'Add to Library'}</span>
               </button>
             </div>

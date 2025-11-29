@@ -1,15 +1,22 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import Select, { type StylesConfig } from 'react-select';
 import { fetchJobDetail, saveJobSplits, updateJob, type JobSplitInput } from '../api/jobs';
-import type { JobDealSplitDTO, JobRequisitionDTO } from 'src/common';
+import type { JobRequisitionDTO } from 'src/common';
 import type { CurrentUserResponse } from '../api/users';
 import { fetchOrgUsers } from '../api/users';
 import DatePicker from 'react-datepicker';
+import { Icon } from '../components/Icon';
+import { useTheme, type Theme } from '../theme';
 
 function formatCurrency(value?: number | null) {
   if (value === null || value === undefined) return '—';
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function formatDate(value?: string | null) {
@@ -24,10 +31,24 @@ function formatRoleLabel(role?: string | null) {
   return role;
 }
 
+type SelectOption = { value: string; label: string };
+
+const statusOptions: SelectOption[] = [
+  { value: 'open', label: 'Open' },
+  { value: 'on_hold', label: 'On Hold' },
+  { value: 'closed', label: 'Closed' },
+];
+
+const roleOptions: SelectOption[] = [
+  { value: 'lead', label: 'Lead' },
+  { value: 'secondary', label: 'Secondary' },
+];
+
 export function JobDealPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [theme] = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [isJobEditing, setIsJobEditing] = useState(false);
   const [draftSplits, setDraftSplits] = useState<JobSplitInput[]>([]);
@@ -56,13 +77,22 @@ export function JobDealPage() {
     description: data.description ?? '',
     close_date: data.close_date ?? '',
     deal_amount: data.deal_amount != null ? String(data.deal_amount) : '',
-    weighted_deal_amount: data.weighted_deal_amount != null ? String(data.weighted_deal_amount) : '',
+    weighted_deal_amount:
+      data.weighted_deal_amount != null ? String(data.weighted_deal_amount) : '',
     owner_name: data.owner_name ?? '',
     stage: data.stage ?? '',
   });
 
-  const detailQuery = useQuery({ queryKey: ['job-detail', jobId], queryFn: () => fetchJobDetail(jobId!), enabled: Boolean(jobId) });
+  const detailQuery = useQuery({
+    queryKey: ['job-detail', jobId],
+    queryFn: () => fetchJobDetail(jobId!),
+    enabled: Boolean(jobId),
+  });
   const usersQuery = useQuery({ queryKey: ['org-users'], queryFn: fetchOrgUsers });
+  const userOptions = useMemo(
+    () => (usersQuery.data ?? []).map((u) => ({ value: u.name, label: u.name })),
+    [usersQuery.data],
+  );
 
   const saveMutation = useMutation({
     mutationFn: (splits: JobSplitInput[]) => saveJobSplits(jobId!, splits),
@@ -78,7 +108,10 @@ export function JobDealPage() {
   const splits = detail?.splits ?? [];
   const candidates = detail?.candidates ?? [];
 
-  const totalSplit = useMemo(() => draftSplits.reduce((acc, split) => acc + (Number(split.split_percent ?? '0') || 0), 0), [draftSplits]);
+  const totalSplit = useMemo(
+    () => draftSplits.reduce((acc, split) => acc + (Number(split.split_percent ?? '0') || 0), 0),
+    [draftSplits],
+  );
   const dealTotals = useMemo(() => {
     const base = Number(job?.deal_amount ?? 0);
     const weighted = Number(job?.weighted_deal_amount ?? 0);
@@ -122,7 +155,9 @@ export function JobDealPage() {
         description: jobForm?.description || undefined,
         close_date: jobForm?.close_date || undefined,
         deal_amount: jobForm?.deal_amount ? Number(jobForm.deal_amount) : undefined,
-        weighted_deal_amount: jobForm?.weighted_deal_amount ? Number(jobForm.weighted_deal_amount) : undefined,
+        weighted_deal_amount: jobForm?.weighted_deal_amount
+          ? Number(jobForm.weighted_deal_amount)
+          : undefined,
         owner_name: jobForm?.owner_name || undefined,
         stage: jobForm?.stage || undefined,
       }),
@@ -134,8 +169,58 @@ export function JobDealPage() {
     },
   });
 
+  const selectStyles: StylesConfig<SelectOption, false> = {
+    control: (provided, state) => ({
+      ...provided,
+      borderRadius: 9999,
+      minHeight: '2rem',
+      fontSize: '0.875rem',
+      borderColor: state.isFocused
+        ? theme === 'dark'
+          ? '#6366f1' // indigo-500
+          : '#2563eb' // blue-600
+        : theme === 'dark'
+        ? '#475569' // slate-600
+        : 'rgb(226 232 240 / var(--tw-border-opacity))', // slate-200
+      boxShadow: 'none',
+      ':hover': {
+        borderColor: theme === 'dark' ? '#6366f1' : '#2563eb',
+      },
+      backgroundColor: 'transparent',
+    }),
+    menu: (provided) => ({
+      ...provided,
+      borderRadius: 16,
+      backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff', // slate-800 / white
+      color: theme === 'dark' ? '#e2e8f0' : '#0f172a', // slate-200 / slate-900
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.isFocused
+        ? theme === 'dark'
+          ? '#475569' // slate-600
+          : '#e0f2fe' // blue-50
+        : provided.backgroundColor,
+      color: state.isSelected
+        ? theme === 'dark'
+          ? '#e2e8f0' // slate-200
+          : '#1d4ed8' // blue-800
+        : theme === 'dark'
+        ? '#e2e8f0' // slate-200
+        : '#0f172a', // slate-900
+      ':active': {
+        backgroundColor: theme === 'dark' ? '#334155' : '#bfdbfe', // slate-700 / blue-200
+      },
+    }),
+  };
+
   if (detailQuery.isLoading || !job) {
-    return <p className="text-sm text-slate-500">{detailQuery.isLoading ? 'Loading deal sheet…' : 'Job not found.'}</p>;
+    return (
+      <p className="text-sm text-slate-500">
+        {detailQuery.isLoading ? 'Loading deal sheet…' : 'Job not found.'}
+      </p>
+    );
   }
 
   function beginEdit() {
@@ -154,7 +239,7 @@ export function JobDealPage() {
               split_percent: '0',
               role: 'lead',
             },
-          ]
+          ],
     );
     setIsEditing(true);
     setMessage(null);
@@ -185,27 +270,35 @@ export function JobDealPage() {
     <section className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-400">Req • {job.department || 'General'}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-400">
+            Req • {job.department || 'General'}
+          </p>
           <h1 className="text-3xl font-semibold text-slate-800 dark:text-white">{job.title}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Close Date: {formatDate(job.close_date)}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Close Date: {formatDate(job.close_date)}
+          </p>
         </div>
         <div className="flex gap-3">
           {canEdit && (
             <button
-              className="btn-outline"
+              className="inline-block rounded-full p-2 text-indigo-600 hover:bg-indigo-100 dark:text-indigo-400 dark:hover:bg-indigo-900"
               type="button"
               onClick={() => {
                 setIsJobEditing((prev) => !prev);
                 setJobMessage(null);
               }}
             >
-              <span>{isJobEditing ? 'Cancel Edit' : 'Edit Job'}</span>
+              <Icon icon={isJobEditing ? 'close' : 'edit'} />
             </button>
           )}
           <span className="rounded-full bg-slate-100 px-4 py-1 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-white">
             {job.status}
           </span>
-          {job.stage && <span className="rounded-full bg-brand-blue/10 px-4 py-1 text-sm font-semibold text-brand-blue">{job.stage}</span>}
+          {job.stage && (
+            <span className="rounded-full bg-brand-blue/10 px-4 py-1 text-sm font-semibold text-brand-blue">
+              {job.stage}
+            </span>
+          )}
           <button className="btn-outline" type="button" onClick={() => navigate(-1)}>
             <span>Back</span>
           </button>
@@ -215,21 +308,29 @@ export function JobDealPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <article className="rounded-3xl border border-white/30 bg-white/90 p-4 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
           <p className="text-xs uppercase tracking-wide text-slate-400">Deal Amount</p>
-          <p className="text-2xl font-semibold text-slate-800 dark:text-white">{formatCurrency(job.deal_amount)}</p>
+          <p className="text-2xl font-semibold text-slate-800 dark:text-white">
+            {formatCurrency(job.deal_amount)}
+          </p>
         </article>
         <article className="rounded-3xl border border-white/30 bg-white/90 p-4 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
           <p className="text-xs uppercase tracking-wide text-slate-400">Weighted Deal</p>
-          <p className="text-2xl font-semibold text-slate-800 dark:text-white">{formatCurrency(job.weighted_deal_amount)}</p>
+          <p className="text-2xl font-semibold text-slate-800 dark:text-white">
+            {formatCurrency(job.weighted_deal_amount)}
+          </p>
         </article>
         <article className="rounded-3xl border border-white/30 bg-white/90 p-4 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
           <p className="text-xs uppercase tracking-wide text-slate-400">Owner</p>
-          <p className="text-2xl font-semibold text-slate-800 dark:text-white">{job.owner_name || 'Unassigned'}</p>
+          <p className="text-2xl font-semibold text-slate-800 dark:text-white">
+            {job.owner_name || 'Unassigned'}
+          </p>
         </article>
       </section>
 
       {isJobEditing && jobForm && (
         <section className="rounded-3xl border border-dashed border-brand-blue/40 bg-white/90 p-5 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
-          <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-white">Edit Requisition</h2>
+          <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-white">
+            Edit Requisition
+          </h2>
           {jobMessage && <p className="text-xs text-emerald-600 mb-3">{jobMessage}</p>}
           <form
             className="grid gap-4 md:grid-cols-2"
@@ -273,18 +374,18 @@ export function JobDealPage() {
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
               Status
-              <select
-                className="pill-select"
-                value={jobForm.status}
-                onChange={(event) => {
-                  const value = event.currentTarget.value as JobRequisitionDTO['status'];
-                  setJobForm((prev) => ({ ...prev!, status: value }));
-                }}
-              >
-                <option value="open">Open</option>
-                <option value="on_hold">On Hold</option>
-                <option value="closed">Closed</option>
-              </select>
+              <Select
+                options={statusOptions}
+                value={statusOptions.find((o) => o.value === jobForm.status)}
+                onChange={(option) =>
+                  setJobForm((prev) => ({
+                    ...prev!,
+                    status: (option?.value as JobRequisitionDTO['status']) ?? 'open',
+                  }))
+                }
+                styles={selectStyles}
+                classNamePrefix="skill-select"
+              />
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
               Stage
@@ -335,21 +436,16 @@ export function JobDealPage() {
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
               Owner
-              <select
-                className="pill-select"
-                value={jobForm.owner_name ?? ''}
-                onChange={(event) => {
-                  const value = event.currentTarget.value;
-                  setJobForm((prev) => ({ ...prev!, owner_name: value }));
-                }}
-              >
-                <option value="">Unassigned</option>
-                {(usersQuery.data ?? []).map((user) => (
-                  <option key={user.user_id} value={user.name}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
+              <Select
+                options={userOptions}
+                value={userOptions.find((o) => o.value === jobForm.owner_name)}
+                onChange={(option) =>
+                  setJobForm((prev) => ({ ...prev!, owner_name: option?.value ?? '' }))
+                }
+                styles={selectStyles}
+                classNamePrefix="skill-select"
+                isClearable
+              />
             </label>
             <label className="md:col-span-2 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
               Description
@@ -387,24 +483,42 @@ export function JobDealPage() {
         <header className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Deal Split</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Share payouts across the team.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Share payouts across the team.
+            </p>
           </div>
           <div className="flex gap-2">
             {message && <p className="text-xs text-emerald-600">{message}</p>}
             {!isEditing ? (
-              <button className="btn-outline" type="button" onClick={beginEdit} disabled={!canEdit}>
-                <span>{canEdit ? 'Edit Deal Split' : 'View Only'}</span>
+              <button
+                className="inline-block rounded-full p-2 text-indigo-600 hover:bg-indigo-100 disabled:text-slate-400 dark:text-indigo-400 dark:hover:bg-indigo-900"
+                type="button"
+                onClick={beginEdit}
+                disabled={!canEdit}
+                title={canEdit ? 'Edit Deal Split' : 'View Only'}
+              >
+                <Icon icon="edit" />
               </button>
             ) : (
               <Fragment>
                 <button className="btn-outline" type="button" onClick={addSplitRow}>
                   <span>Add Row</span>
                 </button>
-                <button className="btn-fuchsia" type="button" onClick={saveSplits} disabled={saveMutation.isPending}>
-                  {saveMutation.isPending ? 'Saving…' : 'Save' }
+                <button
+                  className="btn-fuchsia"
+                  type="button"
+                  onClick={saveSplits}
+                  disabled={saveMutation.isPending}
+                >
+                  {saveMutation.isPending ? 'Saving…' : 'Save'}
                 </button>
-                <button className="btn-outline" type="button" onClick={() => setIsEditing(false)}>
-                  <span>Cancel</span>
+                <button
+                  className="inline-block rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  title="Cancel"
+                >
+                  <Icon icon="close" />
                 </button>
               </Fragment>
             )}
@@ -427,37 +541,57 @@ export function JobDealPage() {
                 ? draftSplits.map((split, index) => (
                     <tr key={index} className="border-t border-slate-100 dark:border-slate-800">
                       <td className="py-2">
-                        <select className="pill-select" value={split.teammate_name ?? ''} onChange={(event) => updateSplit(index, 'teammate_name', event.currentTarget.value)}>
-                          <option value="">Select teammate</option>
-                          {(usersQuery.data ?? []).map((user) => (
-                            <option key={user.user_id} value={user.name}>
-                              {user.name}
-                            </option>
-                          ))}
-                        </select>
+                        <Select
+                          options={userOptions}
+                          value={userOptions.find((o) => o.value === split.teammate_name)}
+                          onChange={(option) =>
+                            updateSplit(index, 'teammate_name', option?.value ?? '')
+                          }
+                          styles={selectStyles}
+                          classNamePrefix="skill-select"
+                        />
                       </td>
                       <td>
-                        <select className="pill-select" value={split.role ?? 'lead'} onChange={(event) => updateSplit(index, 'role', event.currentTarget.value as 'lead' | 'secondary')}>
-                          <option value="lead">Lead</option>
-                          <option value="secondary">Secondary</option>
-                        </select>
+                        <Select
+                          options={roleOptions}
+                          value={roleOptions.find((o) => o.value === split.role)}
+                          onChange={(option) => updateSplit(index, 'role', option?.value ?? 'lead')}
+                          styles={selectStyles}
+                          classNamePrefix="skill-select"
+                        />
                       </td>
                       <td>
-                        <input className="pill-input" type="number" value={split.split_percent ?? '0'} onChange={(event) => updateSplit(index, 'split_percent', event.currentTarget.value)} />
+                        <input
+                          className="pill-input"
+                          type="number"
+                          value={split.split_percent ?? '0'}
+                          onChange={(event) =>
+                            updateSplit(index, 'split_percent', event.currentTarget.value)
+                          }
+                        />
                       </td>
                       <td>{formatCurrency(dealTotals[index]?.total_deal ?? 0)}</td>
                       <td>{formatCurrency(dealTotals[index]?.weighted_deal ?? 0)}</td>
                       <td>
-                        <button className="text-xs text-red-500" type="button" onClick={() => removeSplitRow(index)}>
+                        <button
+                          className="text-xs text-red-500"
+                          type="button"
+                          onClick={() => removeSplitRow(index)}
+                        >
                           Remove
                         </button>
                       </td>
                     </tr>
                   ))
                 : splits.map((split) => (
-                    <tr key={split.split_id} className="border-t border-slate-100 dark:border-slate-800">
+                    <tr
+                      key={split.split_id}
+                      className="border-t border-slate-100 dark:border-slate-800"
+                    >
                       <td className="py-2">
-                        <span className="font-semibold text-slate-800 dark:text-white">{split.teammate_name || 'Unassigned'}</span>
+                        <span className="font-semibold text-slate-800 dark:text-white">
+                          {split.teammate_name || 'Unassigned'}
+                        </span>
                       </td>
                       <td>{formatRoleLabel(split.role)}</td>
                       <td>{`${split.split_percent ?? 0}%`}</td>
@@ -476,16 +610,23 @@ export function JobDealPage() {
               </tfoot>
             )}
           </table>
-          {!splits.length && !isEditing && <p className="mt-3 text-sm text-slate-500">No deal split defined yet.</p>}
+          {!splits.length && !isEditing && (
+            <p className="mt-3 text-sm text-slate-500">No deal split defined yet.</p>
+          )}
         </div>
       </section>
 
       <section className="rounded-3xl border border-white/30 bg-white/90 p-5 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
-        <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-white">Related Candidates</h2>
+        <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-white">
+          Related Candidates
+        </h2>
         <ul className="space-y-3">
           {candidates.length ? (
             candidates.map((candidate) => (
-              <li key={candidate.candidate_id} className="flex items-center justify-between text-sm">
+              <li
+                key={candidate.candidate_id}
+                className="flex items-center justify-between text-sm"
+              >
                 <div>
                   <p className="font-semibold text-slate-800 dark:text-white">{candidate.name}</p>
                   <p className="text-xs text-slate-500">{candidate.status_name}</p>

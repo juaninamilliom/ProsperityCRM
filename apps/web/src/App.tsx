@@ -11,6 +11,8 @@ import { JobDealPage } from './pages/JobDealPage';
 import { useTheme } from './theme';
 import { fetchCurrentUser } from './api/users';
 import { getAuthToken, setAuthToken } from './api/client';
+import { Dropdown } from './components/Dropdown';
+import { Avatar } from './components/Avatar';
 
 export default function App() {
   return (
@@ -58,15 +60,17 @@ function ProtectedLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-white px-6 py-8 text-slate-900 transition-colors dark:bg-surface-dark dark:text-slate-50" data-theme={theme}>
+    <div
+      className="min-h-screen bg-white px-6 py-8 text-slate-900 transition-colors dark:bg-surface-dark dark:text-slate-50"
+      data-theme={theme}
+    >
       <header className="rounded-[32px] bg-brand-blue p-6 text-white shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] opacity-80">Prosperity CRM</p>
-            <h1 className="text-3xl font-semibold">Recruiting Workspace</h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <nav className="flex flex-wrap gap-3 text-sm font-medium">
+            <nav className="flex flex-wrap items-center gap-3 text-sm font-medium">
               <NavLink className={({ isActive }) => navClass(isActive)} to="/">
                 Pipeline
               </NavLink>
@@ -74,18 +78,31 @@ function ProtectedLayout() {
                 Jobs
               </NavLink>
               <NavLink className={({ isActive }) => navClass(isActive)} to="/candidates/new">
-                New Candidate
-              </NavLink>
-              <NavLink className={({ isActive }) => navClass(isActive)} to="/settings">
-                Settings
-              </NavLink>
-              <NavLink className={({ isActive }) => navClass(isActive)} to="/guide">
-                User Guide
+                Add Candidate
               </NavLink>
             </nav>
-            <button className="btn-fuchsia px-5" onClick={handleLogout}>
-              Logout
-            </button>
+            <Dropdown trigger={<Avatar name={data.dbUser.name} />}>
+              <div className="flex flex-col gap-2 p-2">
+                <NavLink
+                  to="/settings"
+                  className="rounded-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Settings
+                </NavLink>
+                <NavLink
+                  to="/guide"
+                  className="rounded-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  User Guide
+                </NavLink>
+                <button
+                  onClick={handleLogout}
+                  className="rounded-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700 text-left"
+                >
+                  Logout
+                </button>
+              </div>
+            </Dropdown>
           </div>
         </div>
       </header>

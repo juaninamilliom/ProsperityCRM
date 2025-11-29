@@ -1,5 +1,6 @@
 import type { CandidateWithMeta } from 'src/common';
 import { Link } from 'react-router-dom';
+import { Icon } from './Icon';
 
 interface CandidateCardProps {
   candidate: CandidateWithMeta;
@@ -12,8 +13,11 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
         <h4 className="text-sm font-semibold text-slate-800 dark:text-white">{candidate.name}</h4>
         <div className="flex items-center gap-2">
           {candidate.agency_name && <span className="badge">{candidate.agency_name}</span>}
-          <Link className="text-xs font-semibold text-brand-fuchsia hover:underline" to={`/candidates/${candidate.candidate_id}/edit`}>
-            Edit
+          <Link
+            to={`/candidates/${candidate.candidate_id}/edit`}
+            className="inline-block rounded-full p-2 text-indigo-600 hover:bg-indigo-100 dark:text-indigo-400 dark:hover:bg-indigo-900"
+          >
+            <Icon icon="edit" />
           </Link>
         </div>
       </header>

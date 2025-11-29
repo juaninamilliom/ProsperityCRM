@@ -1,14 +1,20 @@
 import { ChangeEvent, useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Select, { type StylesConfig } from 'react-select';
 import { fetchCurrentUser } from '../api/users';
 import { createInviteCode, fetchInviteCodes, revokeInvite } from '../api/invites';
 import { AdminStatusesPage } from './AdminStatusesPage';
 import { AdminAgenciesPage } from './AdminAgenciesPage';
 import { AdminJobsPage } from './AdminJobsPage';
+import { useTheme } from 'src/theme';
 
 const tabs = ['General', 'Invites', 'Statuses', 'Agencies', 'Jobs'] as const;
-type ThemeContext = { theme: 'light' | 'dark'; toggleTheme: () => void };
+type SelectOption = { value: string; label: string };
+
+const roleOptions: SelectOption[] = [
+  { value: 'OrgEmployee', label: 'OrgEmployee' },
+  { value: 'OrgAdmin', label: 'OrgAdmin' },
+];
 
 export function AccountSettingsPage() {
   const queryClient = useQueryClient();
@@ -18,7 +24,7 @@ export function AccountSettingsPage() {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('General');
   const [role, setRole] = useState<'OrgAdmin' | 'OrgEmployee'>('OrgEmployee');
   const [maxUses, setMaxUses] = useState(1);
-  const { theme, toggleTheme } = useOutletContext<ThemeContext>();
+  const [theme, toggleTheme] = useTheme();
   const [inviteMessage, setInviteMessage] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [revokeMessage, setRevokeMessage] = useState<string | null>(null);
@@ -69,6 +75,52 @@ export function AccountSettingsPage() {
 
   const showInviteTab = activeTab === 'Invites';
 
+  const selectStyles: StylesConfig<SelectOption, false> = {
+    control: (provided, state) => ({
+      ...provided,
+      borderRadius: 9999,
+      minHeight: '2rem',
+      fontSize: '0.875rem',
+      borderColor: state.isFocused
+        ? theme === 'dark'
+          ? '#6366f1' // indigo-500
+          : '#2563eb' // blue-600
+        : theme === 'dark'
+        ? '#475569' // slate-600
+        : 'rgb(226 232 240 / var(--tw-border-opacity))', // slate-200
+      boxShadow: 'none',
+      ':hover': {
+        borderColor: theme === 'dark' ? '#6366f1' : '#2563eb',
+      },
+      backgroundColor: 'transparent',
+    }),
+    menu: (provided) => ({
+      ...provided,
+      borderRadius: 16,
+      backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff', // slate-800 / white
+      color: theme === 'dark' ? '#e2e8f0' : '#0f172a', // slate-200 / slate-900
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.isFocused
+        ? theme === 'dark'
+          ? '#475569' // slate-600
+          : '#e0f2fe' // blue-50
+        : provided.backgroundColor,
+      color: state.isSelected
+        ? theme === 'dark'
+          ? '#e2e8f0' // slate-200
+          : '#1d4ed8' // blue-800
+        : theme === 'dark'
+        ? '#e2e8f0' // slate-200
+        : '#0f172a', // slate-900
+      ':active': {
+        backgroundColor: theme === 'dark' ? '#334155' : '#bfdbfe', // slate-700 / blue-200
+      },
+    }),
+  };
+
   return (
     <section className="space-y-6">
       <div className="flex gap-3 overflow-x-auto rounded-full border border-slate-200 px-3 py-2 dark:border-slate-800">
@@ -113,19 +165,18 @@ export function AccountSettingsPage() {
               Share passcodes with teammates to onboard them via SSO. Codes are single use unless
               you raise the max-uses value.
             </p>
-            <div className="mt-4 flex flex-wrap gap-4">
+            <div className="mt-4 flex flex-wrap items-end gap-4">
               <label className="flex flex-col text-sm font-semibold text-slate-600 dark:text-slate-200">
                 Role
-                <select
-                  className="pill-select"
-                  value={role}
-                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                    setRole(event.currentTarget.value as 'OrgAdmin' | 'OrgEmployee')
+                <Select
+                  options={roleOptions}
+                  value={roleOptions.find((o) => o.value === role)}
+                  onChange={(option) =>
+                    setRole((option?.value as 'OrgAdmin' | 'OrgEmployee') ?? 'OrgEmployee')
                   }
-                >
-                  <option value="OrgEmployee">OrgEmployee</option>
-                  <option value="OrgAdmin">OrgAdmin</option>
-                </select>
+                  styles={selectStyles}
+                  classNamePrefix="skill-select"
+                />
               </label>
               <label className="flex flex-col text-sm font-semibold text-slate-600 dark:text-slate-200">
                 Max Uses
@@ -145,7 +196,7 @@ export function AccountSettingsPage() {
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending}
               >
-                <span className="w-full">Generate Code</span>
+                <span>Generate Code</span>
               </button>
               {inviteMessage && <p className="text-xs text-emerald-600">{inviteMessage}</p>}
               {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
@@ -212,7 +263,9 @@ export function AccountSettingsPage() {
             <AdminJobsPage />
           </div>
         ) : (
-          <p className="text-sm text-slate-500">Only organization administrators can manage job requisitions.</p>
+          <p className="text-sm text-slate-500">
+            Only organization administrators can manage job requisitions.
+          </p>
         ))}
     </section>
   );

@@ -1,11 +1,21 @@
 import axios from 'axios';
 import { ChangeEvent, FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Select, { type StylesConfig } from 'react-select';
 import { login, signup } from '../api/auth';
 import { setAuthToken } from '../api/client';
+import { useTheme } from '../theme';
+
+type SelectOption = { value: string; label: string };
+
+const roleOptions: SelectOption[] = [
+  { value: 'OrgEmployee', label: 'Employee' },
+  { value: 'OrgAdmin', label: 'Admin' },
+];
 
 export function AuthPage() {
   const navigate = useNavigate();
+  const [theme] = useTheme();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [form, setForm] = useState({
     name: '',
@@ -42,6 +52,48 @@ export function AuthPage() {
       setLoading(false);
     }
   }
+
+  const selectStyles: StylesConfig<SelectOption, false> = {
+    control: (provided, state) => ({
+      ...provided,
+      borderRadius: 9999,
+      minHeight: '2.75rem',
+      borderColor: state.isFocused ? '#7c3aed' : provided.borderColor,
+      boxShadow: 'none',
+      ':hover': {
+        borderColor: '#7c3aed',
+      },
+    }),
+    valueContainer: (provided) => ({
+      ...provided,
+      paddingTop: '4px',
+      paddingBottom: '4px',
+    }),
+    menu: (provided) => ({
+      ...provided,
+      borderRadius: 16,
+      backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+      color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.isFocused
+        ? theme === 'dark'
+          ? '#475569'
+          : '#e0f2fe'
+        : provided.backgroundColor,
+      color: state.isSelected
+        ? theme === 'dark'
+          ? '#e2e8f0'
+          : '#1d4ed8'
+        : theme === 'dark'
+        ? '#e2e8f0'
+        : '#0f172a',
+      ':active': {
+        backgroundColor: theme === 'dark' ? '#334155' : '#bfdbfe',
+      },
+    }),
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-blue-100 px-4 py-10">
@@ -129,20 +181,18 @@ export function AuthPage() {
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
               Role
-              <select
-                className="pill-input"
-                value={form.role}
-                onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-                  const value = event.currentTarget.value as 'OrgAdmin' | 'OrgEmployee';
+              <Select
+                options={roleOptions}
+                value={roleOptions.find((o) => o.value === form.role)}
+                onChange={(option) =>
                   setForm((prev) => ({
                     ...prev,
-                    role: value,
-                  }));
-                }}
-              >
-                <option value="OrgEmployee">Employee</option>
-                <option value="OrgAdmin">Admin</option>
-              </select>
+                    role: (option?.value as 'OrgAdmin' | 'OrgEmployee') ?? 'OrgEmployee',
+                  }))
+                }
+                styles={selectStyles}
+                classNamePrefix="skill-select"
+              />
             </label>
           </>
         )}
