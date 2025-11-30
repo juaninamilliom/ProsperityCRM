@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import Select from 'react-select';
+import Select, { type SingleValue } from 'react-select';
 import { fetchJobDetail, saveJobSplits, updateJob, type JobSplitInput } from '../api/jobs';
 import type { JobRequisitionDTO } from 'src/common';
 import type { CurrentUserResponse } from '../api/users';
@@ -502,7 +502,7 @@ export function JobDealPage() {
                         <Select
                           options={userOptions}
                           value={userOptions.find((o) => o.value === split.teammate_name)}
-                          onChange={(option) =>
+                          onChange={(option: SingleValue<SelectOption>) =>
                             updateSplit(index, 'teammate_name', option?.value ?? '')
                           }
                           styles={selectStyles}
@@ -513,7 +513,9 @@ export function JobDealPage() {
                         <Select
                           options={roleOptions}
                           value={roleOptions.find((o) => o.value === split.role)}
-                          onChange={(option) => updateSplit(index, 'role', option?.value ?? 'lead')}
+                          onChange={(option: SingleValue<SelectOption>) =>
+                            updateSplit(index, 'role', option?.value ?? 'lead')
+                          }
                           styles={selectStyles}
                           classNamePrefix="skill-select"
                         />
