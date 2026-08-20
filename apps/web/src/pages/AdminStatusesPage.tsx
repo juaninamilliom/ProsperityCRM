@@ -39,12 +39,15 @@ export function AdminStatusesPage() {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-700 dark:text-white">Status Configuration</h2>
-      <form className="glass-card flex flex-col gap-4" onSubmit={handleSubmit}>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+      <h2 className="text-lg font-semibold text-ink-2">Status Configuration</h2>
+      <form
+        className="rounded-card border border-border bg-surface p-6 flex flex-col gap-4"
+        onSubmit={handleSubmit}
+      >
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Name
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             value={form.name}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
               const value = event.currentTarget.value;
@@ -53,10 +56,10 @@ export function AdminStatusesPage() {
             required
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Order
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             type="number"
             value={form.order_index}
             min={0}
@@ -67,9 +70,9 @@ export function AdminStatusesPage() {
             required
           />
         </label>
-        <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex items-center gap-2 text-sm text-ink-2">
           <input
-            className="h-4 w-4 accent-brand-fuchsia"
+            className="h-4 w-4 accent-accent"
             type="checkbox"
             checked={form.is_terminal}
             onChange={(event: ChangeEvent<HTMLInputElement>) =>
@@ -79,20 +82,25 @@ export function AdminStatusesPage() {
           Terminal stage
         </label>
         {successMessage && <p className="text-xs text-emerald-600">{successMessage}</p>}
-        {errorMessage && <p className="text-xs text-red-500">{errorMessage}</p>}
-        <button className="btn-outline" type="submit" disabled={createMutation.isPending}>
+        {errorMessage && <p className="text-xs text-warn-fg">{errorMessage}</p>}
+        <button
+          className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
+          type="submit"
+          disabled={createMutation.isPending}
+        >
           <span className="w-full">{createMutation.isPending ? 'Adding…' : 'Add'}</span>
         </button>
       </form>
 
       <ul className="space-y-3">
         {statuses.map((status) => (
-          <li key={status.status_id} className="glass-card flex items-center justify-between py-4">
+          <li
+            key={status.status_id}
+            className="rounded-card border border-border bg-surface p-6 flex items-center justify-between py-4"
+          >
             <div>
-              <p className="font-medium text-slate-700 dark:text-white">{status.name}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                order {status.order_index}
-              </p>
+              <p className="font-medium text-ink-2">{status.name}</p>
+              <p className="text-xs text-ink-3">order {status.order_index}</p>
             </div>
             {status.is_terminal && <span className="badge">terminal</span>}
           </li>

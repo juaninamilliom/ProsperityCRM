@@ -11,7 +11,12 @@ type AreaProps = Common & { as: 'textarea' } & TextareaHTMLAttributes<HTMLTextAr
 export function Field(props: InputProps | AreaProps) {
   const id = useId();
   const isArea = props.as === 'textarea';
-  const { label, hint, className = '', ...rest } = props as Common & {
+  const {
+    label,
+    hint,
+    className = '',
+    ...rest
+  } = props as Common & {
     as?: string;
     className?: string;
   };

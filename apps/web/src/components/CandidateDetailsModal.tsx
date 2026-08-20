@@ -16,22 +16,25 @@ export function CandidateDetailsModal({ isOpen, onClose, candidate }: CandidateD
     <Modal isOpen={isOpen} onClose={onClose} title={candidate.name}>
       <div className="space-y-4">
         <div>
-          <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Email</h4>
-          <p className="text-slate-900 dark:text-white">{candidate.email}</p>
+          <h4 className="text-sm font-medium text-ink-3">Email</h4>
+          <p className="text-ink">{candidate.email}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Job</h4>
-          <p className="text-slate-900 dark:text-white">{candidate.job_title}</p>
+          <h4 className="text-sm font-medium text-ink-3">Job</h4>
+          <p className="text-ink">{candidate.job_title}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Agency</h4>
-          <p className="text-slate-900 dark:text-white">{candidate.agency_name}</p>
+          <h4 className="text-sm font-medium text-ink-3">Agency</h4>
+          <p className="text-ink">{candidate.agency_name}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Skills</h4>
+          <h4 className="text-sm font-medium text-ink-3">Skills</h4>
           <div className="flex flex-wrap gap-2">
             {candidate.skills.map((skill: string) => (
-              <span key={skill} className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+              <span
+                key={skill}
+                className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+              >
                 {skill}
               </span>
             ))}

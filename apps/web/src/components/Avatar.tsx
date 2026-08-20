@@ -1,19 +1,18 @@
 interface AvatarProps {
   name?: string;
+  size?: number;
 }
 
-export function Avatar({ name }: AvatarProps) {
-  const initials = name
-    ? name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2)
-    : '??';
+export function Avatar({ name, size = 28 }: AvatarProps) {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  const initials = parts.length ? ((parts[0][0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() : '?';
 
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-fuchsia text-white shadow-soft">
-      <span className="text-sm font-semibold">{initials}</span>
+    <div
+      className="flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold text-accent-ink"
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
+    >
+      {initials}
     </div>
   );
 }

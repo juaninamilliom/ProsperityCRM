@@ -29,7 +29,6 @@ function formatCurrency(value?: string | number | null) {
   return formatMoney(value);
 }
 
-
 function formatDate(value?: string | null) {
   if (!value) return 'Not set';
   return new Date(value).toLocaleDateString();
@@ -241,9 +240,7 @@ export function JobDealPage() {
             Req • {job.department || 'General'}
           </p>
           <h1 className="text-3xl font-semibold text-ink">{job.title}</h1>
-          <p className="text-sm text-ink-3">
-            Close Date: {formatDate(job.close_date)}
-          </p>
+          <p className="text-sm text-ink-3">Close Date: {formatDate(job.close_date)}</p>
         </div>
         <div className="flex gap-3">
           {canEdit && (
@@ -266,7 +263,11 @@ export function JobDealPage() {
               {job.stage}
             </span>
           )}
-          <button className="btn-outline" type="button" onClick={() => navigate(-1)}>
+          <button
+            className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
+            type="button"
+            onClick={() => navigate(-1)}
+          >
             <span>Back</span>
           </button>
         </div>
@@ -275,9 +276,7 @@ export function JobDealPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <article className="rounded-3xl border border-white/30 bg-surface p-4 shadow-token dark:border-border/70 dark:bg-surface-2">
           <p className="text-xs uppercase tracking-wide text-ink-3">Deal Amount</p>
-          <p className="text-2xl font-semibold text-ink">
-            {formatCurrency(job.deal_amount)}
-          </p>
+          <p className="text-2xl font-semibold text-ink">{formatCurrency(job.deal_amount)}</p>
         </article>
         <article className="rounded-3xl border border-white/30 bg-surface p-4 shadow-token dark:border-border/70 dark:bg-surface-2">
           <p className="text-xs uppercase tracking-wide text-ink-3">Weighted Deal</p>
@@ -287,17 +286,13 @@ export function JobDealPage() {
         </article>
         <article className="rounded-3xl border border-white/30 bg-surface p-4 shadow-token dark:border-border/70 dark:bg-surface-2">
           <p className="text-xs uppercase tracking-wide text-ink-3">Owner</p>
-          <p className="text-2xl font-semibold text-ink">
-            {job.owner_name || 'Unassigned'}
-          </p>
+          <p className="text-2xl font-semibold text-ink">{job.owner_name || 'Unassigned'}</p>
         </article>
       </section>
 
       {isJobEditing && jobForm && (
         <section className="rounded-card border border-dashed border-border bg-surface-2 p-5">
-          <h2 className="mb-3 text-lg font-semibold text-ink">
-            Edit Requisition
-          </h2>
+          <h2 className="mb-3 text-lg font-semibold text-ink">Edit Requisition</h2>
           {jobMessage && <p className="text-xs text-emerald-600 mb-3">{jobMessage}</p>}
           <form
             className="grid gap-4 md:grid-cols-2"
@@ -427,11 +422,15 @@ export function JobDealPage() {
               />
             </label>
             <div className="md:col-span-2 flex gap-3">
-              <button className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control bg-accent px-4 font-medium text-white transition hover:opacity-90" type="submit" disabled={jobMutation.isPending}>
+              <button
+                className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control bg-accent px-4 font-medium text-white transition hover:opacity-90"
+                type="submit"
+                disabled={jobMutation.isPending}
+              >
                 {jobMutation.isPending ? 'Saving…' : 'Save Job'}
               </button>
               <button
-                className="btn-outline"
+                className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
                 type="button"
                 onClick={() => {
                   setIsJobEditing(false);
@@ -450,9 +449,7 @@ export function JobDealPage() {
         <header className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Deal Split</h2>
-            <p className="text-sm text-ink-3">
-              Share payouts across the team.
-            </p>
+            <p className="text-sm text-ink-3">Share payouts across the team.</p>
           </div>
           <div className="flex gap-2">
             {message && <p className="text-xs text-emerald-600">{message}</p>}
@@ -468,7 +465,11 @@ export function JobDealPage() {
               </button>
             ) : (
               <Fragment>
-                <button className="btn-outline" type="button" onClick={addSplitRow}>
+                <button
+                  className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
+                  type="button"
+                  onClick={addSplitRow}
+                >
                   <span>Add Row</span>
                 </button>
                 <button
@@ -553,10 +554,7 @@ export function JobDealPage() {
                     </tr>
                   ))
                 : splits.map((split) => (
-                    <tr
-                      key={split.split_id}
-                      className="border-t border-border"
-                    >
+                    <tr key={split.split_id} className="border-t border-border">
                       <td className="py-2">
                         <span className="font-semibold text-ink">
                           {split.teammate_name || 'Unassigned'}
@@ -586,9 +584,7 @@ export function JobDealPage() {
       </section>
 
       <section className="rounded-3xl border border-white/30 bg-surface p-5 shadow-token dark:border-border/70 dark:bg-surface-2">
-        <h2 className="mb-3 text-lg font-semibold text-ink">
-          Related Candidates
-        </h2>
+        <h2 className="mb-3 text-lg font-semibold text-ink">Related Candidates</h2>
         <ul className="space-y-3">
           {candidates.length ? (
             candidates.map((candidate) => (

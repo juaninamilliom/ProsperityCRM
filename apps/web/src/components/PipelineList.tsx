@@ -30,10 +30,18 @@ export function PipelineList({ statuses, candidates }: PipelineListProps) {
         <table className="min-w-full bg-surface text-base">
           <thead className="text-left">
             <tr>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3">Name</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3">Job</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3">Status</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3">Agency</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3">
+                Name
+              </th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3">
+                Job
+              </th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3">
+                Status
+              </th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3">
+                Agency
+              </th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
@@ -69,7 +77,11 @@ export function PipelineList({ statuses, candidates }: PipelineListProps) {
           </tbody>
         </table>
       </div>
-      <CandidateDetailsModal isOpen={isModalOpen} onClose={closeModal} candidate={selectedCandidate} />
+      <CandidateDetailsModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        candidate={selectedCandidate}
+      />
     </>
   );
 }

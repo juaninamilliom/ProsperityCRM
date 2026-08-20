@@ -25,12 +25,7 @@ const candidates = [
 function renderBoard(props: Record<string, unknown> = {}) {
   render(
     <MemoryRouter>
-      <PipelineBoard
-        statuses={statuses}
-        candidates={candidates}
-        onMove={vi.fn()}
-        {...props}
-      />
+      <PipelineBoard statuses={statuses} candidates={candidates} onMove={vi.fn()} {...props} />
     </MemoryRouter>,
   );
 }
