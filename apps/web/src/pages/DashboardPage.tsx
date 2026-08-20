@@ -10,6 +10,10 @@ import { PipelineBoard } from '../components/PipelineBoard';
 import { useFiltersStore } from '../store/filters';
 import { PipelineList } from '../components/PipelineList';
 import { DetailRail } from '../components/DetailRail';
+import { PipelineSearch } from '../components/PipelineSearch';
+import { pipelineSummary } from './pipelineSummary';
+import { Button } from '../components/ui';
+import { Link } from 'react-router-dom';
 import { useTheme } from '../theme';
 
 export function DashboardPage() {
@@ -71,7 +75,36 @@ export function DashboardPage() {
   const selected = candidates.find((c) => c.candidate_id === selectedId) ?? null;
 
   return (
-    <section className="flex min-h-0 flex-col gap-4">
+    <section className="flex min-h-0 flex-col gap-5">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-serif text-title">Pipeline</h1>
+          <p className="text-base text-ink-2">
+            {pipelineSummary(candidates, statusesQuery.data ?? [])}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <PipelineSearch />
+          <Link to="/candidates/new">
+            <Button variant="primary" className="h-[34px]">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add candidate
+            </Button>
+          </Link>
+        </div>
+      </header>
+
       <FilterBar
         agencies={agenciesQuery.data ?? []}
         jobs={jobsQuery.data ?? []}
@@ -82,7 +115,7 @@ export function DashboardPage() {
         theme={theme}
       />
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-2 border-b border-border pb-4">
         {isRefreshing && <span className="text-xs text-ink-3">Updating…</span>}
         <div className="flex items-center gap-1 rounded-control bg-surface-3 p-[3px]">
           {(['board', 'list'] as const).map((mode) => (

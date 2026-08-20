@@ -37,7 +37,7 @@ function PipelineColumn({
       data-testid={`column-${status.status_id}`}
       data-terminal={status.is_terminal}
       className={[
-        'flex min-h-[240px] min-w-0 flex-col rounded-card border bg-surface-2 transition',
+        'flex min-h-[132px] min-w-0 flex-col rounded-card border bg-surface-2 transition',
         isOver ? 'border-accent' : 'border-border',
       ].join(' ')}
     >
@@ -81,7 +81,7 @@ export function PipelineBoard({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-      <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {statuses.map((status) => {
           const columnCandidates = candidates.filter(
             (candidate) => candidate.current_status_id === status.status_id,
