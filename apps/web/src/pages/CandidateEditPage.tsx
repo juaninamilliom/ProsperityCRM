@@ -9,7 +9,7 @@ import { fetchSkills, createSkill } from '../api/skills';
 import Select, { type MultiValue } from 'react-select';
 import { formatPhone, isPhoneValid } from '../utils/phone';
 import { useTheme } from '../theme';
-import { getSelectStyles } from '../components/selectStyles';
+import { getSelectStyles, getMultiSelectStyles } from '../components/selectStyles';
 
 type SelectOption = { value: string; label: string };
 
@@ -71,6 +71,7 @@ export function CandidateEditPage() {
   );
 
   const selectStyles = getSelectStyles(theme);
+  const multiSelectStyles = getMultiSelectStyles(theme);
 
   useEffect(() => {
     if (!candidateQuery.data) return;
@@ -320,7 +321,7 @@ export function CandidateEditPage() {
                 onChange={handleSkillSelectChange}
                 placeholder="Search skills…"
                 isDisabled={skillsLoadFailed}
-                styles={selectStyles}
+                styles={multiSelectStyles}
               />
             ) : (
               <p className="text-xs text-slate-500 dark:text-slate-400">

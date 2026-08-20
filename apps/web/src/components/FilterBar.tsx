@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Select, { type MultiValue } from 'react-select';
 import { useFiltersStore } from '../store/filters';
 import type { Theme } from '../theme';
-import { getSelectStyles } from './selectStyles';
+import { getSelectStyles, getMultiSelectStyles } from './selectStyles';
 
 interface FilterBarProps {
   agencies: AgencyDTO[];
@@ -67,6 +67,7 @@ export function FilterBar({
   );
 
   const selectStyles = getSelectStyles(theme);
+  const multiSelectStyles = getMultiSelectStyles(theme);
   const selectSkillValue = skillOptions.filter((option) => skillFilters.includes(option.value));
 
   useEffect(() => {
@@ -200,7 +201,7 @@ export function FilterBar({
               onChange={onSkillSelectChange}
               placeholder="Filter by skill…"
               isDisabled={skillsError}
-              styles={selectStyles}
+              styles={multiSelectStyles}
               className="min-w-[200px] flex-1"
             />
           ) : (

@@ -9,7 +9,7 @@ import { fetchCurrentUser } from '../api/users';
 import { fetchSkills, createSkill } from '../api/skills';
 import { formatPhone, isPhoneValid } from '../utils/phone';
 import { useTheme } from '../theme';
-import { getSelectStyles } from '../components/selectStyles';
+import { getSelectStyles, getMultiSelectStyles } from '../components/selectStyles';
 
 type SelectOption = { value: string; label: string };
 
@@ -68,6 +68,7 @@ export function CandidateFormPage() {
   const recruiterId = currentUser?.dbUser?.user_id ?? '';
 
   const selectStyles = getSelectStyles(theme);
+  const multiSelectStyles = getMultiSelectStyles(theme);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -318,7 +319,7 @@ export function CandidateFormPage() {
                 onChange={handleSkillSelectChange}
                 placeholder="Search skills…"
                 isDisabled={skillsLoadFailed}
-                styles={selectStyles}
+                styles={multiSelectStyles}
               />
             ) : (
               <p className="text-xs text-slate-500 dark:text-slate-400">

@@ -30,9 +30,9 @@ export function CandidateDetailsModal({ isOpen, onClose, candidate }: CandidateD
         <div>
           <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400">Skills</h4>
           <div className="flex flex-wrap gap-2">
-            {candidate.skills.map((skill) => (
-              <span key={skill.skill_id} className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                {skill.name}
+            {candidate.skills.map((skill: string) => (
+              <span key={skill} className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                {skill}
               </span>
             ))}
           </div>
