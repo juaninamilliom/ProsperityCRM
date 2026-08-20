@@ -73,4 +73,3 @@ function ProtectedLayout() {
     </div>
   );
 }
-

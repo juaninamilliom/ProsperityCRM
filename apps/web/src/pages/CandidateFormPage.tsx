@@ -181,13 +181,16 @@ export function CandidateFormPage() {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-700 dark:text-white">New Candidate</h2>
-      <form className="glass-card flex flex-col gap-6" onSubmit={handleSubmit}>
+      <h2 className="text-lg font-semibold text-ink-2">New Candidate</h2>
+      <form
+        className="rounded-card border border-border bg-surface p-6 flex flex-col gap-6"
+        onSubmit={handleSubmit}
+      >
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
+          <label className="flex flex-col gap-1 text-sm font-semibold text-ink-2">
             Full Name
             <input
-              className="pill-input"
+              className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
               value={form.name}
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
                 const { value } = event.currentTarget;
@@ -196,10 +199,10 @@ export function CandidateFormPage() {
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
+          <label className="flex flex-col gap-1 text-sm font-semibold text-ink-2">
             Email
             <input
-              className="pill-input"
+              className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
               type="email"
               value={form.email}
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -209,10 +212,10 @@ export function CandidateFormPage() {
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
+          <label className="flex flex-col gap-1 text-sm font-semibold text-ink-2">
             Phone
             <input
-              className="pill-input"
+              className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
               value={form.phone}
               inputMode="tel"
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -223,9 +226,9 @@ export function CandidateFormPage() {
                 );
               }}
             />
-            {phoneError && <span className="text-xs text-red-500">{phoneError}</span>}
+            {phoneError && <span className="text-xs text-warn-fg">{phoneError}</span>}
           </label>
-          <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
+          <label className="flex flex-col gap-1 text-sm font-semibold text-ink-2">
             Target Agency
             <Select
               options={agencyOptions}
@@ -238,7 +241,7 @@ export function CandidateFormPage() {
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
+          <label className="flex flex-col gap-1 text-sm font-semibold text-ink-2">
             Job Requisition
             <Select
               options={jobOptions}
@@ -251,10 +254,10 @@ export function CandidateFormPage() {
               required
             />
             {!jobs.length && (
-              <span className="text-xs text-amber-600">Create a job in Settings → Jobs first.</span>
+              <span className="text-xs text-warn-fg">Create a job in Settings → Jobs first.</span>
             )}
           </label>
-          <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
+          <label className="flex flex-col gap-1 text-sm font-semibold text-ink-2">
             Status
             <Select
               options={statusOptions}
@@ -269,10 +272,10 @@ export function CandidateFormPage() {
           </label>
         </div>
 
-        <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm font-semibold text-ink-2">
           Notes
           <textarea
-            className="pill-input rounded-lg"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3 rounded-lg"
             value={form.notes}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
               const { value } = event.currentTarget;
@@ -288,7 +291,7 @@ export function CandidateFormPage() {
               {form.skills.map((skill) => (
                 <li
                   key={skill}
-                  className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:text-emerald-300"
+                  className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-ok-fg dark:text-ok-fg"
                 >
                   {skill}
                   <button type="button" onClick={() => removeSkill(skill)}>
@@ -298,18 +301,16 @@ export function CandidateFormPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-slate-500 dark:text-slate-400">No skills selected yet.</p>
+            <p className="text-xs text-ink-3">No skills selected yet.</p>
           )}
-          <div className="space-y-2 rounded-2xl bg-white/70 p-3 shadow-inner dark:bg-slate-900/40">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <div className="space-y-2 rounded-2xl bg-surface p-3 shadow-token dark:bg-surface-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
               Select from library
             </p>
             {isSkillsLoading ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Loading available skills…
-              </p>
+              <p className="text-xs text-ink-3">Loading available skills…</p>
             ) : skillsLoadFailed ? (
-              <p className="text-xs text-red-500">Failed to load skills. Refresh to retry.</p>
+              <p className="text-xs text-warn-fg">Failed to load skills. Refresh to retry.</p>
             ) : skillOptions.length ? (
               <Select
                 isMulti
@@ -322,18 +323,18 @@ export function CandidateFormPage() {
                 styles={multiSelectStyles}
               />
             ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-ink-3">
                 No saved skills. Add a new one below to get started.
               </p>
             )}
           </div>
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
               Add new skill
             </p>
             <div className="flex gap-2">
               <input
-                className="pill-input flex-1"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3 flex-1"
                 value={skillInput}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => {
                   const { value } = event.currentTarget;
@@ -343,7 +344,7 @@ export function CandidateFormPage() {
                 placeholder="React, sourcing, bilingual…"
               />
               <button
-                className="btn-outline whitespace-nowrap"
+                className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3 whitespace-nowrap"
                 type="button"
                 onClick={addSkillToLibrary}
                 disabled={addSkillMutation.isPending}
@@ -351,7 +352,7 @@ export function CandidateFormPage() {
                 <span>{addSkillMutation.isPending ? 'Adding…' : 'Add to Library'}</span>
               </button>
             </div>
-            {skillError && <p className="text-xs text-red-500">{skillError}</p>}
+            {skillError && <p className="text-xs text-warn-fg">{skillError}</p>}
           </div>
         </div>
 
@@ -359,7 +360,7 @@ export function CandidateFormPage() {
           <label className="text-sm font-medium">Flags</label>
           <div className="flex gap-2">
             <input
-              className="pill-input flex-1"
+              className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3 flex-1"
               value={flagInput}
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
                 const { value } = event.currentTarget;
@@ -367,7 +368,11 @@ export function CandidateFormPage() {
               }}
               placeholder="Hot Prospect"
             />
-            <button className="btn-outline" type="button" onClick={addFlag}>
+            <button
+              className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
+              type="button"
+              onClick={addFlag}
+            >
               <span>Add Flag</span>
             </button>
           </div>
@@ -387,9 +392,13 @@ export function CandidateFormPage() {
         </div>
 
         {successMessage && <p className="text-sm text-emerald-600">{successMessage}</p>}
-        {errorMessage && <p className="text-sm text-red-500">{errorMessage}</p>}
+        {errorMessage && <p className="text-sm text-warn-fg">{errorMessage}</p>}
 
-        <button className="btn-outline w-full" type="submit" disabled={isSubmitDisabled}>
+        <button
+          className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3 w-full"
+          type="submit"
+          disabled={isSubmitDisabled}
+        >
           <span className="w-full">
             {!recruiterId ? 'Loading your account…' : 'Create Candidate'}
           </span>

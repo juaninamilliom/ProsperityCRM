@@ -108,12 +108,15 @@ export function AdminJobsPage() {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-700 dark:text-white">Job Requisitions</h2>
-      <form className="glass-card grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+      <h2 className="text-lg font-semibold text-ink-2">Job Requisitions</h2>
+      <form
+        className="rounded-card border border-border bg-surface p-6 grid gap-4 md:grid-cols-2"
+        onSubmit={handleSubmit}
+      >
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Title
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             value={form.title}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
               const value = event.currentTarget.value;
@@ -122,10 +125,10 @@ export function AdminJobsPage() {
             required
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Department
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             value={form.department}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
               const value = event.currentTarget.value;
@@ -133,10 +136,10 @@ export function AdminJobsPage() {
             }}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Location
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             value={form.location}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
               const value = event.currentTarget.value;
@@ -144,7 +147,7 @@ export function AdminJobsPage() {
             }}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Status
           <Select
             options={statusOptions}
@@ -159,7 +162,7 @@ export function AdminJobsPage() {
             classNamePrefix="skill-select"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Close Date
           <DatePicker
             selected={form.close_date ? new Date(form.close_date) : null}
@@ -169,14 +172,14 @@ export function AdminJobsPage() {
                 close_date: date ? date.toISOString().split('T')[0] : '',
               }));
             }}
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             placeholderText="Select date"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Deal Amount
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             type="number"
             value={form.deal_amount}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -185,10 +188,10 @@ export function AdminJobsPage() {
             }}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Weighted Deal Amount
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             type="number"
             value={form.weighted_deal_amount}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -197,7 +200,7 @@ export function AdminJobsPage() {
             }}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Owner
           <Select
             options={userOptions}
@@ -208,10 +211,10 @@ export function AdminJobsPage() {
             isClearable
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Stage
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             value={form.stage}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
               const value = event.currentTarget.value;
@@ -221,7 +224,7 @@ export function AdminJobsPage() {
         </label>
         <label className="md:col-span-2">
           <textarea
-            className="pill-input w-full rounded-lg"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3 w-full rounded-lg"
             placeholder="Notes about requirements, hiring manager, etc."
             rows={3}
             value={form.description}
@@ -234,9 +237,9 @@ export function AdminJobsPage() {
         {successMessage && (
           <p className="text-xs text-emerald-600 md:col-span-2">{successMessage}</p>
         )}
-        {errorMessage && <p className="text-xs text-red-500 md:col-span-2">{errorMessage}</p>}
+        {errorMessage && <p className="text-xs text-warn-fg md:col-span-2">{errorMessage}</p>}
         <button
-          className="btn-outline md:col-span-2"
+          className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3 md:col-span-2"
           type="submit"
           disabled={createMutation.isPending}
         >
@@ -248,19 +251,17 @@ export function AdminJobsPage() {
         {jobs.map((job) => (
           <li
             key={job.job_id}
-            className="glass-card flex flex-col gap-1 border border-white/30 p-4 text-sm dark:border-slate-800/70 md:flex-row md:items-center md:justify-between"
+            className="rounded-card border border-border bg-surface p-6 flex flex-col gap-1 border border-white/30 p-4 text-sm dark:border-border md:flex-row md:items-center md:justify-between"
           >
             <div>
-              <p className="font-semibold text-slate-700 dark:text-white">{job.title}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="font-semibold text-ink-2">{job.title}</p>
+              <p className="text-xs text-ink-3">
                 {job.department || 'General'} • {job.location || 'Remote'} • {job.status}
               </p>
-              {job.description && (
-                <p className="text-xs text-slate-500 dark:text-slate-400">{job.description}</p>
-              )}
+              {job.description && <p className="text-xs text-ink-3">{job.description}</p>}
             </div>
             <button
-              className="text-xs font-semibold text-red-500"
+              className="text-xs font-semibold text-warn-fg"
               type="button"
               onClick={() => deleteMutation.mutate(job.job_id)}
             >
@@ -269,7 +270,7 @@ export function AdminJobsPage() {
           </li>
         ))}
         {!jobs.length && (
-          <p className="text-sm text-slate-500">No jobs yet. Use the form above to create one.</p>
+          <p className="text-sm text-ink-3">No jobs yet. Use the form above to create one.</p>
         )}
         {deleteMessage && <p className="text-xs text-emerald-600">{deleteMessage}</p>}
       </ul>

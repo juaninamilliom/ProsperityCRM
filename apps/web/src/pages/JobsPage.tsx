@@ -65,7 +65,11 @@ export function JobsPage() {
 
   const tiles = [
     { label: 'Open roles', value: String(openJobs.length), note: `${jobs.length} total` },
-    { label: 'Pipeline value', value: formatMoney(sumBy(openJobs, 'deal_amount')), note: 'across open roles' },
+    {
+      label: 'Pipeline value',
+      value: formatMoney(sumBy(openJobs, 'deal_amount')),
+      note: 'across open roles',
+    },
     {
       label: 'Weighted',
       value: formatMoney(sumBy(openJobs, 'weighted_deal_amount')),
@@ -135,14 +139,16 @@ export function JobsPage() {
           <table className="min-w-full text-base">
             <thead>
               <tr className="border-b border-border bg-surface-2">
-                {['Role', 'Department', 'Location', 'Candidates', 'Deal value', 'Status'].map((h) => (
-                  <th
-                    key={h}
-                    className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3"
-                  >
-                    {h}
-                  </th>
-                ))}
+                {['Role', 'Department', 'Location', 'Candidates', 'Deal value', 'Status'].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3"
+                    >
+                      {h}
+                    </th>
+                  ),
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-border-soft">
@@ -150,7 +156,9 @@ export function JobsPage() {
                 <tr key={job.job_id} className="transition hover:bg-surface-2">
                   <td className="px-4 py-3">
                     <Link to={`/jobs/${job.job_id}`} className="flex flex-col">
-                      <span className="font-semibold tracking-[-0.005em] text-ink">{job.title}</span>
+                      <span className="font-semibold tracking-[-0.005em] text-ink">
+                        {job.title}
+                      </span>
                       {job.owner_name && (
                         <span className="text-xs text-ink-3">{job.owner_name}</span>
                       )}
@@ -166,7 +174,9 @@ export function JobsPage() {
                     {job.total_candidates ?? 0}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
-                    <span className="block text-sm font-semibold">{formatMoney(job.deal_amount)}</span>
+                    <span className="block text-sm font-semibold">
+                      {formatMoney(job.deal_amount)}
+                    </span>
                     <span className="block text-2xs text-ink-3">
                       {formatMoney(job.weighted_deal_amount)} weighted
                     </span>

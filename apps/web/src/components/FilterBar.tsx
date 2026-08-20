@@ -205,9 +205,7 @@ export function FilterBar({
               className="min-w-[200px] flex-1"
             />
           ) : (
-            <p className="text-xs text-ink-3">
-              No skills yet. Add them from the candidate form.
-            </p>
+            <p className="text-xs text-ink-3">No skills yet. Add them from the candidate form.</p>
           )}
         </div>
       </div>

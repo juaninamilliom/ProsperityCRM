@@ -1,4 +1,9 @@
-import type { CandidateWithMeta, JobDealSplitDTO, JobDetailDTO, JobRequisitionDTO } from 'src/common';
+import type {
+  CandidateWithMeta,
+  JobDealSplitDTO,
+  JobDetailDTO,
+  JobRequisitionDTO,
+} from 'src/common';
 import { apiClient } from './client';
 
 export async function fetchJobs() {

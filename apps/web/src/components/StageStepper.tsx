@@ -18,7 +18,9 @@ export function StageStepper({
   const currentIndex = ordered.findIndex((s) => s.status_id === currentStatusId);
 
   return (
-    <div className={orientation === 'vertical' ? 'flex flex-col gap-px' : 'flex items-center gap-2'}>
+    <div
+      className={orientation === 'vertical' ? 'flex flex-col gap-px' : 'flex items-center gap-2'}
+    >
       {ordered.map((status, index) => {
         // currentIndex is -1 when the status is unknown, which leaves every
         // step 'todo' rather than marking the whole pipeline complete.

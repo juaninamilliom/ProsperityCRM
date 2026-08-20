@@ -26,7 +26,7 @@ export function Dropdown({ trigger, children }: DropdownProps) {
     <div className="relative" ref={dropdownRef}>
       <button onClick={() => setIsOpen((prev) => !prev)}>{trigger}</button>
       {isOpen && (
-        <div className="absolute right-0 z-10 mt-2 min-w-[250px] min-h-[350px] origin-top-right rounded-lg bg-white p-2 shadow-soft ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-slate-800">
+        <div className="absolute right-0 z-10 mt-2 min-w-[250px] min-h-[350px] origin-top-right rounded-lg bg-surface p-2 shadow-token ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-surface-2">
           {children}
         </div>
       )}
