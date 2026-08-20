@@ -1,20 +1,31 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Select from 'react-select';
-import { fetchCurrentUser } from '../api/users';
+import { fetchCurrentUser, fetchOrgUsers, updateUserRole } from '../api/users';
 import { createInviteCode, fetchInviteCodes, revokeInvite } from '../api/invites';
 import { AdminStatusesPage } from './AdminStatusesPage';
 import { AdminAgenciesPage } from './AdminAgenciesPage';
 import { AdminJobsPage } from './AdminJobsPage';
 import { useTheme } from 'src/theme';
 import { getSelectStyles } from 'src/components/selectStyles';
+import { MembersTable } from '../components/MembersTable';
+import { Card, SectionLabel } from '../components/ui';
+import type { Role } from 'src/common';
 
-const tabs = ['General', 'Invites', 'Statuses', 'Agencies', 'Jobs'] as const;
+const TABS = [
+  { id: 'organisation', label: 'Organisation' },
+  { id: 'members', label: 'Members' },
+  { id: 'stages', label: 'Pipeline stages' },
+  { id: 'agencies', label: 'Agencies' },
+  { id: 'jobs', label: 'Jobs' },
+] as const;
+
+type TabId = (typeof TABS)[number]['id'];
 type SelectOption = { value: string; label: string };
 
 const roleOptions: SelectOption[] = [
-  { value: 'OrgEmployee', label: 'OrgEmployee' },
-  { value: 'OrgAdmin', label: 'OrgAdmin' },
+  { value: 'OrgEmployee', label: 'Recruiter' },
+  { value: 'OrgAdmin', label: 'Admin' },
 ];
 
 export function AccountSettingsPage() {
@@ -22,7 +33,7 @@ export function AccountSettingsPage() {
   const { data: currentUser } = useQuery({ queryKey: ['me'], queryFn: fetchCurrentUser });
   const organizationId = currentUser?.dbUser?.organization_id;
   const isOrgAdmin = currentUser?.dbUser?.role === 'OrgAdmin';
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('General');
+  const [activeTab, setActiveTab] = useState<TabId>('organisation');
   const [role, setRole] = useState<'OrgAdmin' | 'OrgEmployee'>('OrgEmployee');
   const [maxUses, setMaxUses] = useState(1);
   const [theme, toggleTheme] = useTheme();
@@ -30,6 +41,20 @@ export function AccountSettingsPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [revokeMessage, setRevokeMessage] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
+
+  const membersQuery = useQuery({
+    queryKey: ['org-users', organizationId],
+    queryFn: fetchOrgUsers,
+    enabled: Boolean(organizationId),
+  });
+
+  const roleMutation = useMutation({
+    mutationFn: ({ userId, role: nextRole }: { userId: string; role: Role }) =>
+      updateUserRole(userId, nextRole),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-users', organizationId] });
+    },
+  });
 
   const invitesQuery = useQuery({
     queryKey: ['invites', organizationId],
@@ -74,48 +99,81 @@ export function AccountSettingsPage() {
     return () => clearTimeout(timer);
   }, [inviteMessage, inviteError, revokeMessage, revokeError]);
 
-  const showInviteTab = activeTab === 'Invites';
+  const showInviteTab = activeTab === 'members';
 
   const selectStyles = getSelectStyles(theme);
 
+  const memberCount = membersQuery.data?.length ?? 0;
+
   return (
-    <section className="space-y-6">
-      <div className="flex gap-3 overflow-x-auto rounded-full border border-border px-3 py-2 dark:border-border">
-        {tabs.map((tab) => (
+    <section className="flex max-w-[1080px] flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-serif text-title">Settings</h1>
+        <p className="text-base text-ink-2">
+          {memberCount > 0
+            ? `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`
+            : 'Manage your organisation, team and pipeline.'}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-border">
+        {TABS.map((tab) => (
           <button
-            key={tab}
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              activeTab === tab ? 'bg-accent text-white shadow-token' : 'text-ink-3'
-            }`}
-            onClick={() => setActiveTab(tab)}
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={[
+              'focus-ring h-9 whitespace-nowrap border-b-2 px-3.5 text-base transition',
+              activeTab === tab.id
+                ? 'border-accent font-semibold text-ink'
+                : 'border-transparent font-medium text-ink-2 hover:text-ink',
+            ].join(' ')}
           >
-            {tab}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {activeTab === 'General' && (
-        <div className="rounded-card border border-border bg-surface p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-ink-2">Theme</h2>
-              <p className="text-sm text-ink-3">Choose the preferred color mode for this device.</p>
+      {activeTab === 'organisation' && (
+        <Card className="flex flex-col gap-4 p-6">
+          <SectionLabel>Appearance</SectionLabel>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-base font-medium">Theme</span>
+              <p className="text-sm text-ink-3">Applies to your account on this device.</p>
             </div>
             <button
               className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
               onClick={toggleTheme}
             >
-              <span>{theme === 'light' ? 'Enable Dark Mode' : 'Enable Light Mode'}</span>
+              <span>{theme === 'light' ? 'Enable dark mode' : 'Enable light mode'}</span>
             </button>
           </div>
+        </Card>
+      )}
+
+      {activeTab === 'members' && (
+        <div className="flex flex-col gap-4">
+          {membersQuery.isLoading ? (
+            <p className="text-sm text-ink-3">Loading members…</p>
+          ) : membersQuery.error ? (
+            <p className="text-sm text-warn-fg">Could not load members.</p>
+          ) : (
+            <MembersTable
+              members={membersQuery.data ?? []}
+              currentUserId={currentUser?.dbUser?.user_id ?? ''}
+              canEdit={isOrgAdmin}
+              onRoleChange={(userId, nextRole) => roleMutation.mutate({ userId, role: nextRole })}
+            />
+          )}
         </div>
       )}
 
       {showInviteTab && isOrgAdmin && (
         <>
           <div className="rounded-card border border-border bg-surface p-6">
-            <h2 className="text-lg font-semibold text-ink-2">Generate Passcode</h2>
-            <p className="text-sm text-ink-3">
+            <SectionLabel>Invite codes</SectionLabel>
+            <p className="mt-1 text-sm text-ink-3">
               Share passcodes with teammates to onboard them via SSO. Codes are single use unless
               you raise the max-uses value.
             </p>
@@ -146,7 +204,7 @@ export function AccountSettingsPage() {
                 />
               </label>
               <button
-                className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
+                className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control bg-accent px-4 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending}
               >
@@ -158,7 +216,7 @@ export function AccountSettingsPage() {
           </div>
 
           <div className="rounded-card border border-border bg-surface p-6">
-            <h3 className="text-base font-semibold text-ink-2">Active Codes</h3>
+            <SectionLabel>Active codes</SectionLabel>
             <ul className="mt-4 space-y-3 text-sm">
               {invitesQuery.data?.length ? (
                 invitesQuery.data.map((invite) => (
@@ -199,19 +257,19 @@ export function AccountSettingsPage() {
         </p>
       )}
 
-      {activeTab === 'Statuses' && (
+      {activeTab === 'stages' && (
         <div className="rounded-card border border-border bg-surface p-6">
           <AdminStatusesPage />
         </div>
       )}
 
-      {activeTab === 'Agencies' && (
+      {activeTab === 'agencies' && (
         <div className="rounded-card border border-border bg-surface p-6">
           <AdminAgenciesPage />
         </div>
       )}
 
-      {activeTab === 'Jobs' &&
+      {activeTab === 'jobs' &&
         (isOrgAdmin ? (
           <div className="rounded-card border border-border bg-surface p-6">
             <AdminJobsPage />

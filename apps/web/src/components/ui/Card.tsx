@@ -2,13 +2,17 @@ import type { ElementType, ReactNode } from 'react';
 
 interface CardProps {
   as?: ElementType;
+  /** Forwarded so a Card can be an anchor target (the user guide links to its sections). */
+  id?: string;
   className?: string;
   children: ReactNode;
 }
 
-export function Card({ as: Tag = 'div', className = '', children }: CardProps) {
+export function Card({ as: Tag = 'div', id, className = '', children }: CardProps) {
   return (
-    <Tag className={`rounded-card border border-border bg-surface ${className}`}>{children}</Tag>
+    <Tag id={id} className={`rounded-card border border-border bg-surface ${className}`}>
+      {children}
+    </Tag>
   );
 }
 
