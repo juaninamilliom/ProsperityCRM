@@ -4,6 +4,7 @@ import type { Role } from '../../common/types.js';
 import { query } from '../../utils/sql.js';
 import { withTransaction } from '../../utils/transaction.js';
 import type { User } from '../../types.js';
+import { assertInviteUsable, nextInviteState } from './invite.rules.js';
 
 export interface InviteRecord {
   code_id: string;
@@ -97,6 +98,44 @@ export async function redeemInviteCode({
        set used_count = $1, status = $2, metadata = jsonb_set(metadata, '{last_user_id}', to_jsonb($3::text), true)
        where code_id = $4`,
       [newUsedCount, newStatus, user.user_id, invite.code_id]
+    );
+
+    return { user, invite };
+  });
+}
+
+/** Redeem a code for an email/password signup. Runs in one transaction with
+ *  SELECT ... FOR UPDATE so two people racing the last use of a code cannot
+ *  both get in. The code - not the request - decides the org and the role. */
+export async function redeemInviteForLocalSignup({
+  code,
+  email,
+  name,
+  password,
+}: {
+  code: string;
+  email: string;
+  name: string;
+  password: string;
+}) {
+  return withTransaction(async (client) => {
+    const invite = await fetchInviteForUpdate(client, code);
+    assertInviteUsable(invite);
+
+    const userResult = await client.query<User>(
+      `insert into users (email, name, role, organization_id, password)
+       values ($1,$2,$3,$4,$5)
+       returning *`,
+      [email, name, invite.role, invite.organization_id, password]
+    );
+    const user = userResult.rows[0];
+
+    const next = nextInviteState(invite);
+    await client.query(
+      `update org_invite_codes
+       set used_count = $1, status = $2, metadata = jsonb_set(metadata, '{last_user_id}', to_jsonb($3::text), true)
+       where code_id = $4`,
+      [next.used_count, next.status, user.user_id, invite.code_id]
     );
 
     return { user, invite };

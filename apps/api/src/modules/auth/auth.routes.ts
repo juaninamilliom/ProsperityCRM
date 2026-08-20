@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { loginSchema, signupSchema } from './auth.schema.js';
 import { createLocalToken } from './token.js';
-import { createLocalUser, getUserByEmail } from '../user/user.service.js';
-import { getOrganizationById } from '../organization/organization.service.js';
+import { getUserByEmail } from '../user/user.service.js';
+import { redeemInviteForLocalSignup } from '../invite/invite.service.js';
+import { InviteError } from '../invite/invite.rules.js';
 
 export const authRouter = Router();
 
@@ -17,14 +18,23 @@ authRouter.post('/signup', async (req, res) => {
     return res.status(409).json({ message: 'Email already in use' });
   }
 
-  const org = await getOrganizationById(parsed.data.organization_id);
-  if (!org) {
-    return res.status(404).json({ message: 'Organization not found' });
+  try {
+    // The invite code decides the organisation and the role; both are ignored
+    // if sent in the body. Redemption and user creation share one transaction.
+    const { user } = await redeemInviteForLocalSignup({
+      code: parsed.data.invite_code.trim(),
+      email: parsed.data.email,
+      name: parsed.data.name,
+      password: parsed.data.password,
+    });
+    const token = await createLocalToken(user);
+    return res.status(201).json({ token, user });
+  } catch (error) {
+    if (error instanceof InviteError) {
+      return res.status(400).json({ message: error.message, reason: error.reason });
+    }
+    throw error;
   }
-
-  const user = await createLocalUser(parsed.data);
-  const token = await createLocalToken(user);
-  res.status(201).json({ token, user });
 });
 
 authRouter.post('/login', async (req, res) => {
