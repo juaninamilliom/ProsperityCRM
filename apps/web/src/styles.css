@@ -7,14 +7,17 @@
 @layer base {
   :root {
     font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
-    font-size: 13px;
-    line-height: 1.45;
     background-color: var(--bg);
     color: var(--ink);
   }
 
+  /* Body text is 13px, but the ROOT stays at the browser default: rem is what
+     Tailwind's whole spacing scale is built on, so shrinking the root silently
+     rescales every height, padding and gap in the app. */
   body {
     @apply min-h-screen;
+    font-size: 13px;
+    line-height: 1.45;
     background-color: var(--bg);
     color: var(--ink);
     -webkit-font-smoothing: antialiased;

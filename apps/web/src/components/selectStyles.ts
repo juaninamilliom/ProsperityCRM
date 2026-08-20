@@ -45,9 +45,10 @@ export const getSelectStyles = <Option = SelectOption, IsMulti extends boolean =
   return {
     control: (provided, state) => ({
       ...provided,
-      borderRadius: 9999,
-      minHeight: '2rem',
-      fontSize: '0.875rem',
+      borderRadius: 'var(--r-control)',
+      minHeight: 36,
+      height: 36,
+      fontSize: 13,
       borderColor: state.isFocused
         ? `var(--select-control-border-focus, ${colorsForTheme.controlBorderFocus})`
         : `var(--select-control-border, ${colorsForTheme.controlBorder})`,

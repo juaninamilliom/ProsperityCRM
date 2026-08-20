@@ -81,7 +81,7 @@ export function PipelineBoard({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-      <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid h-full auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {statuses.map((status) => {
           const columnCandidates = candidates.filter(
             (candidate) => candidate.current_status_id === status.status_id,

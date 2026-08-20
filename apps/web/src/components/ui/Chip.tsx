@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 type Tone = 'neutral' | 'accent' | 'ok' | 'warn' | 'off';
+type Size = 'md' | 'sm';
 
 const TONES: Record<Tone, string> = {
   neutral: 'bg-surface-3 text-ink-2',
@@ -10,16 +11,22 @@ const TONES: Record<Tone, string> = {
   off: 'bg-off-bg text-off-fg',
 };
 
+const SIZES: Record<Size, string> = {
+  md: 'px-2.5 py-1 text-sm',
+  sm: 'px-2 py-0.5 text-2xs',
+};
+
 interface ChipProps {
   tone?: Tone;
+  size?: Size;
   onRemove?: () => void;
   children: ReactNode;
 }
 
-export function Chip({ tone = 'neutral', onRemove, children }: ChipProps) {
+export function Chip({ tone = 'neutral', size = 'md', onRemove, children }: ChipProps) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-chip px-2.5 py-1 text-sm font-medium ${TONES[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-chip font-medium ${SIZES[size]} ${TONES[tone]}`}
     >
       {children}
       {onRemove && (

@@ -67,7 +67,7 @@ function ProtectedLayout() {
         onToggleTheme={toggleTheme}
         onLogout={handleLogout}
       />
-      <main className="min-w-0 flex-1 overflow-x-hidden p-8">
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-8">
         <Outlet context={{ theme, toggleTheme }} />
       </main>
     </div>
