@@ -10,6 +10,8 @@ interface CandidateFormLayoutProps {
   saveHint: string;
   onCancel: () => void;
   submitting: boolean;
+  submitDisabled?: boolean;
+  submitLabel?: string;
 }
 
 export function CandidateFormLayout({
@@ -21,6 +23,8 @@ export function CandidateFormLayout({
   saveHint,
   onCancel,
   submitting,
+  submitDisabled = false,
+  submitLabel = 'Save candidate',
 }: CandidateFormLayoutProps) {
   const done = checklist.filter((c) => c.done).length;
   const pct = checklist.length ? (done / checklist.length) * 100 : 0;
@@ -93,8 +97,8 @@ export function CandidateFormLayout({
           <Button type="button" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? 'Saving…' : 'Save candidate'}
+          <Button type="submit" variant="primary" disabled={submitting || submitDisabled}>
+            {submitting ? 'Saving…' : submitLabel}
           </Button>
         </div>
       </div>

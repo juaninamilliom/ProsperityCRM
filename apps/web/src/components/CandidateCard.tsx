@@ -39,7 +39,9 @@ export function CandidateCard({ candidate, selected = false, onSelect }: Candida
       {shown.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {shown.map((skill) => (
-            <Chip key={skill} size="sm">{skill}</Chip>
+            <Chip key={skill} size="sm">
+              {skill}
+            </Chip>
           ))}
           {overflow > 0 && (
             <span className="self-center text-2xs font-medium text-ink-3">{`+${overflow}`}</span>

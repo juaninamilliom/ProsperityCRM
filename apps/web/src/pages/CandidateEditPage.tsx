@@ -281,7 +281,7 @@ export function CandidateEditPage() {
         <label className="flex flex-col gap-1 text-sm font-semibold text-ink-2">
           Notes
           <textarea
-            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3 rounded-lg"
+            className="focus-ring min-h-[96px] w-full resize-none rounded-control border border-border bg-surface px-3 py-2.5 text-base leading-relaxed text-ink placeholder:text-ink-3"
             value={form.notes}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
               const { value } = event.currentTarget;

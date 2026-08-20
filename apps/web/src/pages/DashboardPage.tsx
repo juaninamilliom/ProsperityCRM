@@ -12,6 +12,7 @@ import { PipelineList } from '../components/PipelineList';
 import { DetailRail } from '../components/DetailRail';
 import { PipelineSearch } from '../components/PipelineSearch';
 import { pipelineSummary } from './pipelineSummary';
+import { activeFilterCount } from './activeFilterCount';
 import { Button } from '../components/ui';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../theme';
@@ -20,6 +21,7 @@ export function DashboardPage() {
   const [theme] = useTheme();
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const queryClient = useQueryClient();
   const { selectedAgency, flagQuery, jobId, statusId, searchTerm, skillFilters } =
     useFiltersStore();
@@ -71,6 +73,14 @@ export function DashboardPage() {
 
   const isRefreshing = candidatesQuery.isFetching && !isInitialCandidatesLoad;
 
+  const filterCount = activeFilterCount({
+    selectedAgency,
+    flagQuery,
+    jobId,
+    statusId,
+    skillFilters,
+  });
+
   const candidates = candidatesQuery.data ?? [];
   const selected = candidates.find((c) => c.candidate_id === selectedId) ?? null;
 
@@ -105,34 +115,70 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
-        <FilterBar
-          agencies={agenciesQuery.data ?? []}
-          jobs={jobsQuery.data ?? []}
-          statuses={statusesQuery.data ?? []}
-          skills={skillsQuery.data ?? []}
-          skillsLoading={skillsQuery.isLoading}
-          skillsError={Boolean(skillsQuery.error)}
-          theme={theme}
-        />
-        <div className="flex items-center gap-2">
-          {isRefreshing && <span className="text-xs text-ink-3">Updating…</span>}
-          <div className="flex items-center gap-1 rounded-control bg-surface-3 p-[3px]">
-            {(['board', 'list'] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setViewMode(mode)}
-                className={[
-                  'focus-ring h-[26px] rounded-[7px] px-3 text-sm font-medium capitalize transition',
-                  viewMode === mode ? 'bg-surface text-ink shadow-pop' : 'text-ink-2',
-                ].join(' ')}
-              >
-                {mode}
-              </button>
-            ))}
+      <div className="flex flex-col gap-4 border-b border-border pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((open) => !open)}
+            aria-expanded={filtersOpen}
+            className={[
+              'focus-ring flex h-[30px] items-center gap-2 rounded-[8px] border px-3 text-sm font-medium transition',
+              filtersOpen || filterCount > 0
+                ? 'border-border bg-surface text-ink'
+                : 'border-transparent text-ink-2 hover:bg-surface-3',
+            ].join(' ')}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.9"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M3 6h18M7 12h10M10 18h4" />
+            </svg>
+            Filters
+            {filterCount > 0 && (
+              <span className="rounded-full bg-accent-soft px-1.5 text-2xs font-semibold text-accent-ink">
+                {filterCount}
+              </span>
+            )}
+          </button>
+
+          <div className="flex items-center gap-2">
+            {isRefreshing && <span className="text-xs text-ink-3">Updating…</span>}
+            <div className="flex items-center gap-1 rounded-control bg-surface-3 p-[3px]">
+              {(['board', 'list'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setViewMode(mode)}
+                  className={[
+                    'focus-ring h-[26px] rounded-[7px] px-3 text-sm font-medium capitalize transition',
+                    viewMode === mode ? 'bg-surface text-ink shadow-pop' : 'text-ink-2',
+                  ].join(' ')}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+
+        {filtersOpen && (
+          <FilterBar
+            agencies={agenciesQuery.data ?? []}
+            jobs={jobsQuery.data ?? []}
+            statuses={statusesQuery.data ?? []}
+            skills={skillsQuery.data ?? []}
+            skillsLoading={skillsQuery.isLoading}
+            skillsError={Boolean(skillsQuery.error)}
+            theme={theme}
+          />
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">
