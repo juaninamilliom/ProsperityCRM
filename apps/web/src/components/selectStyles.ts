@@ -39,7 +39,9 @@ const palette = {
   },
 } satisfies Record<Theme, Record<string, string>>;
 
-export const getSelectStyles = (theme: Theme): StylesConfig<SelectOption, boolean> => {
+export const getSelectStyles = <Option = SelectOption, IsMulti extends boolean = false>(
+  theme: Theme,
+): StylesConfig<Option, IsMulti> => {
   const colorsForTheme = palette[theme];
   return {
     control: (provided, state) => ({
@@ -107,3 +109,6 @@ export const getSelectStyles = (theme: Theme): StylesConfig<SelectOption, boolea
     }),
   };
 };
+
+export const getMultiSelectStyles = <Option = SelectOption>(theme: Theme) =>
+  getSelectStyles<Option, true>(theme);

@@ -21,7 +21,7 @@ REQUIRED_VARS.forEach((key) => {
 });
 
 export const config = {
-  port: Number(process.env.API_PORT ?? 4000),
+  port: Number(process.env.API_PORT ?? process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
   oauthJwksUrl: process.env.OAUTH_JWKS_URL ?? '',
   corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean),

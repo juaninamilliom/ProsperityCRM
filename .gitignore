@@ -3,6 +3,7 @@ node_modules
 dist
 build
 .env*
+!.env.example
 .vscode
 .idea
 .DS_Store
@@ -17,3 +18,4 @@ apps/web/src/**/*.d.ts
 .turbo
 
 AGENTS.md
+*.tsbuildinfo
