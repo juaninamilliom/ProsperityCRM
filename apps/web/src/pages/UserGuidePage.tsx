@@ -15,16 +15,51 @@ const SETUP = [
     body: 'Settings → Jobs. A requisition carries the deal value and the split, so the Jobs page can show you what your pipeline is actually worth.',
   },
   {
-    title: 'Invite your team',
-    body: 'Settings → Members. Generate an invite code and share it. Codes are single-use by default and can be revoked at any time.',
+    title: 'Add your team',
+    body: 'Settings → Members lists everyone in your organisation, and an admin can change anyone’s role there. New teammates sign up with your organisation ID.',
   },
 ];
+
+/** Verified against the API: invite codes have list/create/revoke endpoints and
+ *  nothing that redeems them, and /auth/signup takes organization_id + a
+ *  self-chosen role with no code field. Saying otherwise in the guide would
+ *  tell admins they have gated something they have not. */
+const ONBOARDING_CAVEAT =
+  'Invite codes can be generated and revoked, but sign-up does not require one yet — anyone with your organisation ID can create an account and choose their own role. Until that is wired up, treat your organisation ID as sensitive.';
 
 const TIPS = [
   'Drag a card between columns to change stage. The move is recorded in that candidate’s history with who made it and when.',
   'Click any card to open the detail rail without leaving the board — contact details, skills, and where they sit in the process.',
+  'Search matches a candidate’s name, email, or the title of the job they are attached to.',
   'Use Filters to narrow by agency, job, stage, flag or skill. The badge on the button tells you how many filters are active.',
   'Switch to List view when you want to scan everyone at once rather than by stage.',
+  'Open a candidate and choose Open to edit their details, skills, flags and notes.',
+];
+
+const TAGGING = [
+  {
+    title: 'Skills are shared',
+    body: 'The skill library belongs to the whole organisation. Adding a skill on one candidate makes it available to everyone, so prefer picking an existing skill over typing a near-duplicate.',
+  },
+  {
+    title: 'Flags are free text',
+    body: 'Flags are short labels you invent — Counter-offer risk, Referral, Needs visa. They are filterable, so keep the wording consistent across candidates.',
+  },
+];
+
+const JOBS = [
+  {
+    title: 'Deal value and weighted value',
+    body: 'Each requisition carries a deal amount and a probability-adjusted weighted amount. The Jobs page totals both across open roles so you can see what the pipeline is worth.',
+  },
+  {
+    title: 'Splits',
+    body: 'A deal sheet records who shares the fee and by what percentage — useful when a sourcer and an account manager both worked a placement.',
+  },
+  {
+    title: 'Status',
+    body: 'A job is Open, On hold, or Closed. Only open roles count towards the pipeline totals on the Jobs page.',
+  },
 ];
 
 const ROLES = [
@@ -32,17 +67,17 @@ const ROLES = [
     name: 'Org Admin',
     can: [
       'Everything a recruiter can do',
-      'Add and edit agencies, jobs and stages',
-      'Invite teammates and change their roles',
-      'Manage organisation settings',
+      'Add and edit agencies, jobs and pipeline stages',
+      'Change teammates’ roles',
+      'Generate and revoke invite codes',
     ],
   },
   {
     name: 'Recruiter',
     can: [
-      'Add and edit candidates',
-      'Move candidates between stages',
-      'Add skills and flags',
+      'Add, edit and move candidates',
+      'Add skills to the shared library',
+      'Add flags and notes',
       'View jobs and deal sheets',
     ],
   },
@@ -51,6 +86,8 @@ const ROLES = [
 const SECTIONS = [
   { id: 'setup', label: 'Build your workspace' },
   { id: 'pipeline', label: 'Working the pipeline' },
+  { id: 'tagging', label: 'Skills and flags' },
+  { id: 'jobs', label: 'Jobs and deal sheets' },
   { id: 'roles', label: 'Who can do what' },
   { id: 'help', label: 'Getting help' },
 ];
@@ -134,6 +171,24 @@ export function UserGuidePage() {
               </li>
             ))}
           </ol>
+          <p className="flex items-start gap-3 rounded-[11px] bg-warn-bg px-4 py-3.5 text-base leading-relaxed text-warn-fg [text-wrap:pretty]">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="mt-0.5 shrink-0"
+              aria-hidden="true"
+            >
+              <path d="M12 9v4M12 17h.01" />
+              <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+            </svg>
+            {ONBOARDING_CAVEAT}
+          </p>
         </Card>
 
         <Card as="section" id="pipeline" className="flex scroll-mt-8 flex-col gap-[18px] p-[26px]">
@@ -159,6 +214,40 @@ export function UserGuidePage() {
               </li>
             ))}
           </ul>
+        </Card>
+
+        <Card as="section" id="tagging" className="flex scroll-mt-8 flex-col gap-[18px] p-[26px]">
+          <div className="flex flex-col gap-1">
+            <SectionLabel>Organising people</SectionLabel>
+            <h2 className="text-[17px] font-semibold tracking-[-0.01em]">Skills and flags</h2>
+          </div>
+          <div className="flex flex-col gap-4">
+            {TAGGING.map((item) => (
+              <div key={item.title} className="flex flex-col gap-0.5">
+                <span className="text-[13.5px] font-semibold">{item.title}</span>
+                <span className="text-[13.5px] leading-relaxed text-ink-2 [text-wrap:pretty]">
+                  {item.body}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card as="section" id="jobs" className="flex scroll-mt-8 flex-col gap-[18px] p-[26px]">
+          <div className="flex flex-col gap-1">
+            <SectionLabel>Money</SectionLabel>
+            <h2 className="text-[17px] font-semibold tracking-[-0.01em]">Jobs and deal sheets</h2>
+          </div>
+          <div className="flex flex-col gap-4">
+            {JOBS.map((item) => (
+              <div key={item.title} className="flex flex-col gap-0.5">
+                <span className="text-[13.5px] font-semibold">{item.title}</span>
+                <span className="text-[13.5px] leading-relaxed text-ink-2 [text-wrap:pretty]">
+                  {item.body}
+                </span>
+              </div>
+            ))}
+          </div>
         </Card>
 
         <Card as="section" id="roles" className="flex scroll-mt-8 flex-col gap-[18px] p-[26px]">
