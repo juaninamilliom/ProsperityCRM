@@ -1,111 +1,102 @@
-import colors from 'tailwindcss/colors';
 import { StylesConfig } from 'react-select';
 import type { Theme } from '../theme';
 
 type SelectOption = { value: string; label: string };
 
-const palette = {
-  light: {
-    controlBorder: colors.slate[200],
-    controlBorderFocus: colors.blue[600],
-    controlBorderHover: colors.blue[600],
-    menuBg: colors.white,
-    menuColor: colors.slate[900],
-    optionHoverBg: colors.sky[100],
-    optionSelectedColor: colors.blue[800],
-    optionColor: colors.slate[900],
-    optionActiveBg: colors.blue[200],
-    multiBg: 'rgba(37, 99, 235, 0.15)',
-    multiText: colors.blue[900],
-    multiRemoveHoverBg: colors.blue[600],
-    valueColor: colors.slate[900],
-    placeholderColor: colors.slate[400],
-  },
-  dark: {
-    controlBorder: colors.slate[600],
-    controlBorderFocus: colors.indigo[500],
-    controlBorderHover: colors.indigo[500],
-    menuBg: colors.slate[800],
-    menuColor: colors.slate[200],
-    optionHoverBg: colors.slate[600],
-    optionSelectedColor: colors.slate[50],
-    optionColor: colors.slate[200],
-    optionActiveBg: colors.slate[700],
-    multiBg: colors.slate[700],
-    multiText: colors.white,
-    multiRemoveHoverBg: colors.slate[600],
-    valueColor: colors.slate[50],
-    placeholderColor: colors.slate[400],
-  },
-} satisfies Record<Theme, Record<string, string>>;
-
 export const getSelectStyles = <Option = SelectOption, IsMulti extends boolean = false>(
   theme: Theme,
 ): StylesConfig<Option, IsMulti> => {
-  const colorsForTheme = palette[theme];
   return {
     control: (provided, state) => ({
       ...provided,
-      borderRadius: 9999,
-      minHeight: '2rem',
-      fontSize: '0.875rem',
-      borderColor: state.isFocused
-        ? `var(--select-control-border-focus, ${colorsForTheme.controlBorderFocus})`
-        : `var(--select-control-border, ${colorsForTheme.controlBorder})`,
-      boxShadow: 'none',
-      ':hover': {
-        borderColor: `var(--select-control-border-hover, ${colorsForTheme.controlBorderHover})`,
-      },
-      backgroundColor: 'transparent',
+      minHeight: 36,
+      height: 36,
+      paddingLeft: 4,
+      paddingRight: 2,
+      fontSize: 13,
+      borderRadius: 'var(--r-control)',
+      backgroundColor: 'var(--surface)',
+      borderColor: state.isFocused ? 'var(--accent)' : 'var(--border)',
+      boxShadow: state.isFocused ? '0 0 0 3px var(--sel-ring)' : 'none',
+      transition: 'border-color 120ms, box-shadow 120ms',
+      ':hover': { borderColor: state.isFocused ? 'var(--accent)' : 'var(--border)' },
     }),
-    singleValue: (provided) => ({
+    valueContainer: (provided) => ({ ...provided, padding: '0 6px' }),
+    singleValue: (provided) => ({ ...provided, color: 'var(--ink)', fontSize: 13 }),
+    input: (provided) => ({ ...provided, color: 'var(--ink)', margin: 0, padding: 0 }),
+    placeholder: (provided) => ({ ...provided, color: 'var(--ink-3)', fontSize: 13 }),
+
+    // Stock react-select draws a vertical rule before the chevron and an
+    // oversized indicator. Nothing else in the app has either.
+    indicatorSeparator: () => ({ display: 'none' }),
+    dropdownIndicator: (provided, state) => ({
       ...provided,
-      color: `var(--select-value-color, ${colorsForTheme.valueColor})`,
+      padding: '0 8px 0 4px',
+      color: state.isFocused ? 'var(--ink-2)' : 'var(--ink-3)',
+      '& svg': { width: 15, height: 15 },
+      ':hover': { color: 'var(--ink-2)' },
     }),
-    input: (provided) => ({
+    clearIndicator: (provided) => ({
       ...provided,
-      color: `var(--select-value-color, ${colorsForTheme.valueColor})`,
+      padding: '0 2px',
+      color: 'var(--ink-3)',
+      '& svg': { width: 14, height: 14 },
+      ':hover': { color: 'var(--ink-2)' },
     }),
-    placeholder: (provided) => ({
-      ...provided,
-      color: `var(--select-placeholder-color, ${colorsForTheme.placeholderColor})`,
-    }),
+
     menu: (provided) => ({
       ...provided,
-      borderRadius: 16,
-      backgroundColor: `var(--select-menu-bg, ${colorsForTheme.menuBg})`,
-      color: `var(--select-menu-color, ${colorsForTheme.menuColor})`,
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      marginTop: 6,
+      padding: 5,
+      borderRadius: 11,
+      border: '1px solid var(--border)',
+      backgroundColor: 'var(--surface)',
+      boxShadow: '0 12px 28px rgba(10, 12, 20, 0.16)',
+      overflow: 'hidden',
+      zIndex: 30,
     }),
+    menuList: (provided) => ({ ...provided, padding: 0, maxHeight: 260 }),
     option: (provided, state) => ({
       ...provided,
-      backgroundColor: state.isFocused
-        ? `var(--select-option-hover-bg, ${colorsForTheme.optionHoverBg})`
-        : provided.backgroundColor,
-      color: state.isSelected
-        ? `var(--select-option-selected-color, ${colorsForTheme.optionSelectedColor})`
-        : `var(--select-option-color, ${colorsForTheme.optionColor})`,
-      ':active': {
-        backgroundColor: `var(--select-option-active-bg, ${colorsForTheme.optionActiveBg})`,
-      },
+      padding: '8px 10px',
+      borderRadius: 8,
+      fontSize: 12.5,
+      cursor: 'pointer',
+      color: state.isSelected ? 'var(--accent-ink)' : 'var(--ink)',
+      backgroundColor: state.isSelected
+        ? 'var(--accent-soft)'
+        : state.isFocused
+          ? 'var(--surface-3)'
+          : 'transparent',
+      ':active': { backgroundColor: 'var(--sel-bg)' },
     }),
+    noOptionsMessage: (provided) => ({
+      ...provided,
+      padding: '10px',
+      fontSize: 12.5,
+      color: 'var(--ink-3)',
+    }),
+
     multiValue: (provided) => ({
       ...provided,
-      borderRadius: 9999,
-      backgroundColor: `var(--select-multi-bg, ${colorsForTheme.multiBg})`,
+      margin: '2px 4px 2px 0',
+      borderRadius: 'var(--r-chip)',
+      backgroundColor: 'var(--accent-soft)',
     }),
     multiValueLabel: (provided) => ({
       ...provided,
-      color: `var(--select-multi-text, ${colorsForTheme.multiText})`,
-      fontWeight: 600,
+      padding: '2px 4px 2px 8px',
+      fontSize: 11.5,
+      fontWeight: 500,
+      color: 'var(--accent-ink)',
     }),
     multiValueRemove: (provided) => ({
       ...provided,
-      borderRadius: 9999,
-      ':hover': {
-        backgroundColor: `var(--select-multi-remove-hover-bg, ${colorsForTheme.multiRemoveHoverBg})`,
-        color: '#fff',
-      },
+      paddingLeft: 2,
+      paddingRight: 6,
+      borderRadius: 'var(--r-chip)',
+      color: 'var(--accent-ink)',
+      ':hover': { backgroundColor: 'transparent', color: 'var(--ink)' },
     }),
   };
 };

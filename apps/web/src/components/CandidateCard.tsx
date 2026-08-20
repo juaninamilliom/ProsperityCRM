@@ -1,60 +1,53 @@
 import type { CandidateWithMeta } from 'src/common';
-import { Link } from 'react-router-dom';
-import { Icon } from './Icon';
+import { Chip } from './ui';
 
 interface CandidateCardProps {
   candidate: CandidateWithMeta;
+  selected?: boolean;
+  onSelect?: (candidateId: string) => void;
 }
 
-export function CandidateCard({ candidate }: CandidateCardProps) {
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
+}
+
+export function CandidateCard({ candidate, selected = false, onSelect }: CandidateCardProps) {
+  const skills = candidate.skills ?? [];
+  const shown = skills.slice(0, 2);
+  const overflow = skills.length - shown.length;
+
   return (
-    <article className="rounded-3xl border border-white/30 bg-white/90 p-4 shadow-soft ring-1 ring-slate-100 backdrop-blur dark:border-slate-800/70 dark:bg-slate-900/80">
-      <header className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold text-slate-800 dark:text-white">{candidate.name}</h4>
-        <div className="flex items-center gap-2">
-          {candidate.agency_name && <span className="badge">{candidate.agency_name}</span>}
-          <Link
-            to={`/candidates/${candidate.candidate_id}/edit`}
-            className="inline-block rounded-full p-2 text-indigo-600 hover:bg-indigo-100 dark:text-indigo-400 dark:hover:bg-indigo-900"
-          >
-            <Icon icon="edit" />
-          </Link>
-        </div>
-      </header>
-      <p className="text-sm text-slate-600 dark:text-slate-300">{candidate.email}</p>
-      {candidate.job_title && (
-        <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Job: {candidate.job_title}</p>
-      )}
-      <div className="mt-3 space-y-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Skills</p>
-          {candidate.skills?.length ? (
-            <ul className="mt-1 flex flex-wrap gap-1 text-xs text-slate-600 dark:text-slate-300">
-              {candidate.skills.map((skill: string) => (
-                <li key={skill} className="rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                  {skill}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-xs text-slate-500 dark:text-slate-500">No skills tagged</p>
-          )}
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Flags</p>
-          {candidate.flags?.length ? (
-            <ul className="mt-1 flex flex-wrap gap-1 text-xs text-slate-600 dark:text-slate-300">
-              {candidate.flags.map((flag: string) => (
-                <li key={flag} className="rounded-full bg-brand-fuchsia/15 px-3 py-0.5 text-xs font-semibold text-brand-fuchsia">
-                  {flag}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-xs text-slate-500 dark:text-slate-500">No flags yet</p>
-          )}
-        </div>
+    <article
+      data-selected={selected}
+      onClick={onSelect ? () => onSelect(candidate.candidate_id) : undefined}
+      className={[
+        'flex w-full flex-col gap-2.5 rounded-[11px] border bg-surface p-3 text-left transition',
+        selected ? 'border-accent shadow-pop' : 'border-border shadow-token',
+        onSelect ? 'cursor-pointer' : '',
+      ].join(' ')}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[10px] font-semibold text-accent-ink">
+          {initials(candidate.name)}
+        </span>
+        <span className="truncate text-sm font-semibold tracking-[-0.005em]">{candidate.name}</span>
       </div>
+
+      {candidate.job_title && <p className="truncate text-xs text-ink-2">{candidate.job_title}</p>}
+
+      {shown.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {shown.map((skill) => (
+            <Chip key={skill} size="sm">
+              {skill}
+            </Chip>
+          ))}
+          {overflow > 0 && (
+            <span className="self-center text-2xs font-medium text-ink-3">{`+${overflow}`}</span>
+          )}
+        </div>
+      )}
     </article>
   );
 }

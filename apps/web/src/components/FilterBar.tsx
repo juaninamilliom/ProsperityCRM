@@ -1,6 +1,6 @@
 import type { AgencyDTO, JobRequisitionDTO, OrganizationSkillDTO, StatusDTO } from 'src/common';
 import type { ChangeEvent } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Select, { type MultiValue } from 'react-select';
 import { useFiltersStore } from '../store/filters';
 import type { Theme } from '../theme';
@@ -32,16 +32,13 @@ export function FilterBar({
     flagQuery,
     jobId,
     statusId,
-    searchTerm,
     skillFilters,
     setAgency,
     setFlagQuery,
     setJobId,
     setStatusId,
-    setSearchTerm,
     setSkillFilters,
   } = useFiltersStore();
-  const [localSearch, setLocalSearch] = useState(searchTerm ?? '');
 
   const agencyOptions = useMemo(
     () => [
@@ -70,17 +67,6 @@ export function FilterBar({
   const multiSelectStyles = getMultiSelectStyles(theme);
   const selectSkillValue = skillOptions.filter((option) => skillFilters.includes(option.value));
 
-  useEffect(() => {
-    setLocalSearch(searchTerm ?? '');
-  }, [searchTerm]);
-
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      setSearchTerm(localSearch || undefined);
-    }, 250);
-    return () => clearTimeout(handle);
-  }, [localSearch, setSearchTerm]);
-
   function onAgencyChange(option: SelectOption | null) {
     setAgency(option?.value || undefined);
   }
@@ -97,54 +83,16 @@ export function FilterBar({
     setStatusId(option?.value || undefined);
   }
 
-  function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
-    setLocalSearch(event.currentTarget.value);
-  }
-
   function onSkillSelectChange(options: MultiValue<SelectOption>) {
     const selected = options.map((option) => option.value);
     setSkillFilters(selected);
   }
 
   return (
-    <div className="space-y-4 rounded-card bg-brand-blue/5 p-4 shadow-soft ring-1 ring-white/40 dark:bg-slate-900/70">
-      <div className="relative">
-        <svg
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          width="24"
-          height="24"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="m19 19-3.5-3.5"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <circle
-            cx="11"
-            cy="11"
-            r="6"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <input
-          className="w-full rounded-full bg-white/80 py-3 pl-10 pr-4 text-lg text-slate-800 shadow-soft focus:outline-none focus:ring-2 focus:ring-brand-blue/70 dark:bg-slate-800/80 dark:text-white"
-          type="search"
-          placeholder="Search candidates by name, email, job title…"
-          value={localSearch}
-          onChange={onSearchChange}
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-4 pb-4">
-        <label className="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400 min-w-[200px]">
-          <span className="font-medium pl-4">Agency</span>
+    <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex min-w-[168px] flex-col gap-1.5 text-xs font-medium text-ink-3">
+          <span className="font-medium">Agency</span>
           <Select
             options={agencyOptions}
             value={agencyOptions.find((o) => o.value === selectedAgency)}
@@ -154,8 +102,8 @@ export function FilterBar({
             isClearable
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400 min-w-[200px]">
-          <span className="font-medium pl-4">Job</span>
+        <label className="flex min-w-[168px] flex-col gap-1.5 text-xs font-medium text-ink-3">
+          <span className="font-medium">Job</span>
           <Select
             options={jobOptions}
             value={jobOptions.find((o) => o.value === jobId)}
@@ -165,8 +113,8 @@ export function FilterBar({
             isClearable
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400 min-w-[200px]">
-          <span className="font-medium pl-4">Status</span>
+        <label className="flex min-w-[168px] flex-col gap-1.5 text-xs font-medium text-ink-3">
+          <span className="font-medium">Status</span>
           <Select
             options={statusOptions}
             value={statusOptions.find((o) => o.value === statusId)}
@@ -176,22 +124,22 @@ export function FilterBar({
             isClearable
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400">
-          <span className="font-medium pl-4">Flag</span>
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-3">
+          <span className="font-medium">Flag</span>
           <input
-            className="pill-input py-2 text-sm"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             type="search"
             placeholder="Hot Prospect"
             value={flagQuery ?? ''}
             onChange={onFlagChange}
           />
         </label>
-        <div className="flex flex-col gap-1 flex-1 text-xs text-slate-500 dark:text-slate-400">
-          <span className="font-medium pl-4">Skills</span>
+        <div className="flex min-w-[200px] flex-1 flex-col gap-1.5 text-xs font-medium text-ink-3">
+          <span className="font-medium">Skills</span>
           {skillsLoading ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400 pl-4">Loading skills…</p>
+            <p className="text-xs text-ink-3">Loading skills…</p>
           ) : skillsError ? (
-            <p className="text-xs text-red-500 pl-4">Skills failed to load.</p>
+            <p className="text-xs text-warn-fg">Skills failed to load.</p>
           ) : skillOptions.length ? (
             <Select
               isMulti
@@ -205,9 +153,7 @@ export function FilterBar({
               className="min-w-[200px] flex-1"
             />
           ) : (
-            <p className="text-xs text-slate-500 dark:text-slate-400 pl-4">
-              No skills yet. Add them from the candidate form.
-            </p>
+            <p className="text-xs text-ink-3">No skills yet. Add them from the candidate form.</p>
           )}
         </div>
       </div>

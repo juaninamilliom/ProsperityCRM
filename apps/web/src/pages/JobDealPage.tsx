@@ -10,16 +10,24 @@ import DatePicker from 'react-datepicker';
 import { Icon } from '../components/Icon';
 import { useTheme } from '../theme';
 import { getSelectStyles } from '../components/selectStyles';
+import { formatMoney } from './JobsPage';
+import { Button, Card, SectionLabel } from '../components/ui';
 
-function formatCurrency(value?: number | null) {
-  if (value === null || value === undefined) return '—';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(value);
+export function splitAmount(
+  total: string | number | null | undefined,
+  percent: string | number | null | undefined,
+): string {
+  if (total === null || total === undefined || total === '') return '—';
+  if (percent === null || percent === undefined || percent === '') return '—';
+  const t = Number(total);
+  const p = Number(percent);
+  if (!Number.isFinite(t) || !Number.isFinite(p)) return '—';
+  return formatMoney((t * p) / 100);
 }
 
+function formatCurrency(value?: string | number | null) {
+  return formatMoney(value);
+}
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not set';
@@ -175,7 +183,7 @@ export function JobDealPage() {
 
   if (detailQuery.isLoading || !job) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-ink-3">
         {detailQuery.isLoading ? 'Loading deal sheet…' : 'Job not found.'}
       </p>
     );
@@ -228,13 +236,11 @@ export function JobDealPage() {
     <section className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-400">
+          <p className="text-xs uppercase tracking-wide text-ink-3">
             Req • {job.department || 'General'}
           </p>
-          <h1 className="text-3xl font-semibold text-slate-800 dark:text-white">{job.title}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Close Date: {formatDate(job.close_date)}
-          </p>
+          <h1 className="text-3xl font-semibold text-ink">{job.title}</h1>
+          <p className="text-sm text-ink-3">Close Date: {formatDate(job.close_date)}</p>
         </div>
         <div className="flex gap-3">
           {canEdit && (
@@ -249,46 +255,44 @@ export function JobDealPage() {
               <Icon icon={isJobEditing ? 'close' : 'edit'} />
             </button>
           )}
-          <span className="rounded-full bg-slate-100 px-4 py-1 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-white">
+          <span className="rounded-full bg-surface-2 px-4 py-1 text-sm font-semibold text-ink-2 dark:bg-surface-2 dark:text-white">
             {job.status}
           </span>
           {job.stage && (
-            <span className="rounded-full bg-brand-blue/10 px-4 py-1 text-sm font-semibold text-brand-blue">
+            <span className="rounded-chip bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-ink">
               {job.stage}
             </span>
           )}
-          <button className="btn-outline" type="button" onClick={() => navigate(-1)}>
+          <button
+            className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
+            type="button"
+            onClick={() => navigate(-1)}
+          >
             <span>Back</span>
           </button>
         </div>
       </header>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <article className="rounded-3xl border border-white/30 bg-white/90 p-4 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Deal Amount</p>
-          <p className="text-2xl font-semibold text-slate-800 dark:text-white">
-            {formatCurrency(job.deal_amount)}
-          </p>
+        <article className="rounded-3xl border border-white/30 bg-surface p-4 shadow-token dark:border-border/70 dark:bg-surface-2">
+          <p className="text-xs uppercase tracking-wide text-ink-3">Deal Amount</p>
+          <p className="text-2xl font-semibold text-ink">{formatCurrency(job.deal_amount)}</p>
         </article>
-        <article className="rounded-3xl border border-white/30 bg-white/90 p-4 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Weighted Deal</p>
-          <p className="text-2xl font-semibold text-slate-800 dark:text-white">
+        <article className="rounded-3xl border border-white/30 bg-surface p-4 shadow-token dark:border-border/70 dark:bg-surface-2">
+          <p className="text-xs uppercase tracking-wide text-ink-3">Weighted Deal</p>
+          <p className="text-2xl font-semibold text-ink">
             {formatCurrency(job.weighted_deal_amount)}
           </p>
         </article>
-        <article className="rounded-3xl border border-white/30 bg-white/90 p-4 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Owner</p>
-          <p className="text-2xl font-semibold text-slate-800 dark:text-white">
-            {job.owner_name || 'Unassigned'}
-          </p>
+        <article className="rounded-3xl border border-white/30 bg-surface p-4 shadow-token dark:border-border/70 dark:bg-surface-2">
+          <p className="text-xs uppercase tracking-wide text-ink-3">Owner</p>
+          <p className="text-2xl font-semibold text-ink">{job.owner_name || 'Unassigned'}</p>
         </article>
       </section>
 
       {isJobEditing && jobForm && (
-        <section className="rounded-3xl border border-dashed border-brand-blue/40 bg-white/90 p-5 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
-          <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-white">
-            Edit Requisition
-          </h2>
+        <section className="rounded-card border border-dashed border-border bg-surface-2 p-5">
+          <h2 className="mb-3 text-lg font-semibold text-ink">Edit Requisition</h2>
           {jobMessage && <p className="text-xs text-emerald-600 mb-3">{jobMessage}</p>}
           <form
             className="grid gap-4 md:grid-cols-2"
@@ -297,10 +301,10 @@ export function JobDealPage() {
               jobMutation.mutate();
             }}
           >
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Title
               <input
-                className="pill-input"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                 value={jobForm.title}
                 onChange={(event) => {
                   const value = event.currentTarget.value;
@@ -308,10 +312,10 @@ export function JobDealPage() {
                 }}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Department
               <input
-                className="pill-input"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                 value={jobForm.department ?? ''}
                 onChange={(event) => {
                   const value = event.currentTarget.value;
@@ -319,10 +323,10 @@ export function JobDealPage() {
                 }}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Location
               <input
-                className="pill-input"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                 value={jobForm.location ?? ''}
                 onChange={(event) => {
                   const value = event.currentTarget.value;
@@ -330,7 +334,7 @@ export function JobDealPage() {
                 }}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Status
               <Select
                 options={statusOptions}
@@ -345,10 +349,10 @@ export function JobDealPage() {
                 classNamePrefix="skill-select"
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Stage
               <input
-                className="pill-input"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                 value={jobForm.stage ?? ''}
                 onChange={(event) => {
                   const value = event.currentTarget.value;
@@ -356,7 +360,7 @@ export function JobDealPage() {
                 }}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Close Date
               <DatePicker
                 selected={jobForm.close_date ? new Date(jobForm.close_date) : null}
@@ -364,14 +368,14 @@ export function JobDealPage() {
                   const value = date ? date.toISOString().split('T')[0] : '';
                   setJobForm((prev) => ({ ...prev!, close_date: value }));
                 }}
-                className="pill-input"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                 placeholderText="Select date"
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Deal Amount
               <input
-                className="pill-input"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                 type="number"
                 value={jobForm.deal_amount}
                 onChange={(event) => {
@@ -380,10 +384,10 @@ export function JobDealPage() {
                 }}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Weighted Deal
               <input
-                className="pill-input"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                 type="number"
                 value={jobForm.weighted_deal_amount}
                 onChange={(event) => {
@@ -392,7 +396,7 @@ export function JobDealPage() {
                 }}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Owner
               <Select
                 options={userOptions}
@@ -405,10 +409,10 @@ export function JobDealPage() {
                 isClearable
               />
             </label>
-            <label className="md:col-span-2 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="md:col-span-2 flex flex-col gap-1 text-sm text-ink-2">
               Description
               <textarea
-                className="pill-input rounded-lg"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3 rounded-lg"
                 rows={3}
                 value={jobForm.description}
                 onChange={(event) => {
@@ -418,11 +422,15 @@ export function JobDealPage() {
               />
             </label>
             <div className="md:col-span-2 flex gap-3">
-              <button className="btn-fuchsia" type="submit" disabled={jobMutation.isPending}>
+              <button
+                className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control bg-accent px-4 font-medium text-white transition hover:opacity-90"
+                type="submit"
+                disabled={jobMutation.isPending}
+              >
                 {jobMutation.isPending ? 'Saving…' : 'Save Job'}
               </button>
               <button
-                className="btn-outline"
+                className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
                 type="button"
                 onClick={() => {
                   setIsJobEditing(false);
@@ -437,19 +445,17 @@ export function JobDealPage() {
         </section>
       )}
 
-      <section className="rounded-3xl border border-white/30 bg-white/90 p-5 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
+      <section className="rounded-3xl border border-white/30 bg-surface p-5 shadow-token dark:border-border/70 dark:bg-surface-2">
         <header className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Deal Split</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Share payouts across the team.
-            </p>
+            <h2 className="text-lg font-semibold text-ink">Deal Split</h2>
+            <p className="text-sm text-ink-3">Share payouts across the team.</p>
           </div>
           <div className="flex gap-2">
             {message && <p className="text-xs text-emerald-600">{message}</p>}
             {!isEditing ? (
               <button
-                className="inline-block rounded-full p-2 text-indigo-600 hover:bg-indigo-100 disabled:text-slate-400 dark:text-indigo-400 dark:hover:bg-indigo-900"
+                className="inline-block rounded-full p-2 text-indigo-600 hover:bg-indigo-100 disabled:text-ink-3 dark:text-indigo-400 dark:hover:bg-indigo-900"
                 type="button"
                 onClick={beginEdit}
                 disabled={!canEdit}
@@ -459,11 +465,15 @@ export function JobDealPage() {
               </button>
             ) : (
               <Fragment>
-                <button className="btn-outline" type="button" onClick={addSplitRow}>
+                <button
+                  className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
+                  type="button"
+                  onClick={addSplitRow}
+                >
                   <span>Add Row</span>
                 </button>
                 <button
-                  className="btn-fuchsia"
+                  className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control bg-accent px-4 font-medium text-white transition hover:opacity-90"
                   type="button"
                   onClick={saveSplits}
                   disabled={saveMutation.isPending}
@@ -471,7 +481,7 @@ export function JobDealPage() {
                   {saveMutation.isPending ? 'Saving…' : 'Save'}
                 </button>
                 <button
-                  className="inline-block rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                  className="inline-block rounded-full p-2 text-ink-3 hover:bg-surface-2 dark:text-ink-3 dark:hover:bg-surface-2"
                   type="button"
                   onClick={() => setIsEditing(false)}
                   title="Cancel"
@@ -485,7 +495,7 @@ export function JobDealPage() {
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead>
-              <tr className="text-xs uppercase tracking-wide text-slate-400">
+              <tr className="text-xs uppercase tracking-wide text-ink-3">
                 <th className="py-2">Teammate</th>
                 <th>Role</th>
                 <th>Split %</th>
@@ -497,7 +507,7 @@ export function JobDealPage() {
             <tbody>
               {isEditing
                 ? draftSplits.map((split, index) => (
-                    <tr key={index} className="border-t border-slate-100 dark:border-slate-800">
+                    <tr key={index} className="border-t border-border">
                       <td className="py-2">
                         <Select
                           options={userOptions}
@@ -522,7 +532,7 @@ export function JobDealPage() {
                       </td>
                       <td>
                         <input
-                          className="pill-input"
+                          className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                           type="number"
                           value={split.split_percent ?? '0'}
                           onChange={(event) =>
@@ -534,7 +544,7 @@ export function JobDealPage() {
                       <td>{formatCurrency(dealTotals[index]?.weighted_deal ?? 0)}</td>
                       <td>
                         <button
-                          className="text-xs text-red-500"
+                          className="text-xs text-warn-fg"
                           type="button"
                           onClick={() => removeSplitRow(index)}
                         >
@@ -544,12 +554,9 @@ export function JobDealPage() {
                     </tr>
                   ))
                 : splits.map((split) => (
-                    <tr
-                      key={split.split_id}
-                      className="border-t border-slate-100 dark:border-slate-800"
-                    >
+                    <tr key={split.split_id} className="border-t border-border">
                       <td className="py-2">
-                        <span className="font-semibold text-slate-800 dark:text-white">
+                        <span className="font-semibold text-ink">
                           {split.teammate_name || 'Unassigned'}
                         </span>
                       </td>
@@ -563,7 +570,7 @@ export function JobDealPage() {
             {isEditing && (
               <tfoot>
                 <tr>
-                  <td colSpan={5} className="pt-3 text-xs text-slate-500">
+                  <td colSpan={5} className="pt-3 text-xs text-ink-3">
                     Total Split: {totalSplit}%
                   </td>
                 </tr>
@@ -571,15 +578,13 @@ export function JobDealPage() {
             )}
           </table>
           {!splits.length && !isEditing && (
-            <p className="mt-3 text-sm text-slate-500">No deal split defined yet.</p>
+            <p className="mt-3 text-sm text-ink-3">No deal split defined yet.</p>
           )}
         </div>
       </section>
 
-      <section className="rounded-3xl border border-white/30 bg-white/90 p-5 shadow-soft dark:border-slate-800/70 dark:bg-slate-900/70">
-        <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-white">
-          Related Candidates
-        </h2>
+      <section className="rounded-3xl border border-white/30 bg-surface p-5 shadow-token dark:border-border/70 dark:bg-surface-2">
+        <h2 className="mb-3 text-lg font-semibold text-ink">Related Candidates</h2>
         <ul className="space-y-3">
           {candidates.length ? (
             candidates.map((candidate) => (
@@ -588,10 +593,10 @@ export function JobDealPage() {
                 className="flex items-center justify-between text-sm"
               >
                 <div>
-                  <p className="font-semibold text-slate-800 dark:text-white">{candidate.name}</p>
-                  <p className="text-xs text-slate-500">{candidate.status_name}</p>
+                  <p className="font-semibold text-ink">{candidate.name}</p>
+                  <p className="text-xs text-ink-3">{candidate.status_name}</p>
                 </div>
-                <div className="text-right text-xs text-slate-500">
+                <div className="text-right text-xs text-ink-3">
                   {candidate.skills?.length ? <p>Skills: {candidate.skills.join(', ')}</p> : null}
                   {candidate.flags?.length ? <p>Flags: {candidate.flags.join(', ')}</p> : null}
                   {!candidate.skills?.length && !candidate.flags?.length && <p>No tags yet</p>}
@@ -599,7 +604,7 @@ export function JobDealPage() {
               </li>
             ))
           ) : (
-            <p className="text-sm text-slate-500">No candidates matched to this requisition yet.</p>
+            <p className="text-sm text-ink-3">No candidates matched to this requisition yet.</p>
           )}
         </ul>
       </section>

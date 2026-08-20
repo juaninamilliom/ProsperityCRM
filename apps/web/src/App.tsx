@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardPage } from './pages/DashboardPage';
 import { CandidateFormPage } from './pages/CandidateFormPage';
@@ -9,10 +9,9 @@ import { UserGuidePage } from './pages/UserGuidePage';
 import { JobsPage } from './pages/JobsPage';
 import { JobDealPage } from './pages/JobDealPage';
 import { useTheme } from './theme';
+import { AppSidebar } from './components/AppSidebar';
 import { fetchCurrentUser } from './api/users';
 import { getAuthToken, setAuthToken } from './api/client';
-import { Dropdown } from './components/Dropdown';
-import { Avatar } from './components/Avatar';
 
 export default function App() {
   return (
@@ -46,7 +45,7 @@ function ProtectedLayout() {
   }
 
   if (isLoading) {
-    return <p className="p-8 text-center text-sm text-slate-500">Loading account…</p>;
+    return <p className="p-8 text-center text-sm text-ink-3">Loading account…</p>;
   }
 
   if (!data?.dbUser) {
@@ -60,62 +59,17 @@ function ProtectedLayout() {
   }
 
   return (
-    <div
-      className="min-h-screen bg-white px-6 py-8 text-slate-900 transition-colors dark:bg-surface-dark dark:text-slate-50"
-      data-theme={theme}
-    >
-      <header className="rounded-[32px] bg-brand-blue p-6 text-white shadow-soft">
-        <div className="flex flex-wrap items-center justify-between gap-6">
-          <div>
-            <p className="text-sm uppercase tracking-[0.3em] opacity-80">Prosperity CRM</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <nav className="flex flex-wrap items-center gap-3 text-sm font-medium">
-              <NavLink className={({ isActive }) => navClass(isActive)} to="/">
-                Pipeline
-              </NavLink>
-              <NavLink className={({ isActive }) => navClass(isActive)} to="/jobs">
-                Jobs
-              </NavLink>
-              <NavLink className={({ isActive }) => navClass(isActive)} to="/candidates/new">
-                Add Candidate
-              </NavLink>
-            </nav>
-            <Dropdown trigger={<Avatar name={data.dbUser.name} />}>
-              <div className="flex flex-col gap-2 p-2">
-                <NavLink
-                  to="/settings"
-                  className="rounded-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
-                >
-                  Settings
-                </NavLink>
-                <NavLink
-                  to="/guide"
-                  className="rounded-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
-                >
-                  User Guide
-                </NavLink>
-                <button
-                  onClick={handleLogout}
-                  className="rounded-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700 text-left"
-                >
-                  Logout
-                </button>
-              </div>
-            </Dropdown>
-          </div>
-        </div>
-      </header>
-      <main className="mt-8 space-y-8">
+    <div className="flex min-h-screen bg-app text-ink" data-theme={theme}>
+      <AppSidebar
+        userName={data.dbUser.name}
+        role={data.dbUser.role}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLogout={handleLogout}
+      />
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-8">
         <Outlet context={{ theme, toggleTheme }} />
       </main>
     </div>
   );
-}
-
-function navClass(isActive: boolean) {
-  return [
-    'rounded-full px-4 py-2 transition',
-    isActive ? 'bg-white/20 text-white shadow-inner' : 'text-white/80 hover:text-white',
-  ].join(' ');
 }

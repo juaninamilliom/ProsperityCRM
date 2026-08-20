@@ -14,19 +14,16 @@ export function Modal({ isOpen, onClose, children, title }: ModalProps) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/50"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
       <div
-        className="absolute bottom-4 right-4 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-800 dark:bg-slate-900"
+        className="absolute bottom-4 right-4 w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg dark:border-border dark:bg-surface-2"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
+          <h3 className="text-lg font-semibold text-ink">{title}</h3>
           <button
             onClick={onClose}
-            className="rounded-full p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="rounded-full p-1 text-ink-3 hover:bg-surface-2 hover:text-ink-3 dark:hover:bg-surface-2 dark:hover:text-ink-3"
           >
             <Icon icon="close" className="h-6 w-6" />
           </button>

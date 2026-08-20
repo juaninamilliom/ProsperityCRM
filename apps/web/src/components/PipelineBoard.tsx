@@ -1,12 +1,23 @@
 import type { CandidateWithMeta, StatusDTO } from 'src/common';
 import type { ReactNode } from 'react';
-import { DndContext, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import {
+  DndContext,
+  PointerSensor,
+  closestCorners,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import { DraggableCandidateCard } from './DraggableCandidateCard';
+import { StageDot } from './ui';
 
 interface PipelineBoardProps {
   statuses: StatusDTO[];
   candidates: CandidateWithMeta[];
   onMove: (candidateId: string, toStatusId: string) => Promise<void>;
+  selectedId?: string | null;
+  onSelect?: (candidateId: string) => void;
 }
 
 function PipelineColumn({
@@ -23,26 +34,37 @@ function PipelineColumn({
   return (
     <section
       ref={setNodeRef}
-      className={`flex min-h-[240px] flex-col rounded-[28px] border border-white/30 bg-white/80 p-4 shadow-soft transition dark:border-slate-800/70 dark:bg-slate-900/70 ${
-        isOver ? 'ring-2 ring-brand-fuchsia/60' : ''
-      }`}
+      data-testid={`column-${status.status_id}`}
       data-terminal={status.is_terminal}
+      className={[
+        'flex min-h-[132px] min-w-0 flex-col rounded-card border bg-surface-2 transition',
+        isOver ? 'border-accent' : 'border-border',
+      ].join(' ')}
     >
-      <header className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-white">{status.name}</h3>
-          {status.is_terminal && <p className="text-xs text-amber-500">Terminal</p>}
+      <header className="flex items-center justify-between gap-2 px-3 pb-2.5 pt-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <StageDot stage={status.name} />
+          <h3 className="truncate text-sm font-semibold">{status.name}</h3>
         </div>
-        <span className="rounded-full bg-gradient-to-r from-brand-fuchsia to-brand-blue px-3 py-0.5 text-xs font-semibold text-white shadow-inner">
+        <span
+          data-testid={`column-count-${status.status_id}`}
+          className="rounded-full bg-surface-3 px-1.5 py-px text-2xs font-semibold text-ink-2"
+        >
           {count}
         </span>
       </header>
-      <div className="flex flex-1 flex-col gap-3">{children}</div>
+      <div className="flex flex-1 flex-col gap-2 px-2.5 pb-3">{children}</div>
     </section>
   );
 }
 
-export function PipelineBoard({ statuses, candidates, onMove }: PipelineBoardProps) {
+export function PipelineBoard({
+  statuses,
+  candidates,
+  onMove,
+  selectedId,
+  onSelect,
+}: PipelineBoardProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -59,13 +81,20 @@ export function PipelineBoard({ statuses, candidates, onMove }: PipelineBoardPro
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid h-full auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {statuses.map((status) => {
-          const columnCandidates = candidates.filter((candidate) => candidate.current_status_id === status.status_id);
+          const columnCandidates = candidates.filter(
+            (candidate) => candidate.current_status_id === status.status_id,
+          );
           return (
             <PipelineColumn key={status.status_id} status={status} count={columnCandidates.length}>
               {columnCandidates.map((candidate) => (
-                <DraggableCandidateCard key={candidate.candidate_id} candidate={candidate} />
+                <DraggableCandidateCard
+                  key={candidate.candidate_id}
+                  candidate={candidate}
+                  selected={candidate.candidate_id === selectedId}
+                  onSelect={onSelect}
+                />
               ))}
             </PipelineColumn>
           );

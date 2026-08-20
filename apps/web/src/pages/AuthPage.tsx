@@ -58,36 +58,37 @@ export function AuthPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-blue-100 px-4 py-10">
-      <form className="glass-card w-full max-w-md space-y-4" onSubmit={handleSubmit}>
-        <h1 className="text-xl font-semibold text-center text-brand-blue dark:text-white">
-          Prosperity CRM
-        </h1>
+      <form
+        className="rounded-card border border-border bg-surface p-6 w-full max-w-md space-y-4"
+        onSubmit={handleSubmit}
+      >
+        <h1 className="text-xl font-semibold text-center text-accent">Prosperity CRM</h1>
         <div className="flex gap-2 text-sm">
           <button
             type="button"
-            className="btn-outline flex-1 justify-center"
+            className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3 flex-1 justify-center"
             onClick={() => setMode('login')}
           >
-            <span className={mode === 'login' ? 'bg-brand-fuchsia text-white w-full' : 'w-full'}>
+            <span className={mode === 'login' ? 'bg-accent text-white w-full' : 'w-full'}>
               Login
             </span>
           </button>
           <button
             type="button"
-            className="btn-outline flex-1 justify-center"
+            className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3 flex-1 justify-center"
             onClick={() => setMode('signup')}
           >
-            <span className={mode === 'signup' ? 'bg-brand-fuchsia text-white w-full' : 'w-full'}>
+            <span className={mode === 'signup' ? 'bg-accent text-white w-full' : 'w-full'}>
               Sign Up
             </span>
           </button>
         </div>
 
         {mode === 'signup' && (
-          <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+          <label className="flex flex-col gap-1 text-sm text-ink-2">
             Full Name
             <input
-              className="pill-input"
+              className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
               value={form.name}
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
                 const value = event.currentTarget.value;
@@ -98,10 +99,10 @@ export function AuthPage() {
           </label>
         )}
 
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Email
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             type="email"
             value={form.email}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -112,10 +113,10 @@ export function AuthPage() {
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+        <label className="flex flex-col gap-1 text-sm text-ink-2">
           Password
           <input
-            className="pill-input"
+            className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             type="password"
             value={form.password}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -128,10 +129,10 @@ export function AuthPage() {
 
         {mode === 'signup' && (
           <>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Organization ID
               <input
-                className="pill-input"
+                className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                 value={form.organization_id}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => {
                   const value = event.currentTarget.value;
@@ -140,7 +141,7 @@ export function AuthPage() {
                 required
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-200">
+            <label className="flex flex-col gap-1 text-sm text-ink-2">
               Role
               <Select
                 options={roleOptions}
@@ -158,10 +159,10 @@ export function AuthPage() {
           </>
         )}
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-warn-fg">{error}</p>}
 
         <button
-          className="btn-outline w-full justify-center disabled:opacity-50"
+          className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3 w-full justify-center disabled:opacity-50"
           type="submit"
           disabled={loading}
         >
