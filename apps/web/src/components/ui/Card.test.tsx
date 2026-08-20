@@ -21,3 +21,14 @@ describe('SectionLabel', () => {
     expect(screen.getByText('Skills')).toHaveClass('uppercase');
   });
 });
+
+describe('Card anchoring', () => {
+  it('forwards an id so it can be a link target', () => {
+    const { container } = render(
+      <Card as="section" id="setup">
+        body
+      </Card>,
+    );
+    expect(container.querySelector('section#setup')).not.toBeNull();
+  });
+});
