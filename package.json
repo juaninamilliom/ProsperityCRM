@@ -9,7 +9,8 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "migrate": "node ./scripts/run-migrations.mjs"
+    "migrate": "node ./scripts/run-migrations.mjs",
+    "seed": "node ./scripts/run-seed.mjs"
   },
   "workspaces": [
     "apps/*",
