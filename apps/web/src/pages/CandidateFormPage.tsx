@@ -358,7 +358,7 @@ export function CandidateFormPage() {
                 {form.skills.map((skill) => (
                   <li
                     key={skill}
-                    className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-ok-fg dark:text-ok-fg"
+                    className="inline-flex items-center gap-2 rounded-chip bg-accent-soft px-2.5 py-1 text-sm font-medium text-accent-ink"
                   >
                     {skill}
                     <button type="button" onClick={() => removeSkill(skill)}>
@@ -370,7 +370,7 @@ export function CandidateFormPage() {
             ) : (
               <p className="text-xs text-ink-3">No skills selected yet.</p>
             )}
-            <div className="space-y-2 rounded-2xl bg-surface p-3 shadow-token dark:bg-surface-2">
+            <div className="space-y-2 rounded-card bg-surface p-3 shadow-token">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
                 Select from library
               </p>

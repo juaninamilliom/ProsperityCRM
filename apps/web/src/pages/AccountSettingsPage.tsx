@@ -222,7 +222,7 @@ export function AccountSettingsPage() {
                 invitesQuery.data.map((invite) => (
                   <li
                     key={invite.code_id}
-                    className="flex items-center justify-between rounded-2xl border border-white/30 bg-surface p-4 shadow-token dark:border-border dark:bg-surface-2"
+                    className="flex items-center justify-between rounded-card bg-surface p-4 shadow-token dark:border-border"
                   >
                     <div>
                       <p className="font-mono text-sm">{invite.code}</p>

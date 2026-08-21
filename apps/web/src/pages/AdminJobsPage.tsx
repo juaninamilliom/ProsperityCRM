@@ -251,7 +251,7 @@ export function AdminJobsPage() {
         {jobs.map((job) => (
           <li
             key={job.job_id}
-            className="rounded-card border border-border bg-surface p-6 flex flex-col gap-1 border border-white/30 p-4 text-sm dark:border-border md:flex-row md:items-center md:justify-between"
+            className="rounded-card border border-border bg-surface p-6 flex flex-col gap-1 p-4 text-sm dark:border-border md:flex-row md:items-center md:justify-between"
           >
             <div>
               <p className="font-semibold text-ink-2">{job.title}</p>
