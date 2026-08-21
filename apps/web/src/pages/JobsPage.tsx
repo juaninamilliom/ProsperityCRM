@@ -5,16 +5,12 @@ import type { JobRequisitionDTO } from 'src/common';
 import { fetchJobs } from '../api/jobs';
 import { Button, Card, Chip, SectionLabel } from '../components/ui';
 
+import { formatMoney } from '../utils/money';
+
+export { formatMoney };
+
 type StatusFilter = 'all' | 'open' | 'on_hold' | 'closed';
 
-/** Postgres numeric arrives over the wire as a string even though the DTO
- *  types it as number, so accept both and never render NaN at the user. */
-export function formatMoney(value: string | number | null | undefined): string {
-  if (value === null || value === undefined || value === '') return '—';
-  const n = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(n)) return '—';
-  return `$${Math.round(n).toLocaleString('en-US')}`;
-}
 
 const STATUS_TONE = {
   open: 'ok',
@@ -61,7 +57,7 @@ export function JobsPage() {
     return <p className="text-sm text-warn-fg">Failed to load jobs.</p>;
   }
 
-  const inPlay = openJobs.reduce((total, job) => total + (job.total_candidates ?? 0), 0);
+  const inPlay = openJobs.reduce((total, job) => total + (job.total_entries ?? 0), 0);
 
   const tiles = [
     { label: 'Open roles', value: String(openJobs.length), note: `${jobs.length} total` },
@@ -171,7 +167,7 @@ export function JobsPage() {
                     {job.location || '—'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-ink-2">
-                    {job.total_candidates ?? 0}
+                    {job.total_entries ?? 0}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <span className="block text-sm font-semibold">

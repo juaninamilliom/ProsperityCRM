@@ -2,21 +2,31 @@ import type { JobRequisition, JobRequisitionWithStats } from '../../types.js';
 import { query } from '../../utils/sql.js';
 import type { JobInput } from './job.schema.js';
 
+/** The counts come back from aggregates rather than the table, so they are
+ *  typed here instead of cast away at each use. Postgres returns them as
+ *  strings unless cast, which the ::int in the SQL already does. */
+type JobRow = JobRequisition & { total_entries: number | string | null; company_name: string | null };
+type JobStatsRow = JobRequisitionWithStats & {
+  total_entries: number | string | null;
+  placements: number | string | null;
+};
+
 export async function listJobs() {
-  const result = await query(
-    `select j.*,
-            coalesce(c.cnt,0)::int as total_candidates
+  const result = await query<JobRow>(
+    `select j.*, co.name as company_name,
+            coalesce(e.cnt,0)::int as total_entries
      from job_requisitions j
+     left join companies co on co.company_id = j.company_id
      left join (
-       select job_requisition_id, count(*) cnt
-       from candidates
-       group by job_requisition_id
-     ) c on c.job_requisition_id = j.job_id
+       select job_id, count(*) cnt
+       from pipeline_entries
+       group by job_id
+     ) e on e.job_id = j.job_id
      order by j.created_at desc`
   );
   return result.rows.map((row) => ({
-    ...(row as JobRequisition),
-    total_candidates: Number((row as any).total_candidates ?? 0),
+    ...row,
+    total_entries: Number(row.total_entries ?? 0),
   }));
 }
 
@@ -24,8 +34,8 @@ export async function createJob(input: JobInput) {
   const dealAmount = input.deal_amount ? Number(input.deal_amount) : null;
   const weightedAmount = input.weighted_deal_amount ? Number(input.weighted_deal_amount) : null;
   const result = await query<JobRequisition>(
-    `insert into job_requisitions (title, department, location, status, description, close_date, deal_amount, weighted_deal_amount, owner_name, stage)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    `insert into job_requisitions (title, department, location, status, description, close_date, deal_amount, weighted_deal_amount, owner_name, stage, company_id, opportunity_id)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      returning *`,
     [
       input.title,
@@ -38,6 +48,8 @@ export async function createJob(input: JobInput) {
       weightedAmount,
       input.owner_name ?? null,
       input.stage ?? null,
+      input.company_id ?? null,
+      input.opportunity_id ?? null,
     ]
   );
   return result.rows[0];
@@ -57,8 +69,10 @@ export async function updateJob(jobId: string, input: JobInput) {
          deal_amount=$7,
          weighted_deal_amount=$8,
          owner_name=$9,
-         stage=$10
-     where job_id=$11
+         stage=$10,
+         company_id=$11,
+         opportunity_id=$12
+     where job_id=$13
      returning *`,
     [
       input.title,
@@ -71,6 +85,8 @@ export async function updateJob(jobId: string, input: JobInput) {
       weightedAmount,
       input.owner_name ?? null,
       input.stage ?? null,
+      input.company_id ?? null,
+      input.opportunity_id ?? null,
       jobId,
     ]
   );
@@ -83,34 +99,37 @@ export async function deleteJob(jobId: string) {
 
 export async function getJobWithStats(jobId: string) {
   const result = await query(
-    `select j.*,
-            coalesce(count(c.candidate_id), 0)::int as total_candidates,
-            coalesce(count(c.candidate_id) filter (where sc.is_terminal), 0)::int as placements
+    `select j.*, co.name as company_name,
+            coalesce(count(e.entry_id), 0)::int as total_entries,
+            coalesce(count(e.entry_id) filter (where sc.is_terminal), 0)::int as placements
      from job_requisitions j
-     left join candidates c on c.job_requisition_id = j.job_id
-     left join status_config sc on c.current_status_id = sc.status_id
+     left join companies co on co.company_id = j.company_id
+     left join pipeline_entries e on e.job_id = j.job_id
+     left join status_config sc on e.current_status_id = sc.status_id
      where j.job_id = $1
-     group by j.job_id`,
+     group by j.job_id, co.name`,
     [jobId]
   );
   if (!result.rows[0]) {
     return null;
   }
-  const row = result.rows[0] as JobRequisitionWithStats;
+  const row = result.rows[0] as JobStatsRow;
   return {
     ...row,
-    total_candidates: Number((row as any).total_candidates ?? 0),
-    placements: Number((row as any).placements ?? 0),
+    total_entries: Number(row.total_entries ?? 0),
+    placements: Number(row.placements ?? 0),
   };
 }
 
-export async function getJobCandidates(jobId: string) {
+export async function getJobEntries(jobId: string) {
   const result = await query(
-    `select c.candidate_id, c.name, c.email, c.current_status_id, s.name as status_name, c.flags, c.skills
-     from candidates c
-     join status_config s on c.current_status_id = s.status_id
-     where c.job_requisition_id = $1
-     order by c.created_at desc`,
+    `select e.entry_id, e.person_id, p.full_name, p.email, p.skills,
+            e.current_status_id, s.name as status_name, e.flags
+     from pipeline_entries e
+     join people p on p.person_id = e.person_id
+     join status_config s on s.status_id = e.current_status_id
+     where e.job_id = $1
+     order by e.created_at desc`,
     [jobId]
   );
   return result.rows;

@@ -4,7 +4,6 @@ import Select from 'react-select';
 import { fetchCurrentUser, fetchOrgUsers, updateUserRole } from '../api/users';
 import { createInviteCode, fetchInviteCodes, revokeInvite } from '../api/invites';
 import { AdminStatusesPage } from './AdminStatusesPage';
-import { AdminAgenciesPage } from './AdminAgenciesPage';
 import { AdminJobsPage } from './AdminJobsPage';
 import { useTheme } from 'src/theme';
 import { getSelectStyles } from 'src/components/selectStyles';
@@ -16,7 +15,6 @@ const TABS = [
   { id: 'organisation', label: 'Organisation' },
   { id: 'members', label: 'Members' },
   { id: 'stages', label: 'Pipeline stages' },
-  { id: 'agencies', label: 'Agencies' },
   { id: 'jobs', label: 'Jobs' },
 ] as const;
 
@@ -101,7 +99,7 @@ export function AccountSettingsPage() {
 
   const showInviteTab = activeTab === 'members';
 
-  const selectStyles = getSelectStyles(theme);
+  const selectStyles = getSelectStyles();
 
   const memberCount = membersQuery.data?.length ?? 0;
 
@@ -260,12 +258,6 @@ export function AccountSettingsPage() {
       {activeTab === 'stages' && (
         <div className="rounded-card border border-border bg-surface p-6">
           <AdminStatusesPage />
-        </div>
-      )}
-
-      {activeTab === 'agencies' && (
-        <div className="rounded-card border border-border bg-surface p-6">
-          <AdminAgenciesPage />
         </div>
       )}
 

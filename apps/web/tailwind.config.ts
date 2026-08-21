@@ -41,6 +41,15 @@ const config: Config = {
           placed: 'var(--stage-placed)',
           rejected: 'var(--stage-rejected)',
         },
+        bd: {
+          prospect: 'var(--bd-prospect)',
+          contacted: 'var(--bd-contacted)',
+          meeting: 'var(--bd-meeting)',
+          proposal: 'var(--bd-proposal)',
+          negotiation: 'var(--bd-negotiation)',
+          signed: 'var(--bd-signed)',
+          lost: 'var(--bd-lost)',
+        },
         ok: { bg: 'var(--ok-bg)', fg: 'var(--ok-fg)', dot: 'var(--ok-dot)' },
         warn: { bg: 'var(--warn-bg)', fg: 'var(--warn-fg)', dot: 'var(--warn-dot)' },
         off: { bg: 'var(--off-bg)', fg: 'var(--off-fg)', dot: 'var(--off-dot)' },
@@ -51,6 +60,13 @@ const config: Config = {
           'design-fg': 'var(--tint-design-fg)',
         },
       },
+      // Tailwind's scale jumps 16px -> 20px. The artboards use 18px between
+      // field groups and in table rows, so the half-step is declared here.
+      // An undeclared step is silently dropped, which is invisible until you
+      // look at a screenshot.
+      spacing: {
+        '4.5': '1.125rem',
+      },
       borderRadius: {
         control: 'var(--r-control)',
         card: 'var(--r-card)',
@@ -59,6 +75,7 @@ const config: Config = {
       boxShadow: {
         token: 'var(--shadow)',
         pop: 'var(--shadow-pop)',
+        panel: 'var(--shadow-panel)',
       },
       fontFamily: {
         sans: ['Instrument Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],

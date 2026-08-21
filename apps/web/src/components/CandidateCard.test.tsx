@@ -2,20 +2,20 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { CandidateCard } from './CandidateCard';
-import type { CandidateWithMeta } from 'src/common';
+import type { PipelineEntryWithMeta } from 'src/common';
 
 const candidate = {
-  candidate_id: 'c1',
-  name: 'Priya Raghunathan',
+  entry_id: 'c1',
+  full_name: 'Priya Raghunathan',
   email: 'priya.r@example.com',
   current_status_id: 's1',
-  target_agency_id: 'a1',
+  company_id: 'a1',
   recruiter_id: 'u1',
   flags: ['Referral'],
   skills: ['Python', 'Django', 'Redis'],
-  agency_name: 'Northgate Staffing',
+  company_name: 'Northgate Staffing',
   job_title: 'Senior Backend Engineer',
-} as CandidateWithMeta;
+} as PipelineEntryWithMeta;
 
 function renderCard(props: Record<string, unknown> = {}) {
   render(
@@ -55,7 +55,7 @@ describe('CandidateCard', () => {
   });
 
   it('survives a candidate with no skills', () => {
-    const bare = { ...candidate, skills: [] } as CandidateWithMeta;
+    const bare = { ...candidate, skills: [] } as PipelineEntryWithMeta;
     render(
       <MemoryRouter>
         <CandidateCard candidate={bare} />

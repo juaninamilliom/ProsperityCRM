@@ -1,4 +1,4 @@
-import type { CandidateWithMeta, StatusDTO } from 'src/common';
+import type { PipelineEntryWithMeta, StatusDTO } from 'src/common';
 import type { ReactNode } from 'react';
 import {
   DndContext,
@@ -14,7 +14,7 @@ import { StageDot } from './ui';
 
 interface PipelineBoardProps {
   statuses: StatusDTO[];
-  candidates: CandidateWithMeta[];
+  candidates: PipelineEntryWithMeta[];
   onMove: (candidateId: string, toStatusId: string) => Promise<void>;
   selectedId?: string | null;
   onSelect?: (candidateId: string) => void;
@@ -90,9 +90,9 @@ export function PipelineBoard({
             <PipelineColumn key={status.status_id} status={status} count={columnCandidates.length}>
               {columnCandidates.map((candidate) => (
                 <DraggableCandidateCard
-                  key={candidate.candidate_id}
+                  key={candidate.entry_id}
                   candidate={candidate}
-                  selected={candidate.candidate_id === selectedId}
+                  selected={candidate.entry_id === selectedId}
                   onSelect={onSelect}
                 />
               ))}

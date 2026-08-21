@@ -1,8 +1,8 @@
-import type { CandidateWithMeta, StatusDTO } from 'src/common';
+import type { PipelineEntryWithMeta, StatusDTO } from 'src/common';
 
 /** "7 active candidates · 2 placed" - the line under the Pipeline title.
  *  Terminal statuses (Placed, Rejected) are not "active". */
-export function pipelineSummary(candidates: CandidateWithMeta[], statuses: StatusDTO[]): string {
+export function pipelineSummary(candidates: PipelineEntryWithMeta[], statuses: StatusDTO[]): string {
   const terminal = new Set(statuses.filter((s) => s.is_terminal).map((s) => s.status_id));
   const placedId = statuses.find((s) => s.name.trim().toLowerCase() === 'placed')?.status_id;
 

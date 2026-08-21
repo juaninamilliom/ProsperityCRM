@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAgencies } from '../api/agencies';
-import { fetchCandidates, moveCandidate } from '../api/candidates';
+import { fetchCompanies } from '../api/companies';
+import { fetchEntries, moveEntry } from '../api/entries';
 import { fetchStatuses } from '../api/statuses';
 import { fetchJobs } from '../api/jobs';
 import { fetchSkills } from '../api/skills';
@@ -15,10 +15,8 @@ import { pipelineSummary } from './pipelineSummary';
 import { activeFilterCount } from './activeFilterCount';
 import { Button } from '../components/ui';
 import { Link } from 'react-router-dom';
-import { useTheme } from '../theme';
 
 export function DashboardPage() {
-  const [theme] = useTheme();
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -28,7 +26,7 @@ export function DashboardPage() {
 
   const filters = useMemo(
     () => ({
-      agency_id: selectedAgency,
+      company_id: selectedAgency,
       flag: flagQuery,
       job_id: jobId,
       status_id: statusId,
@@ -38,22 +36,22 @@ export function DashboardPage() {
     [selectedAgency, flagQuery, jobId, statusId, searchTerm, skillFilters],
   );
 
-  const agenciesQuery = useQuery({ queryKey: ['agencies'], queryFn: fetchAgencies });
+  const agenciesQuery = useQuery({ queryKey: ['companies'], queryFn: () => fetchCompanies() });
   const statusesQuery = useQuery({ queryKey: ['statuses'], queryFn: fetchStatuses });
   const jobsQuery = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
   const skillsQuery = useQuery({ queryKey: ['skills'], queryFn: fetchSkills });
   const candidatesQuery = useQuery({
-    queryKey: ['candidates', filters],
-    queryFn: () => fetchCandidates(filters),
+    queryKey: ['entries', filters],
+    queryFn: () => fetchEntries(filters),
     enabled: statusesQuery.isSuccess,
     placeholderData: (previousData) => previousData,
   });
 
   const moveMutation = useMutation({
-    mutationFn: ({ candidateId, toStatusId }: { candidateId: string; toStatusId: string }) =>
-      moveCandidate(candidateId, toStatusId),
+    mutationFn: ({ entryId, toStatusId }: { entryId: string; toStatusId: string }) =>
+      moveEntry(entryId, toStatusId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
       queryClient.invalidateQueries({ queryKey: ['history'] });
     },
   });
@@ -82,7 +80,7 @@ export function DashboardPage() {
   });
 
   const candidates = candidatesQuery.data ?? [];
-  const selected = candidates.find((c) => c.candidate_id === selectedId) ?? null;
+  const selected = candidates.find((c) => c.entry_id === selectedId) ?? null;
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-5">
@@ -176,7 +174,6 @@ export function DashboardPage() {
             skills={skillsQuery.data ?? []}
             skillsLoading={skillsQuery.isLoading}
             skillsError={Boolean(skillsQuery.error)}
-            theme={theme}
           />
         )}
       </div>
@@ -189,8 +186,8 @@ export function DashboardPage() {
               candidates={candidates}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              onMove={async (candidateId, toStatusId) => {
-                await moveMutation.mutateAsync({ candidateId, toStatusId });
+              onMove={async (entryId, toStatusId) => {
+                await moveMutation.mutateAsync({ entryId, toStatusId });
               }}
             />
           ) : (

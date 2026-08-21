@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
-import type { CandidateWithMeta, StatusDTO } from 'src/common';
+import type { PipelineEntryWithMeta, StatusDTO } from 'src/common';
 import { Button, Chip, SectionLabel } from './ui';
 import { StageStepper } from './StageStepper';
 
 interface DetailRailProps {
-  candidate: CandidateWithMeta;
+  candidate: PipelineEntryWithMeta;
   statuses: StatusDTO[];
   onClose: () => void;
 }
@@ -18,7 +18,7 @@ export function DetailRail({ candidate, statuses, onClose }: DetailRailProps) {
   const fields: [string, string | null | undefined][] = [
     ['Email', candidate.email],
     ['Phone', candidate.phone],
-    ['Agency', candidate.agency_name],
+    ['Agency', candidate.company_name],
     ['Job', candidate.job_title],
   ];
   const skills = candidate.skills ?? [];
@@ -29,11 +29,11 @@ export function DetailRail({ candidate, statuses, onClose }: DetailRailProps) {
       <div className="flex items-start justify-between gap-3 border-b border-border p-5">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-base font-semibold text-accent-ink">
-            {initials(candidate.name)}
+            {initials(candidate.full_name)}
           </span>
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-lg font-semibold tracking-[-0.01em]">
-              {candidate.name}
+              {candidate.full_name}
             </span>
             {candidate.job_title && (
               <span className="truncate text-sm text-ink-2">{candidate.job_title}</span>
@@ -109,7 +109,7 @@ export function DetailRail({ candidate, statuses, onClose }: DetailRailProps) {
       </div>
 
       <div className="mt-auto flex gap-2 border-t border-border p-4">
-        <Link to={`/candidates/${candidate.candidate_id}/edit`} className="flex-1">
+        <Link to={`/candidates/${candidate.entry_id}/edit`} className="flex-1">
           <Button variant="primary" className="w-full">
             Open
           </Button>

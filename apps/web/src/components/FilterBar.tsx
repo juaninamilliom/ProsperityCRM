@@ -1,19 +1,17 @@
-import type { AgencyDTO, JobRequisitionDTO, OrganizationSkillDTO, StatusDTO } from 'src/common';
+import type { CompanyDTO, JobRequisitionDTO, OrganizationSkillDTO, StatusDTO } from 'src/common';
 import type { ChangeEvent } from 'react';
 import { useMemo } from 'react';
 import Select, { type MultiValue } from 'react-select';
 import { useFiltersStore } from '../store/filters';
-import type { Theme } from '../theme';
 import { getSelectStyles, getMultiSelectStyles } from './selectStyles';
 
 interface FilterBarProps {
-  agencies: AgencyDTO[];
+  agencies: CompanyDTO[];
   jobs: JobRequisitionDTO[];
   statuses: StatusDTO[];
   skills: OrganizationSkillDTO[];
   skillsLoading?: boolean;
   skillsError?: boolean;
-  theme: Theme;
 }
 
 type SelectOption = { value: string; label: string };
@@ -25,7 +23,6 @@ export function FilterBar({
   skills,
   skillsLoading = false,
   skillsError = false,
-  theme,
 }: FilterBarProps) {
   const {
     selectedAgency,
@@ -43,7 +40,7 @@ export function FilterBar({
   const agencyOptions = useMemo(
     () => [
       { value: '', label: 'All' },
-      ...agencies.map((a) => ({ value: a.agency_id, label: a.name })),
+      ...agencies.map((a) => ({ value: a.company_id, label: a.name })),
     ],
     [agencies],
   );
@@ -63,8 +60,8 @@ export function FilterBar({
     [skills],
   );
 
-  const selectStyles = getSelectStyles(theme);
-  const multiSelectStyles = getMultiSelectStyles(theme);
+  const selectStyles = getSelectStyles();
+  const multiSelectStyles = getMultiSelectStyles();
   const selectSkillValue = skillOptions.filter((option) => skillFilters.includes(option.value));
 
   function onAgencyChange(option: SelectOption | null) {

@@ -8,7 +8,6 @@ import type { CurrentUserResponse } from '../api/users';
 import { fetchOrgUsers } from '../api/users';
 import DatePicker from 'react-datepicker';
 import { Icon } from '../components/Icon';
-import { useTheme } from '../theme';
 import { getSelectStyles } from '../components/selectStyles';
 import { formatMoney } from './JobsPage';
 import { Button, Card, Chip, SectionLabel, StageDot } from '../components/ui';
@@ -61,7 +60,6 @@ export function JobDealPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [theme] = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [isJobEditing, setIsJobEditing] = useState(false);
   const [draftSplits, setDraftSplits] = useState<JobSplitInput[]>([]);
@@ -182,7 +180,7 @@ export function JobDealPage() {
     },
   });
 
-  const selectStyles = getSelectStyles(theme);
+  const selectStyles = getSelectStyles();
 
   if (detailQuery.isLoading || !job) {
     return (
@@ -603,11 +601,11 @@ export function JobDealPage() {
           {candidates.length ? (
             candidates.map((candidate) => (
               <li
-                key={candidate.candidate_id}
+                key={candidate.entry_id}
                 className="flex items-center justify-between gap-4 border-b border-border-soft py-3 last:border-b-0"
               >
                 <div className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-base font-medium">{candidate.name}</span>
+                  <span className="truncate text-base font-medium">{candidate.full_name}</span>
                   <span className="flex items-center gap-1.5 text-sm text-ink-2">
                     {candidate.status_name && <StageDot stage={candidate.status_name} size={6} />}
                     {candidate.status_name}

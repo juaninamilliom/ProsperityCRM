@@ -14,7 +14,8 @@ describe('signupSchema', () => {
   });
 
   it('requires an invite code', () => {
-    const { invite_code: _omitted, ...withoutCode } = valid;
+    const withoutCode = { ...valid };
+    delete (withoutCode as Partial<typeof valid>).invite_code;
     expect(signupSchema.safeParse(withoutCode).success).toBe(false);
   });
 
