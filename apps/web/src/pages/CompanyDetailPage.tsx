@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { fetchCompany } from '../api/companies';
 import { ActivityTimeline } from '../components/ActivityTimeline';
 import { RelationshipChip } from '../components/RelationshipChip';
-import { Button, Card, Chip, SectionLabel, StageDot, BdStageDot } from '../components/ui';
+import { Button, Card, Chip, SectionLabel, BdStageDot } from '../components/ui';
 import { formatMoney } from '../utils/money';
 import { initials, tintFor, touchLabel } from '../utils/presentation';
 
