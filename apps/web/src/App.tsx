@@ -8,6 +8,8 @@ import { AuthPage } from './pages/AuthPage';
 import { UserGuidePage } from './pages/UserGuidePage';
 import { JobsPage } from './pages/JobsPage';
 import { DealsPage } from './pages/DealsPage';
+import { CompaniesPage } from './pages/CompaniesPage';
+import { CompanyDetailPage } from './pages/CompanyDetailPage';
 import { JobDealPage } from './pages/JobDealPage';
 import { useTheme } from './theme';
 import { AppSidebar } from './components/AppSidebar';
@@ -22,6 +24,8 @@ export default function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/jobs" element={<JobsPage />} />
         <Route path="/deals" element={<DealsPage />} />
+        <Route path="/companies" element={<CompaniesPage />} />
+        <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
         <Route path="/jobs/:jobId" element={<JobDealPage />} />
         <Route path="/candidates/new" element={<CandidateFormPage />} />
         <Route path="/candidates/:candidateId/edit" element={<CandidateEditPage />} />
