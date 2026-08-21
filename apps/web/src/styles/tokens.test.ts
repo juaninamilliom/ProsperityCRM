@@ -24,6 +24,17 @@ describe('design tokens', () => {
     }
   });
 
+  it('defines every BD stage hue in both themes', () => {
+    const light = varsInBlock(':root {');
+    const dark = varsInBlock(':root.dark');
+    for (const stage of [
+      'prospect', 'contacted', 'meeting', 'proposal', 'negotiation', 'signed', 'lost',
+    ]) {
+      expect(light).toContain(`--bd-${stage}`);
+      expect(dark).toContain(`--bd-${stage}`);
+    }
+  });
+
   it('ships no raw hex colours outside glyph white', () => {
     const hexes = [...css.matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0].toLowerCase());
     expect(hexes.filter((h) => h !== '#fff' && h !== '#ffffff')).toEqual([]);

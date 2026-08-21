@@ -34,6 +34,17 @@
   --stage-placed: oklch(0.63 0.07 140);
   --stage-rejected: oklch(0.63 0.07 20);
 
+  /* BD stages follow the candidate-stage recipe exactly - same lightness and
+     chroma, hue rotated. signed reuses the placed hue and lost reuses
+     rejected, so a won deal and a placement read as the same kind of news. */
+  --bd-prospect: oklch(0.63 0.07 290);
+  --bd-contacted: oklch(0.63 0.07 255);
+  --bd-meeting: oklch(0.63 0.07 210);
+  --bd-proposal: oklch(0.63 0.07 165);
+  --bd-negotiation: oklch(0.63 0.07 75);
+  --bd-signed: oklch(0.63 0.07 140);
+  --bd-lost: oklch(0.63 0.07 20);
+
   --ok-bg: oklch(0.96 0.03 145);
   --ok-fg: oklch(0.42 0.09 145);
   --ok-dot: oklch(0.63 0.09 145);
@@ -81,6 +92,14 @@
   --stage-offer: oklch(0.78 0.11 75);
   --stage-placed: oklch(0.74 0.1 140);
   --stage-rejected: oklch(0.7 0.11 20);
+
+  --bd-prospect: oklch(0.74 0.1 290);
+  --bd-contacted: oklch(0.74 0.1 255);
+  --bd-meeting: oklch(0.74 0.1 210);
+  --bd-proposal: oklch(0.74 0.1 165);
+  --bd-negotiation: oklch(0.78 0.11 75);
+  --bd-signed: oklch(0.74 0.1 140);
+  --bd-lost: oklch(0.7 0.11 20);
 
   --ok-bg: oklch(0.3 0.05 145);
   --ok-fg: oklch(0.86 0.09 145);

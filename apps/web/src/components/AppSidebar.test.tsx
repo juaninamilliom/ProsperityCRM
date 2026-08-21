@@ -29,6 +29,20 @@ describe('AppSidebar', () => {
     expect(screen.getByRole('link', { name: /settings/i })).toHaveAttribute('href', '/settings');
   });
 
+  it('groups navigation by funnel', () => {
+    renderSidebar();
+    expect(screen.getByText('Recruiting')).toBeInTheDocument();
+    expect(screen.getByText('Business dev')).toBeInTheDocument();
+    expect(screen.getByText('Directory')).toBeInTheDocument();
+  });
+
+  it('links to both funnels and the directory', () => {
+    renderSidebar();
+    expect(screen.getByRole('link', { name: /deals/i })).toHaveAttribute('href', '/deals');
+    expect(screen.getByRole('link', { name: /companies/i })).toHaveAttribute('href', '/companies');
+    expect(screen.getByRole('link', { name: /people/i })).toHaveAttribute('href', '/people');
+  });
+
   it('shows the user name', () => {
     renderSidebar();
     expect(screen.getByText('Juan Guardado')).toBeInTheDocument();

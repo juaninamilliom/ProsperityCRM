@@ -14,35 +14,94 @@ interface AppSidebarProps {
   onLogout: () => void;
 }
 
-const NAV: { to: string; label: string; icon: ReactNode }[] = [
-  { to: '/', label: 'Pipeline', icon: <path d="M3 6h18M6 12h12M10 18h4" /> },
+interface NavItem {
+  to: string;
+  label: string;
+  icon: ReactNode;
+}
+
+/** Two funnels plus the directory they share, so the nav groups rather than
+ *  running flat. The last group is unlabelled and sits below a rule. */
+const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
   {
-    to: '/jobs',
-    label: 'Jobs',
-    icon: (
-      <>
-        <rect x="3" y="7" width="18" height="13" rx="2" />
-        <path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2" />
-      </>
-    ),
+    label: 'Recruiting',
+    items: [
+      { to: '/', label: 'Pipeline', icon: <path d="M3 6h18M6 12h12M10 18h4" /> },
+      {
+        to: '/jobs',
+        label: 'Jobs',
+        icon: (
+          <>
+            <rect x="3" y="7" width="18" height="13" rx="2" />
+            <path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2" />
+          </>
+        ),
+      },
+    ],
   },
-  { to: '/candidates/new', label: 'Add candidate', icon: <path d="M12 5v14M5 12h14" /> },
   {
-    to: '/settings',
-    label: 'Settings',
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" />
-      </>
-    ),
+    label: 'Business dev',
+    items: [
+      {
+        to: '/deals',
+        label: 'Deals',
+        icon: (
+          <>
+            <path d="M3 17l5-5 3.5 3.5L21 6" />
+            <path d="M21 11V6h-5" />
+          </>
+        ),
+      },
+      {
+        to: '/companies',
+        label: 'Companies',
+        icon: (
+          <>
+            <path d="M3 21V7l7-4v18" />
+            <path d="M10 21V10l8 3v8" />
+            <path d="M2 21h20" />
+          </>
+        ),
+      },
+    ],
   },
   {
-    to: '/guide',
-    label: 'User guide',
-    icon: (
-      <path d="M4 5h9a3 3 0 013 3v11a2.5 2.5 0 00-2.5-2.5H4zM20 5h-1a3 3 0 00-3 3v11a2.5 2.5 0 012.5-2.5H20z" />
-    ),
+    label: 'Directory',
+    items: [
+      {
+        to: '/people',
+        label: 'People',
+        icon: (
+          <>
+            <circle cx="9" cy="8" r="3.2" />
+            <path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" />
+            <path d="M17 11.5a2.8 2.8 0 100-5.6" />
+          </>
+        ),
+      },
+    ],
+  },
+  {
+    label: null,
+    items: [
+      {
+        to: '/settings',
+        label: 'Settings',
+        icon: (
+          <>
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" />
+          </>
+        ),
+      },
+      {
+        to: '/guide',
+        label: 'User guide',
+        icon: (
+          <path d="M4 5h9a3 3 0 013 3v11a2.5 2.5 0 00-2.5-2.5H4zM20 5h-1a3 3 0 00-3 3v11a2.5 2.5 0 012.5-2.5H20z" />
+        ),
+      },
+    ],
   },
 ];
 
@@ -85,33 +144,48 @@ export function AppSidebar({
         <span className="text-lg font-semibold tracking-[-0.01em]">Prosperity</span>
       </div>
 
-      <nav className="flex flex-col gap-0.5">
-        {NAV.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
-            className={({ isActive }) =>
-              [
-                'focus-ring flex h-[34px] items-center gap-2.5 rounded-[8px] px-2.5 text-base transition',
-                isActive ? 'bg-surface-3 font-semibold text-ink' : 'text-ink-2 hover:bg-surface-3',
-              ].join(' ')
-            }
+      <nav className="flex flex-col gap-4">
+        {NAV_GROUPS.map((group) => (
+          <div
+            key={group.label ?? 'more'}
+            className={[
+              'flex flex-col gap-0.5',
+              group.label ? '' : 'border-t border-border pt-3',
+            ].join(' ')}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.9"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              {item.icon}
-            </svg>
-            {item.label}
-          </NavLink>
+            {group.label && (
+              <span className="px-2.5 pb-1 text-2xs font-semibold uppercase tracking-[0.06em] text-ink-3">
+                {group.label}
+              </span>
+            )}
+            {group.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  [
+                    'focus-ring flex h-[34px] items-center gap-2.5 rounded-[8px] px-2.5 text-base transition',
+                    isActive ? 'bg-surface-3 font-semibold text-ink' : 'text-ink-2 hover:bg-surface-3',
+                  ].join(' ')
+                }
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {item.icon}
+                </svg>
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 
