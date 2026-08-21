@@ -52,7 +52,7 @@ silently relitigated during implementation.
 |---|---|---|
 | People model | **One `people` table** | A candidate placed two years ago turning up as a hiring manager at a prospect is the recruiting flywheel. Two tables make that person a duplicate with nothing linking the halves. |
 | BD engagement unit | **The company** | You win one contract with a company; the several people you work there are contacts on that one deal. |
-| Recruiting engagement unit | **The person x the req** | The same candidate goes out for several roles, each tracked separately. This is the `submissions` table. |
+| Recruiting engagement unit | **The person x the req** | The same candidate goes out for several roles, each tracked separately. This is the `pipeline_entries` table. |
 | Activity log | **Shared spine, not a BD feature** | Outreach happens on both sides. A touch log that works for only one is half a feature. |
 | BD stages | **Fixed, not configurable** | `status_config` already exists for candidates; a second config surface is not worth it for one user. Migrate over time if needed. |
 | Dedupe key | **`linkedin_url`, not email** | The one identifier LinkedIn reliably gives, stable across job changes. Email becomes nullable. |
@@ -126,7 +126,7 @@ create index        idx_people_company  on people (current_company_id);
 `email` is nullable with a partial unique index. This is what unblocks
 capture in P2 with no placeholder-address hack.
 
-`skills` lives on the person. `flags` does not — see `submissions`.
+`skills` lives on the person. `flags` does not — see `pipeline_entries`.
 
 ### bd_opportunities
 
@@ -169,13 +169,13 @@ create table opportunity_contacts (
 );
 ```
 
-### submissions
+### pipeline_entries
 
 Replaces `candidates` as the pipeline row. One row per person per pitch.
 
 ```sql
-create table submissions (
-  submission_id     uuid primary key default uuid_generate_v4(),
+create table pipeline_entries (
+  entry_id          uuid primary key default uuid_generate_v4(),
   person_id         uuid not null references people(person_id) on delete cascade,
   company_id        uuid not null references companies(company_id),
   job_id            uuid references job_requisitions(job_id),
@@ -187,11 +187,11 @@ create table submissions (
   updated_at        timestamptz not null default now()
 );
 
-create unique index idx_submissions_person_job on submissions (person_id, job_id)
+create unique index idx_entries_person_job on pipeline_entries (person_id, job_id)
   where job_id is not null;
-create index idx_submissions_company on submissions (company_id);
-create index idx_submissions_status  on submissions (current_status_id);
-create index idx_submissions_flags   on submissions using gin (flags);
+create index idx_entries_company on pipeline_entries (company_id);
+create index idx_entries_status  on pipeline_entries (current_status_id);
+create index idx_entries_flags   on pipeline_entries using gin (flags);
 ```
 
 `job_id` is nullable, preserving today's behaviour where a candidate can
@@ -200,7 +200,7 @@ required and is the destination, not the person's current employer.
 
 `flags` sits here rather than on `people` because a flag describes this
 pitch ("no-showed", "counter-offered"), not the human. Today's candidate
-rows map one-to-one onto submissions, so this preserves existing
+rows map one-to-one onto pipeline_entries, so this preserves existing
 semantics exactly.
 
 ### activities
@@ -213,7 +213,7 @@ create table activities (
   person_id      uuid references people(person_id) on delete cascade,
   company_id     uuid references companies(company_id) on delete cascade,
   opportunity_id uuid references bd_opportunities(opportunity_id) on delete cascade,
-  submission_id  uuid references submissions(submission_id) on delete cascade,
+  entry_id  uuid references pipeline_entries(entry_id) on delete cascade,
   channel        text not null
                  check (channel in ('li_message','li_inmail','li_connect',
                                     'email','call','meeting','note')),
@@ -233,7 +233,7 @@ create index idx_activities_company on activities (company_id, occurred_at desc)
 ```
 
 An activity must attach to a person or a company. The optional
-`opportunity_id` and `submission_id` record which engagement the touch
+`opportunity_id` and `entry_id` record which engagement the touch
 belonged to, so a person page can show one unified timeline while a deal
 page shows only its own.
 
@@ -253,61 +253,42 @@ attribution from BD effort through to placement revenue.
 ### Renamed
 
 ```sql
-alter table candidate_status_history rename to submission_status_history;
-alter table submission_status_history rename column candidate_id to submission_id;
+alter table candidate_status_history rename to entry_status_history;
+alter table entry_status_history rename column candidate_id to entry_id;
 ```
 
 ## Migration
 
-Single transactional migration, `infra/db/migrations/0010_bd_funnel_and_people.sql`.
+**The database holds only dummy data and can be flushed.** That removes
+the data transform entirely — no email join, no primary-key reuse, no
+backfill. `0010` drops the old tables and creates the new ones.
 
-1. Create `companies`. Insert one row per `target_agency`, carrying
-   `name` and `contact_email`, `relationship = 'client'` (existing
-   agencies are placement destinations, so they are clients by
-   definition).
-2. Create `people`. Insert one row per `candidates` row: `name` to
-   `full_name`, plus `email`, `phone`, `skills`, `notes`,
-   `source = 'manual'`.
-3. Create `bd_opportunities` and `opportunity_contacts`. Empty.
-4. Create `submissions`. Insert one row per `candidates` row, **reusing
-   the old `candidate_id` as the new `submission_id`**, joining the new
-   person by the old email, mapping `target_agency_id` to the new
-   `company_id`, and carrying `job_requisition_id`, `current_status_id`,
-   `recruiter_id`, `flags`, `notes`, `created_at`.
-5. Create `activities`. Empty.
-6. Alter `job_requisitions`. Backfill `company_id` where it can be
-   inferred from the submissions pointing at that requisition; leave null
-   otherwise.
-7. Re-point the history table, in this order:
+Single migration, `infra/db/migrations/0010_bd_funnel_and_people.sql`:
 
-```sql
-alter table candidate_status_history
-  drop constraint candidate_status_history_candidate_id_fkey;
-alter table candidate_status_history rename to submission_status_history;
-alter table submission_status_history rename column candidate_id to submission_id;
-alter table submission_status_history
-  add constraint submission_status_history_submission_id_fkey
-  foreign key (submission_id) references submissions(submission_id) on delete cascade;
-```
+1. `drop table candidate_status_history, candidates, target_agency;` in
+   that order — `candidate_status_history.candidate_id` references
+   `candidates` with `on delete cascade`, so it goes first.
+2. Create `companies`, `people`, `bd_opportunities`,
+   `opportunity_contacts`, `pipeline_entries`, `entry_status_history`,
+   `activities`, in that order — each references the ones above it.
+3. Alter `job_requisitions` to add `company_id` and `opportunity_id`.
 
-8. Drop `candidates` and `target_agency`.
+Written as a forward migration rather than a rewritten `0001`, so a clean
+checkout still reproduces the schema by replaying the sequence.
 
-Two details in that sequence are load-bearing:
+### Seeding
 
-**Step 4 reuses the primary key.** A submission inherits its candidate's
-UUID rather than generating a fresh one. That turns step 7 into a pure
-column rename with no value remapping, keeps existing
-`/candidates/:id/edit` URLs valid, and lets the DTO snapshot test compare
-byte-for-byte instead of having to exclude the id column.
+Flushing creates a requirement that did not exist before: **there is no
+seed script in this repo.** `infra/db/seeds/` does not exist, and the
+five candidates in the local database were entered by hand. Flushing
+without a seed means hand-entering data after every reset, across five
+new screens.
 
-**Step 7 must drop the foreign key before step 8 runs.**
-`candidate_status_history.candidate_id` references `candidates` with
-`on delete cascade`. Dropping `candidates` while that constraint stands
-either fails outright or takes the status history down with it.
-
-The email join in step 4 is safe because `candidates.email` is currently
-`not null unique` — every candidate produces exactly one person, and no
-two candidates can collide.
+P1 adds `infra/db/seed.sql`: an organisation, a user, the status ladder,
+companies spanning every `relationship` value, people, open and won
+opportunities with contacts attached, requisitions, pipeline entries, and
+a scatter of activities across several dates. Enough to develop and
+screenshot all five BD screens without touching a form.
 
 ## API
 
@@ -318,7 +299,7 @@ is the single read path for every candidate query. It is rewritten to
 join the new tables and alias columns back to their existing names:
 
 ```sql
-select s.submission_id     as candidate_id,
+select s.entry_id     as candidate_id,
        p.full_name         as name,
        p.email, p.phone, p.skills,
        s.company_id        as target_agency_id,
@@ -327,7 +308,7 @@ select s.submission_id     as candidate_id,
        st.name as status_name, st.order_index,
        co.name as agency_name,
        j.title as job_title, j.status as job_status
-  from submissions s
+  from pipeline_entries s
   join people      p  on p.person_id = s.person_id
   join status_config st on st.status_id = s.current_status_id
   join companies   co on co.company_id = s.company_id
@@ -340,7 +321,7 @@ no edits. The same treatment applies to the `agency` module, which reads
 
 **This shim is scheduled debt, not architecture.** It exists so the
 migration and the UI can land in separate reviewable steps. It is removed
-in P2 when the pipeline UI is rewritten to speak submissions directly. It
+in P2 when the pipeline UI is rewritten to speak pipeline_entries directly. It
 must not acquire new callers.
 
 ### New modules
@@ -350,7 +331,7 @@ Following the existing `modules/<name>/{routes,service,schema}.ts` layout.
 | Module | Endpoints |
 |---|---|
 | `company` | `GET /companies`, `GET /companies/:id` (with contacts, opportunities, reqs, activity), `POST`, `PATCH`, `DELETE` |
-| `person` | `GET /people` (search by name / email / linkedin_url), `GET /people/:id` (with submissions, opportunity roles, activity), `POST`, `PATCH` |
+| `person` | `GET /people` (search by name / email / linkedin_url), `GET /people/:id` (with pipeline_entries, opportunity roles, activity), `POST`, `PATCH` |
 | `opportunity` | `GET /opportunities`, `GET /opportunities/:id`, `POST`, `PATCH`, `PATCH /:id/stage`, `POST /:id/contacts`, `DELETE /:id/contacts/:personId` |
 | `activity` | `GET /activities?person_id=&company_id=`, `POST /activities` |
 
@@ -365,7 +346,7 @@ Following the existing `modules/<name>/{routes,service,schema}.ts` layout.
 The flat sidebar becomes grouped:
 
 ```
-RECRUITING     Pipeline    /             submissions board (unchanged in P1)
+RECRUITING     Pipeline    /             pipeline_entries board (unchanged in P1)
                Jobs        /jobs         reqs and deal sheets
 
 BUSINESS DEV   Deals       /deals        opportunity board
@@ -382,7 +363,7 @@ BUSINESS DEV   Deals       /deals        opportunity board
 | Deals board | `/deals` | Kanban of opportunities by stage. Generalises `PipelineBoard` rather than duplicating it. |
 | Company detail | `/companies/:id` | Header with relationship, then contacts, open opportunities, requisitions, activity timeline. |
 | Companies list | `/companies` | Replaces `AdminAgenciesPage`. Filter by relationship. |
-| Person detail | `/people/:id` | Identity, current role, every submission, every deal they are a contact on, one unified timeline. The flywheel payoff. |
+| Person detail | `/people/:id` | Identity, current role, every pipeline entry, every deal they are a contact on, one unified timeline. The flywheel payoff. |
 | Activity composer | shared component | Log a touch: channel, direction, date, note. Appears on person, company and opportunity pages. |
 
 `PipelineBoard`, `StageDot`, `Chip`, `Card`, `Button`, `Field` and the
@@ -415,14 +396,13 @@ testing them directly (`pipelineSummary.ts`, `activeFilterCount.ts`).
 - `activitySubject(activity)` — resolving which entity a touch belongs to
   for timeline display.
 
-**Migration tests:**
+**Migration and seed tests:**
 
-- 5 candidates produce exactly 5 people and 5 submissions.
-- No orphaned foreign keys after the drop.
-- `GET /candidates` returns DTOs identical to a snapshot taken before the
-  migration — including `candidate_id`, which survives because step 4
-  reuses the primary key. This is the safety net for the compatibility
-  shim.
+- The migration applies cleanly against an empty database and against one
+  already at `0009`.
+- The seed script runs to completion and leaves at least one row in every
+  new table, so no BD screen renders empty during development.
+- No orphaned foreign keys after seeding.
 
 ## Failure modes
 
@@ -432,8 +412,8 @@ testing them directly (`pipelineSummary.ts`, `activeFilterCount.ts`).
 | Duplicate `email` on create | Same. |
 | Duplicate company name or domain | Same, returning the existing `company_id`. |
 | Activity with neither person nor company | 400 from schema validation, before the check constraint fires. |
-| Deleting a company with submissions | Blocked — `submissions.company_id` has no cascade. Explain rather than cascade-delete pipeline history. |
-| Deleting a person | Cascades to their submissions, opportunity roles and activities. Deliberate: a person removed should not leave dangling pitches. |
+| Deleting a company with pipeline_entries | Blocked — `pipeline_entries.company_id` has no cascade. Explain rather than cascade-delete pipeline history. |
+| Deleting a person | Cascades to their pipeline_entries, opportunity roles and activities. Deliberate: a person removed should not leave dangling pitches. |
 
 ## Out of scope
 
