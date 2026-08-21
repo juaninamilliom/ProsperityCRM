@@ -435,15 +435,27 @@ testing them directly (`pipelineSummary.ts`, `activeFilterCount.ts`).
 
 - `normalizeLinkedInUrl(raw)` — the dedupe primitive. LinkedIn serves
   `/in/jane-doe-8a72b1/`, `?originalSubdomain=uk`, `?miniProfileUrn=...`,
-  `www.` and `m.` hosts, and trailing slashes, all for one person.
-  Written in P1 because `people` stores the URL from day one; relied on
-  heavily by P2's capture.
-- `opportunityStage` rules — legal transitions, which stages are
-  terminal, and the side effects of reaching `signed` or `lost`.
-- `feeValue(salary, feePercent)` — Postgres `numeric` arrives over the
-  wire as a string. Same trap `formatMoney` already handles; reuse it.
-- `activitySubject(activity)` — resolving which entity a touch belongs to
-  for timeline display.
+  `www.` and `m.` hosts, regional hosts and trailing slashes, all for one
+  person. Written in P1 because `people` stores the URL from day one;
+  relied on heavily by P2's capture.
+- `stageTransition(from, to, now)` — what reaching a stage does: stamps
+  `closed_at`, demands a reason on `lost`, and fires the promotion to
+  client on `signed`. The one piece of real business logic here.
+- `dealSummary(deals, now)` — open count, open value, cold count, signed
+  count. Owns the numeric-as-string coercion and the rule that a
+  terminal deal is never cold.
+- `flywheelNote(person)` — whether this person is both a past placement
+  and a live BD contact, which is what the callout on the person page
+  renders. The one-people-table decision is invisible without it.
+- `channelMeta(channel)` — labels for the seven channels, which three the
+  extension can capture, and that a note is internal-only and must never
+  count as outreach.
+
+Two functions an earlier draft named are deliberately not built:
+`feeValue(salary, feePercent)`, because no P1 screen computes a fee from
+a salary — the company page shows the agreed percentage as stored; and
+`activitySubject(activity)`, whose job the timeline does directly from
+the joined `person_name` / `company_name` / `opportunity_name`.
 
 **Migration and seed tests:**
 
