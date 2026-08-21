@@ -11,7 +11,10 @@ import { Icon } from '../components/Icon';
 import { useTheme } from '../theme';
 import { getSelectStyles } from '../components/selectStyles';
 import { formatMoney } from './JobsPage';
-import { Button, Card, SectionLabel } from '../components/ui';
+import { Button, Card, Chip, SectionLabel, StageDot } from '../components/ui';
+
+const STATUS_TONE = { open: 'ok', on_hold: 'warn', closed: 'off' } as const;
+const STATUS_LABEL = { open: 'Open', on_hold: 'On hold', closed: 'Closed' } as const;
 
 export function splitAmount(
   total: string | number | null | undefined,
@@ -234,65 +237,74 @@ export function JobDealPage() {
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-ink-3">
-            Req • {job.department || 'General'}
-          </p>
-          <h1 className="text-3xl font-semibold text-ink">{job.title}</h1>
-          <p className="text-sm text-ink-3">Close Date: {formatDate(job.close_date)}</p>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="focus-ring flex items-center gap-1.5 self-start text-sm text-ink-2 transition hover:text-ink"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        Jobs
+      </button>
+
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <SectionLabel>{job.department || 'General'}</SectionLabel>
+          <h1 className="font-serif text-title">{job.title}</h1>
+          <p className="text-sm text-ink-3">Close date: {formatDate(job.close_date)}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip tone={STATUS_TONE[job.status] ?? 'off'}>
+            {STATUS_LABEL[job.status] ?? job.status}
+          </Chip>
+          {job.stage && <Chip tone="accent">{job.stage}</Chip>}
           {canEdit && (
-            <button
-              className="inline-block rounded-full p-2 text-indigo-600 hover:bg-indigo-100 dark:text-indigo-400 dark:hover:bg-indigo-900"
+            <Button
               type="button"
               onClick={() => {
                 setIsJobEditing((prev) => !prev);
                 setJobMessage(null);
               }}
             >
-              <Icon icon={isJobEditing ? 'close' : 'edit'} />
-            </button>
+              {isJobEditing ? 'Cancel' : 'Edit requisition'}
+            </Button>
           )}
-          <span className="rounded-full bg-surface-2 px-4 py-1 text-sm font-semibold text-ink-2 dark:bg-surface-2 dark:text-white">
-            {job.status}
-          </span>
-          {job.stage && (
-            <span className="rounded-chip bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-ink">
-              {job.stage}
-            </span>
-          )}
-          <button
-            className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-control border border-border bg-surface px-4 font-medium text-ink transition hover:bg-surface-3"
-            type="button"
-            onClick={() => navigate(-1)}
-          >
-            <span>Back</span>
-          </button>
         </div>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <article className="rounded-3xl border border-white/30 bg-surface p-4 shadow-token dark:border-border/70 dark:bg-surface-2">
-          <p className="text-xs uppercase tracking-wide text-ink-3">Deal Amount</p>
-          <p className="text-2xl font-semibold text-ink">{formatCurrency(job.deal_amount)}</p>
-        </article>
-        <article className="rounded-3xl border border-white/30 bg-surface p-4 shadow-token dark:border-border/70 dark:bg-surface-2">
-          <p className="text-xs uppercase tracking-wide text-ink-3">Weighted Deal</p>
-          <p className="text-2xl font-semibold text-ink">
+      <section className="grid gap-3 md:grid-cols-3">
+        <Card as="article" className="flex flex-col gap-1 p-4">
+          <SectionLabel>Deal value</SectionLabel>
+          <p className="font-serif text-[25px] leading-tight">{formatCurrency(job.deal_amount)}</p>
+        </Card>
+        <Card as="article" className="flex flex-col gap-1 p-4">
+          <SectionLabel>Weighted</SectionLabel>
+          <p className="font-serif text-[25px] leading-tight">
             {formatCurrency(job.weighted_deal_amount)}
           </p>
-        </article>
-        <article className="rounded-3xl border border-white/30 bg-surface p-4 shadow-token dark:border-border/70 dark:bg-surface-2">
-          <p className="text-xs uppercase tracking-wide text-ink-3">Owner</p>
-          <p className="text-2xl font-semibold text-ink">{job.owner_name || 'Unassigned'}</p>
-        </article>
+        </Card>
+        <Card as="article" className="flex flex-col gap-1 p-4">
+          <SectionLabel>Owner</SectionLabel>
+          <p className="truncate text-lg font-medium">{job.owner_name || 'Unassigned'}</p>
+        </Card>
       </section>
 
       {isJobEditing && jobForm && (
         <section className="rounded-card border border-dashed border-border bg-surface-2 p-5">
-          <h2 className="mb-3 text-lg font-semibold text-ink">Edit Requisition</h2>
+          <div className="mb-3">
+            <SectionLabel>Edit requisition</SectionLabel>
+          </div>
           {jobMessage && <p className="text-xs text-emerald-600 mb-3">{jobMessage}</p>}
           <form
             className="grid gap-4 md:grid-cols-2"
@@ -445,23 +457,23 @@ export function JobDealPage() {
         </section>
       )}
 
-      <section className="rounded-3xl border border-white/30 bg-surface p-5 shadow-token dark:border-border/70 dark:bg-surface-2">
+      <section className="rounded-card bg-surface p-5 shadow-token">
         <header className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Deal Split</h2>
+            <SectionLabel>Deal split</SectionLabel>
             <p className="text-sm text-ink-3">Share payouts across the team.</p>
           </div>
           <div className="flex gap-2">
             {message && <p className="text-xs text-emerald-600">{message}</p>}
             {!isEditing ? (
               <button
-                className="inline-block rounded-full p-2 text-indigo-600 hover:bg-indigo-100 disabled:text-ink-3 dark:text-indigo-400 dark:hover:bg-indigo-900"
+                className="focus-ring inline-flex h-[30px] items-center justify-center gap-2 rounded-control border border-border bg-surface px-3 text-sm font-medium text-ink transition hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={beginEdit}
                 disabled={!canEdit}
-                title={canEdit ? 'Edit Deal Split' : 'View Only'}
+                title={canEdit ? 'Edit deal split' : 'Only org admins can edit the split'}
               >
-                <Icon icon="edit" />
+                Edit split
               </button>
             ) : (
               <Fragment>
@@ -583,23 +595,38 @@ export function JobDealPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-white/30 bg-surface p-5 shadow-token dark:border-border/70 dark:bg-surface-2">
-        <h2 className="mb-3 text-lg font-semibold text-ink">Related Candidates</h2>
-        <ul className="space-y-3">
+      <section className="rounded-card bg-surface p-5 shadow-token">
+        <div className="mb-3">
+          <SectionLabel>Related candidates</SectionLabel>
+        </div>
+        <ul className="flex flex-col">
           {candidates.length ? (
             candidates.map((candidate) => (
               <li
                 key={candidate.candidate_id}
-                className="flex items-center justify-between text-sm"
+                className="flex items-center justify-between gap-4 border-b border-border-soft py-3 last:border-b-0"
               >
-                <div>
-                  <p className="font-semibold text-ink">{candidate.name}</p>
-                  <p className="text-xs text-ink-3">{candidate.status_name}</p>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-base font-medium">{candidate.name}</span>
+                  <span className="flex items-center gap-1.5 text-sm text-ink-2">
+                    {candidate.status_name && <StageDot stage={candidate.status_name} size={6} />}
+                    {candidate.status_name}
+                  </span>
                 </div>
-                <div className="text-right text-xs text-ink-3">
-                  {candidate.skills?.length ? <p>Skills: {candidate.skills.join(', ')}</p> : null}
-                  {candidate.flags?.length ? <p>Flags: {candidate.flags.join(', ')}</p> : null}
-                  {!candidate.skills?.length && !candidate.flags?.length && <p>No tags yet</p>}
+                <div className="flex max-w-[60%] flex-wrap justify-end gap-1">
+                  {candidate.skills?.slice(0, 3).map((skill) => (
+                    <Chip key={skill} size="sm">
+                      {skill}
+                    </Chip>
+                  ))}
+                  {candidate.flags?.slice(0, 2).map((flag) => (
+                    <Chip key={flag} size="sm" tone="warn">
+                      {flag}
+                    </Chip>
+                  ))}
+                  {!candidate.skills?.length && !candidate.flags?.length && (
+                    <span className="text-sm text-ink-3">No tags yet</span>
+                  )}
                 </div>
               </li>
             ))

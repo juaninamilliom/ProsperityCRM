@@ -66,7 +66,7 @@ export function PipelineList({ statuses, candidates }: PipelineListProps) {
                 <td className="whitespace-nowrap px-2 py-2 text-right">
                   <Link
                     to={`/candidates/${candidate.candidate_id}/edit`}
-                    className="inline-block rounded-full p-2 text-indigo-600 hover:bg-indigo-100 dark:text-indigo-400 dark:hover:bg-indigo-900"
+                    className="focus-ring inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-ink-2 transition hover:bg-surface-3"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Icon icon="edit" />

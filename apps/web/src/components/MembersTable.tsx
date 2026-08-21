@@ -55,7 +55,17 @@ export function MembersTable({ members, currentUserId, canEdit, onRoleChange }: 
                 >
                   {ROLE_LABEL[member.role]}
                   {!isSelf && (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-3">
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-ink-3"
+                    >
                       <path d="M6 9l6 6 6-6" />
                     </svg>
                   )}
