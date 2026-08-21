@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireRole } from '../../middleware/auth.js';
 import { jobInputSchema, jobSplitsPayloadSchema } from './job.schema.js';
-import { createJob, deleteJob, getJobCandidates, getJobWithStats, listJobSplits, listJobs, replaceJobSplits, updateJob } from './job.service.js';
+import { createJob, deleteJob, getJobEntries, getJobWithStats, listJobSplits, listJobs, replaceJobSplits, updateJob } from './job.service.js';
 
 export const jobRouter = Router();
 
@@ -25,8 +25,8 @@ jobRouter.get('/:id', async (req, res) => {
     return res.status(404).json({ message: 'Job not found' });
   }
   const splits = await listJobSplits(req.params.id);
-  const candidates = await getJobCandidates(req.params.id);
-  res.json({ job, splits, candidates });
+  const entries = await getJobEntries(req.params.id);
+  res.json({ job, splits, entries });
 });
 
 jobRouter.put('/:id', requireRole('OrgAdmin'), async (req, res) => {

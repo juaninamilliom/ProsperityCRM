@@ -11,6 +11,9 @@ export const jobInputSchema = z.object({
   weighted_deal_amount: z.string().optional(),
   owner_name: z.string().optional(),
   stage: z.string().optional(),
+  /** A requisition belongs to a client, and optionally records the deal that won it. */
+  company_id: z.string().uuid().optional().nullable(),
+  opportunity_id: z.string().uuid().optional().nullable(),
 });
 
 export const jobSplitSchema = z.object({

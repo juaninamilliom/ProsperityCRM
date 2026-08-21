@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { getCandidateHistory, getPlacementMetrics } from './history.service.js';
+import { getEntryHistory, getPlacementMetrics } from './history.service.js';
 
 export const historyRouter = Router();
 
-historyRouter.get('/candidate/:id', async (req, res) => {
-  const rows = await getCandidateHistory(req.params.id);
+historyRouter.get('/entry/:id', async (req, res) => {
+  const rows = await getEntryHistory(req.params.id);
   res.json(rows);
 });
 

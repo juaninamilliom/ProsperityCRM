@@ -19,15 +19,10 @@ export interface Organization {
   created_at: string;
 }
 
-export interface TargetAgency {
-  agency_id: UUID;
-  name: string;
-  contact_email: string | null;
-  created_at: string;
-}
-
 export interface JobRequisition {
   job_id: UUID;
+  company_id: UUID | null;
+  opportunity_id: UUID | null;
   title: string;
   department: string | null;
   location: string | null;
@@ -37,7 +32,7 @@ export interface JobRequisition {
 }
 
 export interface JobRequisitionWithStats extends JobRequisition {
-  total_candidates: number;
+  total_entries: number;
   placements: number;
 }
 
@@ -49,33 +44,103 @@ export interface StatusConfig {
   created_at: string;
 }
 
-export interface Candidate {
-  candidate_id: UUID;
-  name: string;
-  email: string;
-  phone: string | null;
-  current_status_id: UUID;
-  target_agency_id: UUID;
-  recruiter_id: UUID;
-  job_requisition_id: UUID | null;
-  flags: string[];
-  skills: string[];
-  notes: string | null;
-  created_at: string;
-}
-
-export interface CandidateStatusHistory {
-  history_id: UUID;
-  candidate_id: UUID;
-  from_status_id: UUID | null;
-  to_status_id: UUID;
-  change_date: string;
-  changed_by: UUID;
-}
-
 export interface OrganizationSkill {
   skill_id: UUID;
   organization_id: UUID;
   name: string;
   created_at: string;
+}
+
+export type Relationship = 'prospect' | 'client' | 'former' | 'do_not_contact';
+export type OpportunityStage =
+  | 'prospect' | 'contacted' | 'meeting' | 'proposal' | 'negotiation' | 'signed' | 'lost';
+export type ContactRole = 'champion' | 'decision_maker' | 'influencer' | 'blocker' | 'intro';
+export type Channel =
+  | 'li_message' | 'li_inmail' | 'li_connect' | 'email' | 'call' | 'meeting' | 'note';
+export type Direction = 'outbound' | 'inbound' | 'internal';
+export type PersonSource = 'manual' | 'linkedin_capture' | 'import';
+
+export interface Company {
+  company_id: UUID;
+  organization_id: UUID;
+  name: string;
+  linkedin_url: string | null;
+  domain: string | null;
+  industry: string | null;
+  headcount: string | null;
+  location: string | null;
+  relationship: Relationship;
+  contact_email: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface Person {
+  person_id: UUID;
+  organization_id: UUID;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  headline: string | null;
+  location: string | null;
+  current_company_id: UUID | null;
+  current_title: string | null;
+  skills: string[];
+  notes: string | null;
+  source: PersonSource;
+  created_at: string;
+}
+
+export interface PipelineEntry {
+  entry_id: UUID;
+  organization_id: UUID;
+  person_id: UUID;
+  company_id: UUID;
+  job_id: UUID | null;
+  current_status_id: UUID;
+  recruiter_id: UUID;
+  flags: string[];
+  notes: string | null;
+  created_at: string;
+}
+
+export interface BdOpportunity {
+  opportunity_id: UUID;
+  organization_id: UUID;
+  company_id: UUID;
+  name: string;
+  stage: OpportunityStage;
+  /** Postgres numeric arrives over the wire as a string. Never render raw. */
+  fee_percent: string | number | null;
+  est_annual_value: string | number | null;
+  expected_close: string | null;
+  owner_id: UUID | null;
+  lost_reason: string | null;
+  closed_at: string | null;
+  created_at: string;
+}
+
+export interface Activity {
+  activity_id: UUID;
+  organization_id: UUID;
+  person_id: UUID | null;
+  company_id: UUID | null;
+  opportunity_id: UUID | null;
+  entry_id: UUID | null;
+  channel: Channel;
+  direction: Direction;
+  occurred_at: string;
+  subject: string | null;
+  body: string | null;
+  created_by: UUID | null;
+}
+
+export interface EntryStatusHistory {
+  history_id: UUID;
+  entry_id: UUID;
+  from_status_id: UUID | null;
+  to_status_id: UUID;
+  change_date: string;
+  changed_by: UUID | null;
 }
