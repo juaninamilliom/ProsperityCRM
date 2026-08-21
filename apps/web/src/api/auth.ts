@@ -16,8 +16,8 @@ export async function signup(payload: {
   email: string;
   password: string;
   name: string;
-  organization_id: string;
-  role?: Role;
+  /** The code carries the organisation and the role - neither is sent by the client. */
+  invite_code: string;
 }) {
   const response = await apiClient.post<AuthResponse>('/auth/signup', payload);
   setAuthToken(response.data.token);
