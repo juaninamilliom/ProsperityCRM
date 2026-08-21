@@ -2,8 +2,17 @@ import type { JobRequisition, JobRequisitionWithStats } from '../../types.js';
 import { query } from '../../utils/sql.js';
 import type { JobInput } from './job.schema.js';
 
+/** The counts come back from aggregates rather than the table, so they are
+ *  typed here instead of cast away at each use. Postgres returns them as
+ *  strings unless cast, which the ::int in the SQL already does. */
+type JobRow = JobRequisition & { total_entries: number | string | null; company_name: string | null };
+type JobStatsRow = JobRequisitionWithStats & {
+  total_entries: number | string | null;
+  placements: number | string | null;
+};
+
 export async function listJobs() {
-  const result = await query(
+  const result = await query<JobRow>(
     `select j.*, co.name as company_name,
             coalesce(e.cnt,0)::int as total_entries
      from job_requisitions j
@@ -16,8 +25,8 @@ export async function listJobs() {
      order by j.created_at desc`
   );
   return result.rows.map((row) => ({
-    ...(row as JobRequisition),
-    total_entries: Number((row as any).total_entries ?? 0),
+    ...row,
+    total_entries: Number(row.total_entries ?? 0),
   }));
 }
 
@@ -104,11 +113,11 @@ export async function getJobWithStats(jobId: string) {
   if (!result.rows[0]) {
     return null;
   }
-  const row = result.rows[0] as JobRequisitionWithStats;
+  const row = result.rows[0] as JobStatsRow;
   return {
     ...row,
-    total_entries: Number((row as any).total_entries ?? 0),
-    placements: Number((row as any).placements ?? 0),
+    total_entries: Number(row.total_entries ?? 0),
+    placements: Number(row.placements ?? 0),
   };
 }
 

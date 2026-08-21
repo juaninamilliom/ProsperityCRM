@@ -159,10 +159,14 @@ export function PersonDetailPage() {
                 >
                   <StageDot stage={entry.status_name ?? ''} />
                   <span className="flex min-w-0 flex-1 flex-col">
+                    {/* Without a requisition the company is the only thing worth
+                        leading with - "No requisition" as a headline buries it. */}
                     <span className="truncate text-base font-medium">
-                      {entry.job_title ?? 'No requisition'}
+                      {entry.job_title ?? entry.company_name}
                     </span>
-                    <span className="truncate text-xs text-ink-3">{entry.company_name}</span>
+                    <span className="truncate text-xs text-ink-3">
+                      {entry.job_title ? entry.company_name : 'No requisition'}
+                    </span>
                   </span>
                   <Chip
                     size="sm"

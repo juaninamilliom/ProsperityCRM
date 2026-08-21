@@ -23,11 +23,25 @@ declare
 
   e_priya_placed uuid; e_priya_declined uuid; e_marcus uuid; e_ines_a uuid; e_ines_b uuid;
 begin
+  -- Reuse the existing organisation and user when there is one, so re-seeding
+  -- a working database never costs you your login. Create a development pair
+  -- only when the database is genuinely empty, so a fresh clone can seed.
   select organization_id into v_org from organizations order by created_at limit 1;
-  select user_id into v_user from users where organization_id = v_org order by created_at limit 1;
-  if v_org is null or v_user is null then
-    raise exception 'Seed needs an organisation and a user. Sign up first.';
+  if v_org is null then
+    insert into organizations (name, slug) values ('Prosperity Recruiting', 'prosperity-recruiting')
+      returning organization_id into v_org;
+    raise notice 'Created a development organisation.';
   end if;
+
+  select user_id into v_user from users where organization_id = v_org order by created_at limit 1;
+  if v_user is null then
+    insert into users (organization_id, email, name, role, sso_id, password, is_active)
+      values (v_org, 'dev@prosperity.test', 'Dev User', 'OrgAdmin', 'local:dev', 'password', true)
+      returning user_id into v_user;
+    raise notice 'Created dev@prosperity.test with password "password".';
+  end if;
+
+  -- 0002 seeds the status ladder, so these are always a lookup.
 
   select status_id into s_sourced      from status_config where name = 'Sourced';
   select status_id into s_screening    from status_config where name = 'Screening';
@@ -102,12 +116,14 @@ begin
 
   -- Priya carries three entries against three different roles: the thing the
   -- old single job_requisition_id could not express.
-  insert into pipeline_entries (organization_id, person_id, company_id, job_id, current_status_id, recruiter_id, flags, notes) values
-    (v_org, p_priya,  c_halcyon,  null,       s_placed,       v_user, '[]'::jsonb,                'Placed March 2024. Fee invoiced at 22%.'),
-    (v_org, p_priya,  c_cobalt,   null,       s_rejected,     v_user, '[]'::jsonb,                'Declined the offer over remote policy.'),
-    (v_org, p_marcus, c_meridian, j_data,     s_screening,    v_user, '["Hot Prospect"]'::jsonb,  'Strong dbt background.'),
-    (v_org, p_ines,   c_meridian, j_platform, s_interviewing, v_user, '[]'::jsonb,                'Second interview booked.'),
-    (v_org, p_ines,   c_halcyon,  j_clinical, s_sourced,      v_user, '[]'::jsonb,                'Also a fit for the Halcyon role.');
+  -- created_at is set explicitly: the person page dates a placement from it,
+  -- so leaving it to default would report every historical pitch as today.
+  insert into pipeline_entries (organization_id, person_id, company_id, job_id, current_status_id, recruiter_id, flags, notes, created_at) values
+    (v_org, p_priya,  c_halcyon,  null,       s_placed,       v_user, '[]'::jsonb,               'Placed March 2024. Fee invoiced at 22%.', timestamptz '2024-01-09 10:00+00'),
+    (v_org, p_priya,  c_cobalt,   null,       s_rejected,     v_user, '[]'::jsonb,               'Declined the offer over remote policy.',  timestamptz '2023-09-14 10:00+00'),
+    (v_org, p_marcus, c_meridian, j_data,     s_screening,    v_user, '["Hot Prospect"]'::jsonb, 'Strong dbt background.',                  timestamptz '2026-08-12 10:00+00'),
+    (v_org, p_ines,   c_meridian, j_platform, s_interviewing, v_user, '[]'::jsonb,               'Second interview booked.',                timestamptz '2026-07-28 10:00+00'),
+    (v_org, p_ines,   c_halcyon,  j_clinical, s_sourced,      v_user, '[]'::jsonb,               'Also a fit for the Halcyon role.',        timestamptz '2026-08-16 10:00+00');
 
   select entry_id into e_priya_placed   from pipeline_entries where person_id = p_priya and company_id = c_halcyon;
   select entry_id into e_marcus         from pipeline_entries where person_id = p_marcus;

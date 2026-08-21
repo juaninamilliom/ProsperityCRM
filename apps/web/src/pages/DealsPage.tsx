@@ -205,12 +205,12 @@ export function DealsPage() {
                     )}
                   </span>
                   <span className="flex items-center justify-between gap-2 border-t border-border-soft pt-2">
-                    <span className="flex items-center">
+                    <span className="flex items-center pl-0.5">
                       {(deal.contacts ?? []).slice(0, 3).map((contact) => (
                         <span
                           key={contact.person_id}
                           title={contact.full_name}
-                          className="-mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border-[1.5px] border-surface bg-accent-soft text-[9px] font-semibold text-accent-ink"
+                          className="-ml-1 inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-surface bg-accent-soft text-[9px] font-semibold text-accent-ink first:ml-0"
                         >
                           {initials(contact.full_name)}
                         </span>
