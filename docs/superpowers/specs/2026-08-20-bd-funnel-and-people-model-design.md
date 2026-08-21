@@ -475,7 +475,6 @@ Deferred with intent, not forgotten:
   own accuracy problems.
 - **Multi-tenancy.** See Known Issues.
 - **Configurable BD stages.**
-- **Retiring the compatibility shim.** P2.
 
 ## Known issues surfaced during design
 
@@ -507,7 +506,7 @@ because this project fixes them.
   `source_url`, kind, intent, status, duplicate hints), a review screen,
   and promotion into `people` / `companies`. Ships with a paste-a-URL
   path so the whole ingestion pipeline is testable with no browser
-  involved. Also retires the compatibility shim.
+  involved.
 - **P3 — Browser extension.** One page, one click, no crawling. Content
   script reads the DOM already on screen and posts to the capture
   endpoint. Carries a second brief worth as much as the first: logging a
