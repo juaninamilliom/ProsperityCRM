@@ -9,7 +9,6 @@ import { createEntry } from '../api/entries';
 import { fetchCurrentUser } from '../api/users';
 import { fetchSkills, createSkill } from '../api/skills';
 import { formatPhone, isPhoneValid } from '../utils/phone';
-import { useTheme } from '../theme';
 import { getSelectStyles, getMultiSelectStyles } from '../components/selectStyles';
 import { useNavigate } from 'react-router-dom';
 import { CandidateFormLayout } from '../components/CandidateFormLayout';
@@ -32,7 +31,6 @@ const initialState = {
 export function CandidateFormPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [theme] = useTheme();
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: fetchStatuses });
   const { data: agencies = [] } = useQuery({ queryKey: ['companies'], queryFn: () => fetchCompanies() });
   const { data: jobs = [] } = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
@@ -72,8 +70,8 @@ export function CandidateFormPage() {
   );
   const recruiterId = currentUser?.dbUser?.user_id ?? '';
 
-  const selectStyles = getSelectStyles(theme);
-  const multiSelectStyles = getMultiSelectStyles(theme);
+  const selectStyles = getSelectStyles();
+  const multiSelectStyles = getMultiSelectStyles();
 
   const createMutation = useMutation({
     // A candidate is now two rows: the person, and the pitch. The person is

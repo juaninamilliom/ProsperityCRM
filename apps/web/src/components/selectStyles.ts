@@ -1,10 +1,10 @@
 import { StylesConfig } from 'react-select';
-import type { Theme } from '../theme';
 
 type SelectOption = { value: string; label: string };
 
+/** Takes no theme: every value below is a CSS custom property, so the theme is
+ *  applied by the `dark` class on <html> rather than by recomputing styles. */
 export const getSelectStyles = <Option = SelectOption, IsMulti extends boolean = false>(
-  theme: Theme,
 ): StylesConfig<Option, IsMulti> => {
   return {
     control: (provided, state) => ({
@@ -101,5 +101,5 @@ export const getSelectStyles = <Option = SelectOption, IsMulti extends boolean =
   };
 };
 
-export const getMultiSelectStyles = <Option = SelectOption>(theme: Theme) =>
-  getSelectStyles<Option, true>(theme);
+export const getMultiSelectStyles = <Option = SelectOption>() =>
+  getSelectStyles<Option, true>();

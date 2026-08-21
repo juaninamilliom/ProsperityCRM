@@ -99,7 +99,7 @@ export function AccountSettingsPage() {
 
   const showInviteTab = activeTab === 'members';
 
-  const selectStyles = getSelectStyles(theme);
+  const selectStyles = getSelectStyles();
 
   const memberCount = membersQuery.data?.length ?? 0;
 

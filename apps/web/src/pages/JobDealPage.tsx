@@ -8,7 +8,6 @@ import type { CurrentUserResponse } from '../api/users';
 import { fetchOrgUsers } from '../api/users';
 import DatePicker from 'react-datepicker';
 import { Icon } from '../components/Icon';
-import { useTheme } from '../theme';
 import { getSelectStyles } from '../components/selectStyles';
 import { formatMoney } from './JobsPage';
 import { Button, Card, Chip, SectionLabel, StageDot } from '../components/ui';
@@ -61,7 +60,6 @@ export function JobDealPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [theme] = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [isJobEditing, setIsJobEditing] = useState(false);
   const [draftSplits, setDraftSplits] = useState<JobSplitInput[]>([]);
@@ -182,7 +180,7 @@ export function JobDealPage() {
     },
   });
 
-  const selectStyles = getSelectStyles(theme);
+  const selectStyles = getSelectStyles();
 
   if (detailQuery.isLoading || !job) {
     return (

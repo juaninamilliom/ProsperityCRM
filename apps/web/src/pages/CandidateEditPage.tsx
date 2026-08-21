@@ -9,7 +9,6 @@ import { updatePerson } from '../api/people';
 import { fetchSkills, createSkill } from '../api/skills';
 import Select, { type MultiValue } from 'react-select';
 import { formatPhone, isPhoneValid } from '../utils/phone';
-import { useTheme } from '../theme';
 import { getSelectStyles, getMultiSelectStyles } from '../components/selectStyles';
 import { Button, Card, SectionLabel } from '../components/ui';
 
@@ -19,7 +18,6 @@ export function CandidateEditPage() {
   const { candidateId } = useParams<{ candidateId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [theme] = useTheme();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -72,8 +70,8 @@ export function CandidateEditPage() {
     [skillOptions, form.skills],
   );
 
-  const selectStyles = getSelectStyles(theme);
-  const multiSelectStyles = getMultiSelectStyles(theme);
+  const selectStyles = getSelectStyles();
+  const multiSelectStyles = getMultiSelectStyles();
 
   useEffect(() => {
     if (!candidateQuery.data) return;

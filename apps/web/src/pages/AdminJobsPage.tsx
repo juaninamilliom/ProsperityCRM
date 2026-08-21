@@ -5,7 +5,6 @@ import { createJob, deleteJob, fetchJobs } from '../api/jobs';
 import { fetchOrgUsers } from '../api/users';
 import DatePicker from 'react-datepicker';
 import type { JobRequisitionDTO } from 'src/common';
-import { useTheme } from '../theme';
 import { getSelectStyles } from '../components/selectStyles';
 
 type SelectOption = { value: string; label: string };
@@ -44,7 +43,6 @@ const statusOptions: SelectOption[] = [
 
 export function AdminJobsPage() {
   const queryClient = useQueryClient();
-  const [theme] = useTheme();
   const { data: jobs = [] } = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
   const { data: orgUsers = [] } = useQuery({ queryKey: ['org-users'], queryFn: fetchOrgUsers });
   const userOptions = useMemo(
@@ -104,7 +102,7 @@ export function AdminJobsPage() {
     return () => clearTimeout(timer);
   }, [successMessage, errorMessage, deleteMessage]);
 
-  const selectStyles = getSelectStyles(theme);
+  const selectStyles = getSelectStyles();
 
   return (
     <section className="space-y-4">

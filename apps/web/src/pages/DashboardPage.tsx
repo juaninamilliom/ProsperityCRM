@@ -15,10 +15,8 @@ import { pipelineSummary } from './pipelineSummary';
 import { activeFilterCount } from './activeFilterCount';
 import { Button } from '../components/ui';
 import { Link } from 'react-router-dom';
-import { useTheme } from '../theme';
 
 export function DashboardPage() {
-  const [theme] = useTheme();
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -176,7 +174,6 @@ export function DashboardPage() {
             skills={skillsQuery.data ?? []}
             skillsLoading={skillsQuery.isLoading}
             skillsError={Boolean(skillsQuery.error)}
-            theme={theme}
           />
         )}
       </div>
