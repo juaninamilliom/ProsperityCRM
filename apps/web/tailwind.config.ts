@@ -60,6 +60,13 @@ const config: Config = {
           'design-fg': 'var(--tint-design-fg)',
         },
       },
+      // Tailwind's scale jumps 16px -> 20px. The artboards use 18px between
+      // field groups and in table rows, so the half-step is declared here.
+      // An undeclared step is silently dropped, which is invisible until you
+      // look at a screenshot.
+      spacing: {
+        '4.5': '1.125rem',
+      },
       borderRadius: {
         control: 'var(--r-control)',
         card: 'var(--r-card)',

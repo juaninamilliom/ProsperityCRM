@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { fetchCompany } from '../api/companies';
+import { fetchCompany, updateCompany } from '../api/companies';
+import { CompanyForm, type CompanyFormValues } from '../components/CompanyForm';
+import { DealForm, type DealFormValues } from '../components/DealForm';
+import { createOpportunity } from '../api/opportunities';
 import { createActivity, type NewActivity } from '../api/activities';
 import { ActivityComposer } from '../components/ActivityComposer';
-import { Modal } from '../components/Modal';
+import { Overlay } from '../components/Overlay';
 import { ActivityTimeline } from '../components/ActivityTimeline';
 import { RelationshipChip } from '../components/RelationshipChip';
 import { Button, Card, Chip, SectionLabel, BdStageDot } from '../components/ui';
@@ -32,10 +35,29 @@ export function CompanyDetailPage() {
   const { companyId } = useParams();
   const queryClient = useQueryClient();
   const [composerOpen, setComposerOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [dealOpen, setDealOpen] = useState(false);
   const { data: company, isLoading } = useQuery({
     queryKey: ['companies', companyId],
     queryFn: () => fetchCompany(companyId!),
     enabled: Boolean(companyId),
+  });
+
+  const createDeal = useMutation({
+    mutationFn: (values: DealFormValues) => createOpportunity(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      setDealOpen(false);
+    },
+  });
+
+  const saveCompany = useMutation({
+    mutationFn: (values: CompanyFormValues) => updateCompany(companyId!, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      setEditOpen(false);
+    },
   });
 
   const logActivity = useMutation({
@@ -91,9 +113,13 @@ export function CompanyDetailPage() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Button>New deal</Button>
-            <Button>Edit</Button>
-            <Button variant="primary" onClick={() => setComposerOpen(true)}>
+            <Button className="h-[34px]" onClick={() => setDealOpen(true)}>
+              New deal
+            </Button>
+            <Button className="h-[34px]" onClick={() => setEditOpen(true)}>
+              Edit
+            </Button>
+            <Button variant="primary" className="h-[34px]" onClick={() => setComposerOpen(true)}>
               Log activity
             </Button>
           </div>
@@ -220,14 +246,35 @@ export function CompanyDetailPage() {
         />
       </div>
 
-      <Modal isOpen={composerOpen} onClose={() => setComposerOpen(false)} title="">
+      <Overlay isOpen={dealOpen} onClose={() => setDealOpen(false)} width={620}>
+        <DealForm
+          companies={[]}
+          companyId={company.company_id}
+          pending={createDeal.isPending}
+          error={createDeal.isError ? 'Could not create the deal. Check the fields and try again.' : null}
+          onSubmit={(values) => createDeal.mutate(values)}
+          onClose={() => setDealOpen(false)}
+        />
+      </Overlay>
+
+      <Overlay isOpen={editOpen} onClose={() => setEditOpen(false)} width={620}>
+        <CompanyForm
+          company={company}
+          pending={saveCompany.isPending}
+          error={saveCompany.isError ? 'Could not save. Check the fields and try again.' : null}
+          onSubmit={(values) => saveCompany.mutate(values)}
+          onClose={() => setEditOpen(false)}
+        />
+      </Overlay>
+
+      <Overlay isOpen={composerOpen} onClose={() => setComposerOpen(false)}>
         <ActivityComposer
           companyId={company.company_id}
           attachLabel={company.name}
           onSubmit={(activity) => logActivity.mutate(activity)}
           onClose={() => setComposerOpen(false)}
         />
-      </Modal>
+      </Overlay>
     </div>
   );
 }

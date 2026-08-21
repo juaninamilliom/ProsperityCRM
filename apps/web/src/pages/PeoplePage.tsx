@@ -1,15 +1,40 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { fetchPeople } from '../api/people';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
+import { fetchPeople, createPerson } from '../api/people';
+import { fetchCompanies } from '../api/companies';
+import { PersonForm, type PersonFormValues } from '../components/PersonForm';
+import { Overlay } from '../components/Overlay';
 import { Button, Card, SectionLabel } from '../components/ui';
 import { initials, isCold, tintFor, touchLabel } from '../utils/presentation';
 
 const GRID = 'grid grid-cols-[2.4fr_1.6fr_0.85fr_0.7fr_1fr] gap-4';
 
 export function PeoplePage() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const { data: people = [] } = useQuery({ queryKey: ['people'], queryFn: () => fetchPeople() });
+  const { data: companies = [] } = useQuery({ queryKey: ['companies'], queryFn: () => fetchCompanies() });
+
+  const create = useMutation({
+    mutationFn: (values: PersonFormValues) => createPerson(values),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['people'] });
+      setCreateOpen(false);
+      setCreateError(null);
+      navigate(`/people/${created.person_id}`);
+    },
+    onError: (error: { response?: { status?: number; data?: { message?: string } } }) => {
+      setCreateError(
+        error?.response?.status === 409
+          ? (error.response.data?.message ?? 'You already have this person.')
+          : 'Could not add the person. Check the fields and try again.',
+      );
+    },
+  });
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -42,7 +67,7 @@ export function PeoplePage() {
               aria-label="Search people"
               className="focus-ring h-[34px] w-[214px] rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             />
-            <Button variant="primary">
+            <Button variant="primary" className="h-[34px]" onClick={() => setCreateOpen(true)}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <path d="M12 5v14M5 12h14" />
               </svg>
@@ -93,6 +118,19 @@ export function PeoplePage() {
           })}
         </Card>
       </div>
+
+      <Overlay isOpen={createOpen} onClose={() => setCreateOpen(false)} width={620}>
+        <PersonForm
+          companies={companies}
+          pending={create.isPending}
+          error={createError}
+          onSubmit={(values) => create.mutate(values)}
+          onClose={() => {
+            setCreateOpen(false);
+            setCreateError(null);
+          }}
+        />
+      </Overlay>
     </div>
   );
 }

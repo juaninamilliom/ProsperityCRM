@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Relationship } from 'src/common';
-import { fetchCompanies } from '../api/companies';
+import { fetchCompanies, createCompany } from '../api/companies';
+import { CompanyForm, type CompanyFormValues } from '../components/CompanyForm';
+import { Overlay } from '../components/Overlay';
 import { RelationshipChip } from '../components/RelationshipChip';
 import { Button, Card, SectionLabel } from '../components/ui';
 import { touchLabel, isCold, initials, tintFor } from '../utils/presentation';
@@ -20,12 +22,35 @@ const FILTERS: { key: Filter; label: string }[] = [
 const GRID = 'grid grid-cols-[2.4fr_1.1fr_0.85fr_0.85fr_0.7fr_1fr] gap-4';
 
 export function CompaniesPage() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const { data: companies = [] } = useQuery({
     queryKey: ['companies'],
     queryFn: () => fetchCompanies(),
+  });
+
+  const create = useMutation({
+    mutationFn: (values: CompanyFormValues) => createCompany(values),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      setCreateOpen(false);
+      setCreateError(null);
+      navigate(`/companies/${created.company_id}`);
+    },
+    onError: (error: { response?: { status?: number; data?: { message?: string } } }) => {
+      // The API answers a duplicate with 409 and the row it already has, which
+      // is a far more useful thing to say than "request failed".
+      setCreateError(
+        error?.response?.status === 409
+          ? (error.response.data?.message ?? 'You already have this company.')
+          : 'Could not create the company. Check the fields and try again.',
+      );
+    },
   });
 
   const counts = useMemo(() => {
@@ -70,7 +95,7 @@ export function CompaniesPage() {
               aria-label="Search companies"
               className="focus-ring h-[34px] w-[214px] rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             />
-            <Button variant="primary">
+            <Button variant="primary" className="h-[34px]" onClick={() => setCreateOpen(true)}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <path d="M12 5v14M5 12h14" />
               </svg>
@@ -160,6 +185,18 @@ export function CompaniesPage() {
           </Card>
         )}
       </div>
+
+      <Overlay isOpen={createOpen} onClose={() => setCreateOpen(false)} width={620}>
+        <CompanyForm
+          pending={create.isPending}
+          error={createError}
+          onSubmit={(values) => create.mutate(values)}
+          onClose={() => {
+            setCreateOpen(false);
+            setCreateError(null);
+          }}
+        />
+      </Overlay>
     </div>
   );
 }

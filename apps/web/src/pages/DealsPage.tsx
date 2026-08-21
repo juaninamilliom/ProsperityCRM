@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type { OpportunityDTO, OpportunityStage } from 'src/common';
-import { fetchOpportunities, moveStage } from '../api/opportunities';
+import { fetchOpportunities, moveStage, createOpportunity } from '../api/opportunities';
+import { fetchCompanies } from '../api/companies';
+import { DealForm, type DealFormValues } from '../components/DealForm';
+import { Overlay } from '../components/Overlay';
 import { StageBoard, type StageColumn } from '../components/StageBoard';
 import { Button, Card, SectionLabel, bdStageToken } from '../components/ui';
 import { formatMoney } from '../utils/money';
@@ -51,10 +54,25 @@ export function DealsPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { data: deals = [] } = useQuery({
     queryKey: ['opportunities'],
     queryFn: () => fetchOpportunities(),
+  });
+
+  const { data: companies = [] } = useQuery({
+    queryKey: ['companies'],
+    queryFn: () => fetchCompanies(),
+  });
+
+  const createDeal = useMutation({
+    mutationFn: (values: DealFormValues) => createOpportunity(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      setCreateOpen(false);
+    },
   });
 
   const moveMutation = useMutation({
@@ -120,7 +138,7 @@ export function DealsPage() {
               aria-label="Search deals"
               className="focus-ring h-[34px] w-[214px] rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
             />
-            <Button variant="primary">
+            <Button variant="primary" className="h-[34px]" onClick={() => setCreateOpen(true)}>
               <svg
                 width="14"
                 height="14"
@@ -233,6 +251,16 @@ export function DealsPage() {
           />
         )}
       </div>
+
+      <Overlay isOpen={createOpen} onClose={() => setCreateOpen(false)} width={620}>
+        <DealForm
+          companies={companies}
+          pending={createDeal.isPending}
+          error={createDeal.isError ? 'Could not create the deal. Check the fields and try again.' : null}
+          onSubmit={(values) => createDeal.mutate(values)}
+          onClose={() => setCreateOpen(false)}
+        />
+      </Overlay>
     </div>
   );
 }

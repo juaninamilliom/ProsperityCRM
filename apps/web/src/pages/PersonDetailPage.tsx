@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { fetchPerson } from '../api/people';
+import { fetchPerson, updatePerson } from '../api/people';
+import { fetchCompanies } from '../api/companies';
+import { PersonForm, type PersonFormValues } from '../components/PersonForm';
 import { createActivity, type NewActivity } from '../api/activities';
 import { ActivityComposer } from '../components/ActivityComposer';
-import { Modal } from '../components/Modal';
+import { Overlay } from '../components/Overlay';
 import { ActivityTimeline } from '../components/ActivityTimeline';
 import { Button, Card, Chip, SectionLabel, StageDot, BdStageDot } from '../components/ui';
 import { formatMoney } from '../utils/money';
@@ -28,10 +30,24 @@ export function PersonDetailPage() {
   const { personId } = useParams();
   const queryClient = useQueryClient();
   const [composerOpen, setComposerOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const { data: person, isLoading } = useQuery({
     queryKey: ['people', personId],
     queryFn: () => fetchPerson(personId!),
     enabled: Boolean(personId),
+  });
+
+  const { data: companies = [] } = useQuery({
+    queryKey: ['companies'],
+    queryFn: () => fetchCompanies(),
+  });
+
+  const savePerson = useMutation({
+    mutationFn: (values: PersonFormValues) => updatePerson(personId!, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['people'] });
+      setEditOpen(false);
+    },
   });
 
   const logActivity = useMutation({
@@ -109,8 +125,10 @@ export function PersonDetailPage() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Button>Edit</Button>
-            <Button variant="primary" onClick={() => setComposerOpen(true)}>
+            <Button className="h-[34px]" onClick={() => setEditOpen(true)}>
+              Edit
+            </Button>
+            <Button variant="primary" className="h-[34px]" onClick={() => setComposerOpen(true)}>
               Log activity
             </Button>
           </div>
@@ -232,14 +250,26 @@ export function PersonDetailPage() {
         />
       </div>
 
-      <Modal isOpen={composerOpen} onClose={() => setComposerOpen(false)} title="">
+      <Overlay isOpen={editOpen} onClose={() => setEditOpen(false)} width={620}>
+        <PersonForm
+          person={person}
+          companies={companies}
+          pending={savePerson.isPending}
+          error={savePerson.isError ? 'Could not save. Check the fields and try again.' : null}
+          onSubmit={(values) => savePerson.mutate(values)}
+          onClose={() => setEditOpen(false)}
+        />
+      </Overlay>
+
+      <Overlay isOpen={composerOpen} onClose={() => setComposerOpen(false)}>
         <ActivityComposer
           person={person}
           companyId={person.current_company_id ?? undefined}
+          attachLabel={person.company_name ?? undefined}
           onSubmit={(activity) => logActivity.mutate(activity)}
           onClose={() => setComposerOpen(false)}
         />
-      </Modal>
+      </Overlay>
     </div>
   );
 }

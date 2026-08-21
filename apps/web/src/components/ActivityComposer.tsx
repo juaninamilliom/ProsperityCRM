@@ -179,16 +179,16 @@ export function ActivityComposer({
       </div>
 
       <footer className="flex items-center justify-between gap-3 border-t border-border-soft bg-surface-2 px-5 py-3.5">
-        <span className="text-xs text-ink-3">
+        <span className="max-w-[46%] text-xs leading-snug text-ink-3">
           {meta.capturable
             ? 'The extension can log this for you when you send it.'
             : meta.internalOnly
               ? 'Internal only — never counted as outreach.'
               : 'Logged against this person and anything it is attached to.'}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" onClick={submit} disabled={!body.trim()}>
+          <Button variant="primary" onClick={submit} disabled={!body.trim()} className="whitespace-nowrap">
             Log activity
           </Button>
         </div>
