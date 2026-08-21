@@ -369,6 +369,33 @@ BUSINESS DEV   Deals       /deals        opportunity board
 `PipelineBoard`, `StageDot`, `Chip`, `Card`, `Button`, `Field` and the
 token system are reused. No new visual vocabulary.
 
+### Design decisions from the artboards
+
+Settled in the design pass; the plan implements these rather than
+re-deciding them.
+
+- **Seven BD stage hues extend `tokens.css` by the existing recipe** —
+  `oklch(0.63 0.07 <hue>)` light, `oklch(0.74 0.10 <hue>)` dark, the
+  same values the candidate stages use. `--bd-signed` reuses the
+  *placed* hue (140) and `--bd-lost` reuses *rejected* (20), so a won
+  deal and a placement read as the same kind of good news. Both theme
+  blocks must declare all seven — `tokens.test.ts` enforces parity.
+- **The deals board renders six columns, not seven.** `lost` is
+  terminal and gets no permanent column; lost deals are reachable by
+  filter. Six columns is also exactly what `PipelineBoard` already
+  lays out, so generalising it needs no new grid.
+- **Every deal card carries a last-touch stamp**, amber past seven
+  days. This is the only affordance on the board that the candidate
+  board does not have, and it is the entire return on the activity
+  log.
+- **The sidebar groups into Recruiting / Business dev / Directory**,
+  with `nav-group` labels above each cluster.
+- **The sidebar stat card shows two numbers** — placed and signed —
+  rather than placements alone, since the app now has two funnels.
+- **`relationship` renders as a dot-and-label chip** using the existing
+  tones: client on `ok`, prospect on `accent`, former on `off`, and
+  do-not-contact on `warn`.
+
 ### The join moment
 
 Moving an opportunity to `signed` sets `closed_at`, flips the company's
