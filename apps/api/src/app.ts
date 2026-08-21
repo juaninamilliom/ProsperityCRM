@@ -7,6 +7,8 @@ import { authMiddleware } from './middleware/auth.js';
 import { entryRouter } from './modules/entry/entry.routes.js';
 import { companyRouter } from './modules/company/company.routes.js';
 import { personRouter } from './modules/person/person.routes.js';
+import { opportunityRouter } from './modules/opportunity/opportunity.routes.js';
+import { activityRouter } from './modules/activity/activity.routes.js';
 import { statusRouter } from './modules/status/status.routes.js';
 import { userRouter } from './modules/user/user.routes.js';
 import { historyRouter } from './modules/history/history.routes.js';
@@ -45,6 +47,8 @@ export function createApp() {
   app.use('/pipeline-entries', entryRouter);
   app.use('/companies', companyRouter);
   app.use('/people', personRouter);
+  app.use('/opportunities', opportunityRouter);
+  app.use('/activities', activityRouter);
   app.use('/statuses', statusRouter);
   app.use('/history', historyRouter);
   app.use('/organizations', organizationRouter);
