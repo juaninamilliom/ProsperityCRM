@@ -75,6 +75,7 @@ const config: Config = {
       boxShadow: {
         token: 'var(--shadow)',
         pop: 'var(--shadow-pop)',
+        panel: 'var(--shadow-panel)',
       },
       fontFamily: {
         sans: ['Instrument Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],

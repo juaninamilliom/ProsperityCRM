@@ -82,7 +82,7 @@ export function RequisitionForm({
   }
 
   return (
-    <div className="flex max-h-[86vh] w-full flex-col overflow-hidden rounded-card border border-border bg-surface shadow-pop">
+    <div className="flex max-h-[86vh] w-full flex-col overflow-hidden rounded-card border border-border bg-surface shadow-panel">
       <header className="flex items-center justify-between gap-4 border-b border-border-soft px-5 pb-4 pt-4.5">
         <div className="flex flex-col gap-0.5">
           <h2 className="font-serif text-[21px] tracking-[-0.01em]">
