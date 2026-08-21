@@ -1,20 +1,20 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { CandidateWithMeta, StatusDTO } from 'src/common';
+import type { PipelineEntryWithMeta, StatusDTO } from 'src/common';
 import { CandidateDetailsModal } from './CandidateDetailsModal';
 import { Icon } from './Icon';
 
 interface PipelineListProps {
   statuses: StatusDTO[];
-  candidates: CandidateWithMeta[];
+  candidates: PipelineEntryWithMeta[];
 }
 
 export function PipelineList({ statuses, candidates }: PipelineListProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCandidate, setSelectedCandidate] = useState<CandidateWithMeta | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<PipelineEntryWithMeta | null>(null);
   const statusMap = new Map(statuses.map((s) => [s.status_id, s.name]));
 
-  function openModal(candidate: CandidateWithMeta) {
+  function openModal(candidate: PipelineEntryWithMeta) {
     setSelectedCandidate(candidate);
     setIsModalOpen(true);
   }
@@ -49,23 +49,23 @@ export function PipelineList({ statuses, candidates }: PipelineListProps) {
           <tbody className="divide-y divide-border-soft">
             {candidates.map((candidate) => (
               <tr
-                key={candidate.candidate_id}
+                key={candidate.entry_id}
                 onClick={() => openModal(candidate)}
                 className="cursor-pointer transition hover:bg-surface-2"
               >
                 <td className="whitespace-nowrap px-4 py-2.5 text-left text-2xs font-semibold uppercase tracking-[0.04em] text-ink-3">
-                  {candidate.name}
+                  {candidate.full_name}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-ink-2">{candidate.job_title}</td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-ink-2">
                   {statusMap.get(candidate.current_status_id) ?? 'Unknown'}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-ink-2">
-                  {candidate.agency_name}
+                  {candidate.company_name}
                 </td>
                 <td className="whitespace-nowrap px-2 py-2 text-right">
                   <Link
-                    to={`/candidates/${candidate.candidate_id}/edit`}
+                    to={`/candidates/${candidate.entry_id}/edit`}
                     className="focus-ring inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-ink-2 transition hover:bg-surface-3"
                     onClick={(e) => e.stopPropagation()}
                   >

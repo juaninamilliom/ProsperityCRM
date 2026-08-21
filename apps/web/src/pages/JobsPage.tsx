@@ -61,7 +61,7 @@ export function JobsPage() {
     return <p className="text-sm text-warn-fg">Failed to load jobs.</p>;
   }
 
-  const inPlay = openJobs.reduce((total, job) => total + (job.total_candidates ?? 0), 0);
+  const inPlay = openJobs.reduce((total, job) => total + (job.total_entries ?? 0), 0);
 
   const tiles = [
     { label: 'Open roles', value: String(openJobs.length), note: `${jobs.length} total` },
@@ -171,7 +171,7 @@ export function JobsPage() {
                     {job.location || '—'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-ink-2">
-                    {job.total_candidates ?? 0}
+                    {job.total_entries ?? 0}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <span className="block text-sm font-semibold">

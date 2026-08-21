@@ -2,9 +2,10 @@ import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useState } f
 import Select, { type MultiValue } from 'react-select';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchStatuses } from '../api/statuses';
-import { fetchAgencies } from '../api/agencies';
+import { fetchCompanies } from '../api/companies';
 import { fetchJobs } from '../api/jobs';
-import { createCandidate } from '../api/candidates';
+import { createPerson } from '../api/people';
+import { createEntry } from '../api/entries';
 import { fetchCurrentUser } from '../api/users';
 import { fetchSkills, createSkill } from '../api/skills';
 import { formatPhone, isPhoneValid } from '../utils/phone';
@@ -20,9 +21,9 @@ const initialState = {
   name: '',
   email: '',
   phone: '',
-  target_agency_id: '',
+  company_id: '',
   current_status_id: '',
-  job_requisition_id: '',
+  job_id: '',
   notes: '',
   flags: [] as string[],
   skills: [] as string[],
@@ -33,7 +34,7 @@ export function CandidateFormPage() {
   const navigate = useNavigate();
   const [theme] = useTheme();
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: fetchStatuses });
-  const { data: agencies = [] } = useQuery({ queryKey: ['agencies'], queryFn: fetchAgencies });
+  const { data: agencies = [] } = useQuery({ queryKey: ['companies'], queryFn: () => fetchCompanies() });
   const { data: jobs = [] } = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
   const {
     data: orgSkills = [],
@@ -50,7 +51,7 @@ export function CandidateFormPage() {
   const [skillError, setSkillError] = useState<string | null>(null);
   const skillsLoadFailed = Boolean(skillsErrorState);
   const agencyOptions = useMemo(
-    () => agencies.map((a) => ({ value: a.agency_id, label: a.name })),
+    () => agencies.map((a) => ({ value: a.company_id, label: a.name })),
     [agencies],
   );
   const jobOptions = useMemo(() => jobs.map((j) => ({ value: j.job_id, label: j.title })), [jobs]);
@@ -75,14 +76,28 @@ export function CandidateFormPage() {
   const multiSelectStyles = getMultiSelectStyles(theme);
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      createCandidate({
-        ...form,
+    // A candidate is now two rows: the person, and the pitch. The person is
+    // created first because the entry needs their id.
+    mutationFn: async () => {
+      const person = await createPerson({
+        full_name: form.name,
+        email: form.email || null,
+        phone: form.phone || null,
+        skills: form.skills,
+      });
+      return createEntry({
+        person_id: person.person_id,
+        company_id: form.company_id,
+        current_status_id: form.current_status_id,
         recruiter_id: recruiterId,
-        job_requisition_id: form.job_requisition_id || undefined,
-      }),
+        job_id: form.job_id || null,
+        flags: form.flags,
+        notes: form.notes || null,
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['people'] });
       setForm(initialState);
       setFlagInput('');
       setSkillInput('');
@@ -132,9 +147,9 @@ export function CandidateFormPage() {
     !jobs.length ||
     !form.name.trim() ||
     !form.email.trim() ||
-    !form.target_agency_id ||
+    !form.company_id ||
     !form.current_status_id ||
-    !form.job_requisition_id ||
+    !form.job_id ||
     Boolean(phoneError) ||
     (form.phone.trim() ? !isPhoneValid(form.phone) : false);
 
@@ -185,7 +200,7 @@ export function CandidateFormPage() {
 
   const checklist = [
     { label: 'Name and email', done: Boolean(form.name && form.email) },
-    { label: 'Assigned to a job', done: Boolean(form.job_requisition_id) },
+    { label: 'Assigned to a job', done: Boolean(form.job_id) },
     { label: 'At least one skill', done: form.skills.length > 0 },
     { label: 'Screening note', done: Boolean(form.notes.trim()) },
   ];
@@ -201,7 +216,7 @@ export function CandidateFormPage() {
       .toUpperCase() || '?';
 
   const previewJob =
-    jobOptions.find((option) => option.value === form.job_requisition_id)?.label ??
+    jobOptions.find((option) => option.value === form.job_id)?.label ??
     'No job assigned yet';
 
   const previewStage =
@@ -295,9 +310,9 @@ export function CandidateFormPage() {
               Target Agency
               <Select
                 options={agencyOptions}
-                value={agencyOptions.find((o) => o.value === form.target_agency_id)}
+                value={agencyOptions.find((o) => o.value === form.company_id)}
                 onChange={(option) =>
-                  setForm((prev) => ({ ...prev, target_agency_id: option?.value ?? '' }))
+                  setForm((prev) => ({ ...prev, company_id: option?.value ?? '' }))
                 }
                 styles={selectStyles}
                 classNamePrefix="skill-select"
@@ -308,9 +323,9 @@ export function CandidateFormPage() {
               Job Requisition
               <Select
                 options={jobOptions}
-                value={jobOptions.find((o) => o.value === form.job_requisition_id)}
+                value={jobOptions.find((o) => o.value === form.job_id)}
                 onChange={(option) =>
-                  setForm((prev) => ({ ...prev, job_requisition_id: option?.value ?? '' }))
+                  setForm((prev) => ({ ...prev, job_id: option?.value ?? '' }))
                 }
                 styles={selectStyles}
                 classNamePrefix="skill-select"

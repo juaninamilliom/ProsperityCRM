@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { DetailRail } from './DetailRail';
-import type { CandidateWithMeta, StatusDTO } from 'src/common';
+import type { PipelineEntryWithMeta, StatusDTO } from 'src/common';
 
 const statuses = [
   { status_id: 's1', name: 'Sourced', order_index: 0, is_terminal: false },
@@ -11,24 +11,24 @@ const statuses = [
 ] as StatusDTO[];
 
 const candidate = {
-  candidate_id: 'c1',
-  name: 'Priya Raghunathan',
+  entry_id: 'c1',
+  full_name: 'Priya Raghunathan',
   email: 'priya.r@example.com',
   phone: '628-555-0193',
   current_status_id: 's2',
-  target_agency_id: 'a1',
+  company_id: 'a1',
   recruiter_id: 'u1',
   flags: ['Referral'],
   skills: ['Python'],
-  agency_name: 'Northgate Staffing',
+  company_name: 'Northgate Staffing',
   job_title: 'Senior Backend Engineer',
-} as CandidateWithMeta;
+} as PipelineEntryWithMeta;
 
-function renderRail(overrides: Partial<CandidateWithMeta> = {}, onClose = vi.fn()) {
+function renderRail(overrides: Partial<PipelineEntryWithMeta> = {}, onClose = vi.fn()) {
   render(
     <MemoryRouter>
       <DetailRail
-        candidate={{ ...candidate, ...overrides } as CandidateWithMeta}
+        candidate={{ ...candidate, ...overrides } as PipelineEntryWithMeta}
         statuses={statuses}
         onClose={onClose}
       />
@@ -61,7 +61,7 @@ describe('DetailRail', () => {
   });
 
   it('omits detail rows with no value', () => {
-    renderRail({ phone: null, agency_name: undefined });
+    renderRail({ phone: null, company_name: undefined });
     expect(screen.queryByText('Phone')).toBeNull();
     expect(screen.queryByText('Agency')).toBeNull();
   });

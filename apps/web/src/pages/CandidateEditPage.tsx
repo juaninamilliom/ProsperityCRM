@@ -2,9 +2,10 @@ import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useState } f
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchStatuses } from '../api/statuses';
-import { fetchAgencies } from '../api/agencies';
+import { fetchCompanies } from '../api/companies';
 import { fetchJobs } from '../api/jobs';
-import { fetchCandidate, updateCandidate } from '../api/candidates';
+import { fetchEntry, updateEntry } from '../api/entries';
+import { updatePerson } from '../api/people';
 import { fetchSkills, createSkill } from '../api/skills';
 import Select, { type MultiValue } from 'react-select';
 import { formatPhone, isPhoneValid } from '../utils/phone';
@@ -23,9 +24,9 @@ export function CandidateEditPage() {
     name: '',
     email: '',
     phone: '',
-    target_agency_id: '',
+    company_id: '',
     current_status_id: '',
-    job_requisition_id: '',
+    job_id: '',
     notes: '',
     flags: [] as string[],
     skills: [] as string[],
@@ -37,11 +38,11 @@ export function CandidateEditPage() {
 
   const candidateQuery = useQuery({
     queryKey: ['candidate', candidateId],
-    queryFn: () => fetchCandidate(candidateId!),
+    queryFn: () => fetchEntry(candidateId!),
     enabled: Boolean(candidateId),
   });
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: fetchStatuses });
-  const { data: agencies = [] } = useQuery({ queryKey: ['agencies'], queryFn: fetchAgencies });
+  const { data: agencies = [] } = useQuery({ queryKey: ['companies'], queryFn: () => fetchCompanies() });
   const { data: jobs = [] } = useQuery({ queryKey: ['jobs'], queryFn: fetchJobs });
   const {
     data: orgSkills = [],
@@ -51,7 +52,7 @@ export function CandidateEditPage() {
   const skillsLoadFailed = Boolean(skillsErrorState);
 
   const agencyOptions = useMemo(
-    () => agencies.map((a) => ({ value: a.agency_id, label: a.name })),
+    () => agencies.map((a) => ({ value: a.company_id, label: a.name })),
     [agencies],
   );
   const jobOptions = useMemo(() => jobs.map((j) => ({ value: j.job_id, label: j.title })), [jobs]);
@@ -78,12 +79,12 @@ export function CandidateEditPage() {
     if (!candidateQuery.data) return;
     const candidate = candidateQuery.data;
     setForm({
-      name: candidate.name,
-      email: candidate.email,
+      name: candidate.full_name,
+      email: candidate.email ?? '',
       phone: candidate.phone ?? '',
-      target_agency_id: candidate.target_agency_id,
+      company_id: candidate.company_id,
       current_status_id: candidate.current_status_id,
-      job_requisition_id: candidate.job_requisition_id ?? '',
+      job_id: candidate.job_id ?? '',
       notes: candidate.notes ?? '',
       flags: candidate.flags ?? [],
       skills: candidate.skills ?? [],
@@ -91,12 +92,26 @@ export function CandidateEditPage() {
   }, [candidateQuery.data]);
 
   const updateMutation = useMutation({
-    mutationFn: () =>
-      updateCandidate(candidateId!, {
-        ...form,
-        phone: form.phone || undefined,
-        job_requisition_id: form.job_requisition_id || undefined,
-      }),
+    // Name, email, phone and skills belong to the person; the company, status,
+    // requisition, flags and notes belong to this particular pitch.
+    mutationFn: async () => {
+      const personId = candidateQuery.data?.person_id;
+      if (personId) {
+        await updatePerson(personId, {
+          full_name: form.name,
+          email: form.email || null,
+          phone: form.phone || null,
+          skills: form.skills,
+        });
+      }
+      return updateEntry(candidateId!, {
+        company_id: form.company_id,
+        current_status_id: form.current_status_id,
+        job_id: form.job_id || null,
+        flags: form.flags,
+        notes: form.notes || null,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['candidates'] });
       queryClient.invalidateQueries({ queryKey: ['candidate', candidateId] });
@@ -198,7 +213,7 @@ export function CandidateEditPage() {
 
       <div className="flex flex-col gap-1">
         <h1 className="font-serif text-title">Edit candidate</h1>
-        <p className="text-base text-ink-2">{candidateQuery.data.name}</p>
+        <p className="text-base text-ink-2">{candidateQuery.data.full_name}</p>
       </div>
 
       <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
@@ -256,9 +271,9 @@ export function CandidateEditPage() {
               Target Agency
               <Select
                 options={agencyOptions}
-                value={agencyOptions.find((o) => o.value === form.target_agency_id)}
+                value={agencyOptions.find((o) => o.value === form.company_id)}
                 onChange={(option) =>
-                  setForm((prev) => ({ ...prev, target_agency_id: option?.value ?? '' }))
+                  setForm((prev) => ({ ...prev, company_id: option?.value ?? '' }))
                 }
                 styles={selectStyles}
                 classNamePrefix="skill-select"
@@ -269,9 +284,9 @@ export function CandidateEditPage() {
               Job Requisition
               <Select
                 options={jobOptions}
-                value={jobOptions.find((o) => o.value === form.job_requisition_id)}
+                value={jobOptions.find((o) => o.value === form.job_id)}
                 onChange={(option) =>
-                  setForm((prev) => ({ ...prev, job_requisition_id: option?.value ?? '' }))
+                  setForm((prev) => ({ ...prev, job_id: option?.value ?? '' }))
                 }
                 styles={selectStyles}
                 classNamePrefix="skill-select"

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { PipelineBoard } from './PipelineBoard';
-import type { CandidateWithMeta, StatusDTO } from 'src/common';
+import type { PipelineEntryWithMeta, StatusDTO } from 'src/common';
 
 const statuses = [
   { status_id: 's1', name: 'Sourced', order_index: 0, is_terminal: false },
@@ -11,16 +11,17 @@ const statuses = [
 
 const candidates = [
   {
-    candidate_id: 'c1',
-    name: 'Maya Okonkwo',
+    entry_id: 'c1',
+    person_id: 'p1',
+    full_name: 'Maya Okonkwo',
     email: 'm@example.com',
     current_status_id: 's1',
-    target_agency_id: 'a1',
+    company_id: 'a1',
     recruiter_id: 'u1',
     flags: [],
     skills: ['Go'],
   },
-] as CandidateWithMeta[];
+] as PipelineEntryWithMeta[];
 
 function renderBoard(props: Record<string, unknown> = {}) {
   render(

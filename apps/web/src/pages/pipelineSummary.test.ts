@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { pipelineSummary } from './pipelineSummary';
-import type { CandidateWithMeta, StatusDTO } from 'src/common';
+import type { PipelineEntryWithMeta, StatusDTO } from 'src/common';
 
 const statuses = [
   { status_id: 's1', name: 'Sourced', order_index: 0, is_terminal: false },
@@ -8,7 +8,7 @@ const statuses = [
   { status_id: 's3', name: 'Rejected', order_index: 2, is_terminal: true },
 ] as StatusDTO[];
 
-const at = (id: string) => ({ current_status_id: id }) as CandidateWithMeta;
+const at = (id: string) => ({ current_status_id: id }) as PipelineEntryWithMeta;
 
 describe('pipelineSummary', () => {
   it('excludes terminal statuses from the active count', () => {

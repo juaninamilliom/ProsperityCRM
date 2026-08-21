@@ -1,5 +1,5 @@
 import type {
-  CandidateWithMeta,
+  PipelineEntryWithMeta,
   JobDealSplitDTO,
   JobDetailDTO,
   JobRequisitionDTO,
@@ -28,7 +28,7 @@ export async function deleteJob(jobId: string) {
 export interface JobDetailPayload {
   job: JobDetailDTO;
   splits: JobDealSplitDTO[];
-  candidates: CandidateWithMeta[];
+  candidates: PipelineEntryWithMeta[];
 }
 
 export async function fetchJobDetail(jobId: string) {

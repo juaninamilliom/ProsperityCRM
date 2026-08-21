@@ -1,10 +1,10 @@
-import type { CandidateWithMeta } from 'src/common';
+import type { PipelineEntryWithMeta } from 'src/common';
 import { Modal } from './Modal';
 
 interface CandidateDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  candidate: CandidateWithMeta | null;
+  candidate: PipelineEntryWithMeta | null;
 }
 
 export function CandidateDetailsModal({ isOpen, onClose, candidate }: CandidateDetailsModalProps) {
@@ -13,7 +13,7 @@ export function CandidateDetailsModal({ isOpen, onClose, candidate }: CandidateD
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={candidate.name}>
+    <Modal isOpen={isOpen} onClose={onClose} title={candidate.full_name}>
       <div className="space-y-4">
         <div>
           <h4 className="text-sm font-medium text-ink-3">Email</h4>
@@ -25,7 +25,7 @@ export function CandidateDetailsModal({ isOpen, onClose, candidate }: CandidateD
         </div>
         <div>
           <h4 className="text-sm font-medium text-ink-3">Agency</h4>
-          <p className="text-ink">{candidate.agency_name}</p>
+          <p className="text-ink">{candidate.company_name}</p>
         </div>
         <div>
           <h4 className="text-sm font-medium text-ink-3">Skills</h4>

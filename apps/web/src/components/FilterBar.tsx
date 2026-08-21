@@ -1,4 +1,4 @@
-import type { AgencyDTO, JobRequisitionDTO, OrganizationSkillDTO, StatusDTO } from 'src/common';
+import type { CompanyDTO, JobRequisitionDTO, OrganizationSkillDTO, StatusDTO } from 'src/common';
 import type { ChangeEvent } from 'react';
 import { useMemo } from 'react';
 import Select, { type MultiValue } from 'react-select';
@@ -7,7 +7,7 @@ import type { Theme } from '../theme';
 import { getSelectStyles, getMultiSelectStyles } from './selectStyles';
 
 interface FilterBarProps {
-  agencies: AgencyDTO[];
+  agencies: CompanyDTO[];
   jobs: JobRequisitionDTO[];
   statuses: StatusDTO[];
   skills: OrganizationSkillDTO[];
@@ -43,7 +43,7 @@ export function FilterBar({
   const agencyOptions = useMemo(
     () => [
       { value: '', label: 'All' },
-      ...agencies.map((a) => ({ value: a.agency_id, label: a.name })),
+      ...agencies.map((a) => ({ value: a.company_id, label: a.name })),
     ],
     [agencies],
   );

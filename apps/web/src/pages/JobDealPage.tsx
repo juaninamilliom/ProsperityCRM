@@ -603,11 +603,11 @@ export function JobDealPage() {
           {candidates.length ? (
             candidates.map((candidate) => (
               <li
-                key={candidate.candidate_id}
+                key={candidate.entry_id}
                 className="flex items-center justify-between gap-4 border-b border-border-soft py-3 last:border-b-0"
               >
                 <div className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-base font-medium">{candidate.name}</span>
+                  <span className="truncate text-base font-medium">{candidate.full_name}</span>
                   <span className="flex items-center gap-1.5 text-sm text-ink-2">
                     {candidate.status_name && <StageDot stage={candidate.status_name} size={6} />}
                     {candidate.status_name}
