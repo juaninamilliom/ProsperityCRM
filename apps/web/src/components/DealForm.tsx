@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import type { CompanyDTO, OpportunityStage } from 'src/common';
+import type { CompanyDTO, OpportunityDTO, OpportunityStage } from 'src/common';
 import { Button, Field, SectionLabel, bdStageToken } from './ui';
 
-/** signed and lost are deliberately absent: reaching signed promotes the
- *  company and logs the win, which only the stage route does. */
-const OPENING_STAGES: { value: OpportunityStage; label: string }[] = [
+const OPEN_STAGES: { value: OpportunityStage; label: string }[] = [
   { value: 'prospect', label: 'Prospect' },
   { value: 'contacted', label: 'Contacted' },
   { value: 'meeting', label: 'Meeting' },
@@ -12,10 +10,21 @@ const OPENING_STAGES: { value: OpportunityStage; label: string }[] = [
   { value: 'negotiation', label: 'Negotiation' },
 ];
 
+/** On create the terminal stages are absent: a deal born signed would never
+ *  promote its company or log the win, because only the stage route does
+ *  either. On edit they are offered, and the caller routes the change there. */
+const CLOSING_STAGES: { value: OpportunityStage; label: string }[] = [
+  { value: 'signed', label: 'Signed' },
+  { value: 'lost', label: 'Lost' },
+];
+
 export interface DealFormValues {
   company_id: string;
   name: string;
   stage: OpportunityStage;
+  /** True when the stage actually moved, so the caller knows to send it to
+   *  PATCH /:id/stage rather than the plain update, which refuses a stage. */
+  stageChanged: boolean;
   fee_percent: number | null;
   est_annual_value: number | null;
   expected_close: string | null;
@@ -25,6 +34,8 @@ interface DealFormProps {
   companies: Pick<CompanyDTO, 'company_id' | 'name'>[];
   /** When the deal is being created from a company page there is nothing to pick. */
   companyId?: string;
+  /** Absent means create. */
+  deal?: Partial<OpportunityDTO> & { opportunity_id?: string };
   onSubmit: (values: DealFormValues) => void;
   onClose: () => void;
   pending?: boolean;
@@ -43,19 +54,25 @@ function orNullNumber(value: string): number | null {
 export function DealForm({
   companies,
   companyId,
+  deal,
   onSubmit,
   onClose,
   pending,
   error,
 }: DealFormProps) {
-  const [company, setCompany] = useState(companyId ?? '');
-  const [name, setName] = useState('');
-  const [stage, setStage] = useState<OpportunityStage>('prospect');
-  const [fee, setFee] = useState('');
-  const [value, setValue] = useState('');
-  const [close, setClose] = useState('');
+  const isEdit = Boolean(deal?.opportunity_id);
+  const originalStage = (deal?.stage as OpportunityStage) ?? 'prospect';
+  const [company, setCompany] = useState(companyId ?? deal?.company_id ?? '');
+  const [name, setName] = useState(deal?.name ?? '');
+  const [stage, setStage] = useState<OpportunityStage>(originalStage);
+  const [fee, setFee] = useState(deal?.fee_percent != null ? String(deal.fee_percent) : '');
+  const [value, setValue] = useState(
+    deal?.est_annual_value != null ? String(deal.est_annual_value) : '',
+  );
+  const [close, setClose] = useState((deal?.expected_close ?? '').slice(0, 10));
 
   const resolvedCompany = companyId ?? company;
+  const stages = isEdit ? [...OPEN_STAGES, ...CLOSING_STAGES] : OPEN_STAGES;
 
   function submit() {
     if (!name.trim() || !resolvedCompany) return;
@@ -63,6 +80,7 @@ export function DealForm({
       company_id: resolvedCompany,
       name: name.trim(),
       stage,
+      stageChanged: isEdit && stage !== originalStage,
       fee_percent: orNullNumber(fee),
       est_annual_value: orNullNumber(value),
       expected_close: close.trim() || null,
@@ -73,7 +91,9 @@ export function DealForm({
     <div className="flex max-h-[86vh] w-full flex-col overflow-hidden rounded-card border border-border bg-surface shadow-pop">
       <header className="flex items-center justify-between gap-4 border-b border-border-soft px-5 pb-4 pt-4.5">
         <div className="flex flex-col gap-0.5">
-          <h2 className="font-serif text-[21px] tracking-[-0.01em]">New deal</h2>
+          <h2 className="font-serif text-[21px] tracking-[-0.01em]">
+            {isEdit ? 'Edit deal' : 'New deal'}
+          </h2>
           <span className="text-sm text-ink-3">Winning it turns the company into a client.</span>
         </div>
         <button
@@ -89,7 +109,7 @@ export function DealForm({
       </header>
 
       <div className="flex flex-col gap-4.5 overflow-y-auto px-5 py-4.5">
-        {!companyId && (
+        {!companyId && !isEdit && (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="deal-company" className="text-sm font-medium text-ink-2">
               Company
@@ -119,8 +139,8 @@ export function DealForm({
 
         <div className="flex flex-col gap-2">
           <SectionLabel>Stage</SectionLabel>
-          <div className="flex items-center gap-0.5 rounded-control bg-surface-3 p-0.5">
-            {OPENING_STAGES.map((entry) => {
+          <div className="flex flex-wrap items-center gap-0.5 rounded-control bg-surface-3 p-0.5">
+            {stages.map((entry) => {
               const on = stage === entry.value;
               return (
                 <button
@@ -129,7 +149,7 @@ export function DealForm({
                   aria-pressed={on}
                   onClick={() => setStage(entry.value)}
                   className={[
-                    'focus-ring flex h-[30px] flex-1 items-center justify-center gap-1.5 rounded-[7px] text-sm font-medium transition',
+                    'focus-ring flex h-[30px] flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[7px] px-2 text-sm font-medium transition',
                     on ? 'bg-surface text-ink shadow-pop' : 'text-ink-2',
                   ].join(' ')}
                 >
@@ -168,7 +188,7 @@ export function DealForm({
           onClick={submit}
           disabled={!name.trim() || !resolvedCompany || pending}
         >
-          Create deal
+          {isEdit ? 'Save changes' : 'Create deal'}
         </Button>
       </footer>
     </div>

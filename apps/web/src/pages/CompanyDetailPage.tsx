@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
+import type { CompanyDetailDTO } from 'src/common';
 import { fetchCompany, updateCompany } from '../api/companies';
 import { CompanyForm, type CompanyFormValues } from '../components/CompanyForm';
 import { DealForm, type DealFormValues } from '../components/DealForm';
-import { createOpportunity } from '../api/opportunities';
+import { createOpportunity, updateOpportunity, moveStage } from '../api/opportunities';
+import { createJob, updateJob } from '../api/jobs';
+import { RequisitionForm, type RequisitionFormValues } from '../components/RequisitionForm';
+import { PersonForm, type PersonFormValues } from '../components/PersonForm';
+import { updatePerson } from '../api/people';
+import { RowEditButton } from '../components/RowEditButton';
 import { createActivity, type NewActivity } from '../api/activities';
 import { ActivityComposer } from '../components/ActivityComposer';
 import { Overlay } from '../components/Overlay';
@@ -37,10 +43,59 @@ export function CompanyDetailPage() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [dealOpen, setDealOpen] = useState(false);
+  const [editingDeal, setEditingDeal] = useState<CompanyDetailDTO['deals'][number] | null>(null);
+  const [editingContact, setEditingContact] = useState<CompanyDetailDTO['contacts'][number] | null>(null);
+  const [editingReq, setEditingReq] = useState<CompanyDetailDTO['requisitions'][number] | null>(null);
+  const [reqOpen, setReqOpen] = useState(false);
   const { data: company, isLoading } = useQuery({
     queryKey: ['companies', companyId],
     queryFn: () => fetchCompany(companyId!),
     enabled: Boolean(companyId),
+  });
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['companies', companyId] });
+    queryClient.invalidateQueries({ queryKey: ['companies'] });
+    queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    queryClient.invalidateQueries({ queryKey: ['jobs'] });
+  };
+
+  const saveDeal = useMutation({
+    mutationFn: async (values: DealFormValues) => {
+      const id = editingDeal!.opportunity_id;
+      // The plain update refuses a stage on purpose, so a stage move goes to
+      // its own route - that is what promotes the company and logs the win.
+      await updateOpportunity(id, {
+        name: values.name,
+        fee_percent: values.fee_percent,
+        est_annual_value: values.est_annual_value,
+        expected_close: values.expected_close,
+      });
+      if (values.stageChanged) await moveStage(id, values.stage, 'Closed from the company page');
+    },
+    onSuccess: () => {
+      refresh();
+      setEditingDeal(null);
+    },
+  });
+
+  const saveContact = useMutation({
+    mutationFn: (values: PersonFormValues) => updatePerson(editingContact!.person_id, values),
+    onSuccess: () => {
+      refresh();
+      queryClient.invalidateQueries({ queryKey: ['people'] });
+      setEditingContact(null);
+    },
+  });
+
+  const saveReq = useMutation({
+    mutationFn: (values: RequisitionFormValues) =>
+      editingReq ? updateJob(editingReq.job_id, values) : createJob(values),
+    onSuccess: () => {
+      refresh();
+      setEditingReq(null);
+      setReqOpen(false);
+    },
   });
 
   const createDeal = useMutation({
@@ -145,21 +200,27 @@ export function CompanyDetailPage() {
               company.contacts.map((contact) => {
                 const contactTint = tintFor(contact.full_name);
                 return (
-                  <Link
+                  <div
                     key={contact.person_id}
-                    to={`/people/${contact.person_id}`}
-                    className="focus-ring flex items-center gap-3 border-b border-border-soft px-4 py-3 transition last:border-b-0 hover:bg-surface-2"
+                    className="flex items-center gap-3 border-b border-border-soft px-4 py-3 last:border-b-0 hover:bg-surface-2"
                   >
-                    <span
-                      className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-2xs font-semibold"
-                      style={{ background: contactTint.bg, color: contactTint.fg }}
+                    <Link
+                      to={`/people/${contact.person_id}`}
+                      className="focus-ring flex min-w-0 flex-1 items-center gap-3"
                     >
-                      {initials(contact.full_name)}
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-base font-medium">{contact.full_name}</span>
-                      <span className="truncate text-xs text-ink-3">{contact.current_title ?? '—'}</span>
-                    </span>
+                      <span
+                        className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-2xs font-semibold"
+                        style={{ background: contactTint.bg, color: contactTint.fg }}
+                      >
+                        {initials(contact.full_name)}
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-base font-medium">{contact.full_name}</span>
+                        <span className="truncate text-xs text-ink-3">
+                          {contact.current_title ?? '—'}
+                        </span>
+                      </span>
+                    </Link>
                     {contact.role && (
                       <Chip size="sm" tone={contact.role === 'champion' ? 'accent' : 'neutral'}>
                         {ROLE_LABEL[contact.role] ?? contact.role}
@@ -168,7 +229,11 @@ export function CompanyDetailPage() {
                     <span className="w-[92px] text-right text-xs text-ink-3">
                       {touchLabel(contact.last_touch)}
                     </span>
-                  </Link>
+                    <RowEditButton
+                      label={`Edit ${contact.full_name}`}
+                      onClick={() => setEditingContact(contact)}
+                    />
+                  </div>
                 );
               })
             )}
@@ -202,6 +267,7 @@ export function CompanyDetailPage() {
                   <span className="w-[74px] text-right font-serif text-lg">
                     {formatMoney(deal.est_annual_value)}
                   </span>
+                  <RowEditButton label={`Edit ${deal.name}`} onClick={() => setEditingDeal(deal)} />
                 </div>
               ))
             )}
@@ -210,6 +276,13 @@ export function CompanyDetailPage() {
           <Card as="section">
             <header className="flex items-center justify-between border-b border-border-soft px-4 py-3">
               <SectionLabel>Requisitions</SectionLabel>
+              <button
+                type="button"
+                onClick={() => setReqOpen(true)}
+                className="focus-ring rounded-[6px] text-sm font-medium text-accent hover:text-accent-ink"
+              >
+                New requisition
+              </button>
             </header>
             {company.requisitions.length === 0 ? (
               <p className="px-4 py-3 text-sm text-ink-3">
@@ -219,21 +292,26 @@ export function CompanyDetailPage() {
               </p>
             ) : (
               company.requisitions.map((req) => (
-                <Link
+                <div
                   key={req.job_id}
-                  to={`/jobs/${req.job_id}`}
-                  className="focus-ring flex items-center gap-3.5 border-b border-border-soft px-4 py-3 transition last:border-b-0 hover:bg-surface-2"
+                  className="flex items-center gap-3.5 border-b border-border-soft px-4 py-3 last:border-b-0 hover:bg-surface-2"
                 >
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-base font-medium">{req.title}</span>
-                    <span className="truncate text-xs text-ink-3">
-                      {[req.location, req.department].filter(Boolean).join(' · ') || '—'}
+                  <Link
+                    to={`/jobs/${req.job_id}`}
+                    className="focus-ring flex min-w-0 flex-1 items-center gap-3.5"
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-base font-medium">{req.title}</span>
+                      <span className="truncate text-xs text-ink-3">
+                        {[req.location, req.department].filter(Boolean).join(' · ') || '—'}
+                      </span>
                     </span>
-                  </span>
+                  </Link>
                   <span className="w-[104px] text-right text-sm text-ink-2">
                     {req.entry_count ?? 0} in pipeline
                   </span>
-                </Link>
+                  <RowEditButton label={`Edit ${req.title}`} onClick={() => setEditingReq(req)} />
+                </div>
               ))
             )}
           </Card>
@@ -245,6 +323,55 @@ export function CompanyDetailPage() {
           perspective="company"
         />
       </div>
+
+      <Overlay isOpen={Boolean(editingDeal)} onClose={() => setEditingDeal(null)} width={620}>
+        {editingDeal && (
+          <DealForm
+            companies={[]}
+            companyId={company.company_id}
+            deal={editingDeal}
+            pending={saveDeal.isPending}
+            error={saveDeal.isError ? 'Could not save the deal. Try again.' : null}
+            onSubmit={(values) => saveDeal.mutate(values)}
+            onClose={() => setEditingDeal(null)}
+          />
+        )}
+      </Overlay>
+
+      <Overlay isOpen={Boolean(editingContact)} onClose={() => setEditingContact(null)} width={620}>
+        {editingContact && (
+          <PersonForm
+            person={editingContact}
+            companies={[{ company_id: company.company_id, name: company.name }]}
+            pending={saveContact.isPending}
+            error={saveContact.isError ? 'Could not save. Check the fields and try again.' : null}
+            onSubmit={(values) => saveContact.mutate(values)}
+            onClose={() => setEditingContact(null)}
+          />
+        )}
+      </Overlay>
+
+      <Overlay
+        isOpen={reqOpen || Boolean(editingReq)}
+        onClose={() => {
+          setReqOpen(false);
+          setEditingReq(null);
+        }}
+        width={620}
+      >
+        <RequisitionForm
+          job={editingReq ?? undefined}
+          companies={[]}
+          companyId={company.company_id}
+          pending={saveReq.isPending}
+          error={saveReq.isError ? 'Could not save the requisition. Try again.' : null}
+          onSubmit={(values) => saveReq.mutate(values)}
+          onClose={() => {
+            setReqOpen(false);
+            setEditingReq(null);
+          }}
+        />
+      </Overlay>
 
       <Overlay isOpen={dealOpen} onClose={() => setDealOpen(false)} width={620}>
         <DealForm

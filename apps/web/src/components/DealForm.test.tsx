@@ -61,6 +61,56 @@ describe('DealForm', () => {
     );
   });
 
+  it('titles itself for an edit and pre-fills the deal', () => {
+    renderForm({
+      companyId: 'c1',
+      deal: {
+        opportunity_id: 'o1',
+        company_id: 'c1',
+        name: 'Engineering retainer',
+        stage: 'meeting',
+        fee_percent: '22',
+        est_annual_value: '96000',
+        expected_close: '2026-09-12',
+      },
+    });
+    expect(screen.getByRole('heading', { name: 'Edit deal' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Deal name')).toHaveValue('Engineering retainer');
+    expect(screen.getByLabelText('Fee %')).toHaveValue('22');
+    expect(screen.getByRole('button', { name: 'Meeting' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('offers signed and lost only when editing', () => {
+    // Creating a deal already signed would skip the promotion; changing an
+    // existing deal to signed goes through the stage route, which does it.
+    renderForm({ companyId: 'c1', deal: { opportunity_id: 'o1', name: 'X', stage: 'meeting' } });
+    expect(screen.getByRole('button', { name: 'Signed' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Lost' })).toBeInTheDocument();
+  });
+
+  it('reports a stage change separately, so the caller can route it', () => {
+    const onSubmit = renderForm({
+      companyId: 'c1',
+      deal: { opportunity_id: 'o1', name: 'X', stage: 'meeting' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Proposal' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    const payload = onSubmit.mock.calls[0][0];
+    expect(payload.stage).toBe('proposal');
+    expect(payload.stageChanged).toBe(true);
+  });
+
+  it('does not flag a stage change when the stage was left alone', () => {
+    const onSubmit = renderForm({
+      companyId: 'c1',
+      deal: { opportunity_id: 'o1', name: 'X', stage: 'meeting' },
+    });
+    fireEvent.change(screen.getByLabelText('Deal name'), { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(onSubmit.mock.calls[0][0].stageChanged).toBe(false);
+  });
+
   it('sends a blank number as null rather than zero', () => {
     const onSubmit = renderForm({ companyId: 'c1' });
     fireEvent.change(screen.getByLabelText('Deal name'), { target: { value: 'Scoping' } });
