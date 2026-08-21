@@ -56,3 +56,14 @@ describe('stageTransition', () => {
     expect(stageTransition('prospect', 'signed', NOW).promoteCompanyToClient).toBe(true);
   });
 });
+
+describe('updateOpportunitySchema', () => {
+  it('refuses to update stage, which must go through the stage route', async () => {
+    const { updateOpportunitySchema } = await import('./opportunity.schema.js');
+    const result = updateOpportunitySchema.safeParse({ name: 'Renamed', stage: 'signed' });
+    // Setting stage here would skip stageTransition entirely: the company would
+    // never be promoted and no "deal won" activity would be written.
+    expect(result.success).toBe(true);
+    expect(result.success && 'stage' in result.data).toBe(false);
+  });
+});

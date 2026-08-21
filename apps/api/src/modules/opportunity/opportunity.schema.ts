@@ -13,7 +13,10 @@ export const createOpportunitySchema = z.object({
   owner_id: z.string().uuid().optional().nullable().default(null),
 });
 
-export const updateOpportunitySchema = createOpportunitySchema.partial();
+/** stage is deliberately NOT updatable here. Setting it directly would skip
+ *  stageTransition, so winning a deal would silently fail to promote the
+ *  company or log the event. Stage moves go through PATCH /:id/stage only. */
+export const updateOpportunitySchema = createOpportunitySchema.omit({ stage: true }).partial();
 
 export const moveStageSchema = z.object({
   stage: stageEnum,
