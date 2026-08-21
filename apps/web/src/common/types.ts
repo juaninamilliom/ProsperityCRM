@@ -157,6 +157,7 @@ export interface PipelineEntryDTO {
   recruiter_id: string;
   flags: string[];
   notes?: string | null;
+  created_at?: string;
 }
 
 /** The board card shows the person, so the person is joined onto the entry:
