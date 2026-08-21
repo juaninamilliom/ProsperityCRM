@@ -57,7 +57,9 @@ silently relitigated during implementation.
 | BD stages | **Fixed, not configurable** | `status_config` already exists for candidates; a second config surface is not worth it for one user. Migrate over time if needed. |
 | Dedupe key | **`linkedin_url`, not email** | The one identifier LinkedIn reliably gives, stable across job changes. Email becomes nullable. |
 | Migration shape | **Full re-model in one project** | No dual-write, no interim duplication. Affordable because there are 5 candidates, 2 agencies, 2 reqs and 1 user in the database. |
-| `organization_id` on new tables | **Omitted** | Only `users`, `organizations`, `org_invite_codes` and `organization_skills` carry it. `candidates`, `target_agency`, `job_requisitions` and `status_config` do not. Adding it to six new tables would be building more multi-tenancy, which is explicitly out of scope. See Known Issues. |
+| `organization_id` on new tables | **Column yes, filtering no** | The column costs ~7 lines in a migration already creating these tables from nothing; the query filtering is the expensive half and costs the same whenever it is done. Carrying the column keeps the option cheap without building any org behaviour. Runtime behaviour is identical to today. See Known Issues. |
+| Compatibility shim | **Dropped** | It existed to protect real data behind a working UI. There is no real data, and 78 web tests catch a bad rename. The rename runs straight through instead. |
+| `organizations` vs `companies` naming | **Kept as-is** | `organization` stays the tenant, `company` stays the client or prospect. Not renamed. |
 
 ## Data model
 
@@ -71,6 +73,7 @@ different `relationship` values.
 ```sql
 create table companies (
   company_id      uuid primary key default uuid_generate_v4(),
+  organization_id uuid not null references organizations(organization_id),
   name            text not null,
   linkedin_url    text,
   domain          text,
@@ -85,9 +88,9 @@ create table companies (
   updated_at      timestamptz not null default now()
 );
 
-create unique index idx_companies_name     on companies (lower(name));
-create unique index idx_companies_domain   on companies (lower(domain))  where domain is not null;
-create unique index idx_companies_linkedin on companies (linkedin_url)   where linkedin_url is not null;
+create unique index idx_companies_name     on companies (organization_id, lower(name));
+create unique index idx_companies_domain   on companies (organization_id, lower(domain))  where domain is not null;
+create unique index idx_companies_linkedin on companies (organization_id, linkedin_url)   where linkedin_url is not null;
 ```
 
 `relationship` is stored, not derived from opportunities. A client
@@ -101,6 +104,7 @@ One table for candidates and BD contacts alike.
 ```sql
 create table people (
   person_id          uuid primary key default uuid_generate_v4(),
+  organization_id    uuid not null references organizations(organization_id),
   full_name          text not null,
   email              text,
   phone              text,
@@ -117,14 +121,21 @@ create table people (
   updated_at         timestamptz not null default now()
 );
 
-create unique index idx_people_email    on people (lower(email))  where email is not null;
-create unique index idx_people_linkedin on people (linkedin_url)  where linkedin_url is not null;
+create unique index idx_people_email    on people (organization_id, lower(email))  where email is not null;
+create unique index idx_people_linkedin on people (organization_id, linkedin_url)  where linkedin_url is not null;
 create index        idx_people_skills   on people using gin (skills);
 create index        idx_people_company  on people (current_company_id);
 ```
 
 `email` is nullable with a partial unique index. This is what unblocks
 capture in P2 with no placeholder-address hack.
+
+**Five of the seven new tables carry `organization_id`; two do not.**
+`opportunity_contacts` is a pure join and `entry_status_history` hangs
+off exactly one entry, so both derive the organisation from their parent
+by a join. Duplicating it there would create a second copy that can
+disagree with the first. Flag this if you would rather have it
+everywhere for uniformity.
 
 `skills` lives on the person. `flags` does not — see `pipeline_entries`.
 
@@ -133,6 +144,7 @@ capture in P2 with no placeholder-address hack.
 ```sql
 create table bd_opportunities (
   opportunity_id   uuid primary key default uuid_generate_v4(),
+  organization_id  uuid not null references organizations(organization_id),
   company_id       uuid not null references companies(company_id) on delete cascade,
   name             text not null,          -- "Acme - Engineering retainer"
   stage            text not null default 'prospect'
@@ -176,6 +188,7 @@ Replaces `candidates` as the pipeline row. One row per person per pitch.
 ```sql
 create table pipeline_entries (
   entry_id          uuid primary key default uuid_generate_v4(),
+  organization_id   uuid not null references organizations(organization_id),
   person_id         uuid not null references people(person_id) on delete cascade,
   company_id        uuid not null references companies(company_id),
   job_id            uuid references job_requisitions(job_id),
@@ -209,21 +222,22 @@ The shared spine. Every touch on either funnel.
 
 ```sql
 create table activities (
-  activity_id    uuid primary key default uuid_generate_v4(),
-  person_id      uuid references people(person_id) on delete cascade,
-  company_id     uuid references companies(company_id) on delete cascade,
-  opportunity_id uuid references bd_opportunities(opportunity_id) on delete cascade,
-  entry_id  uuid references pipeline_entries(entry_id) on delete cascade,
-  channel        text not null
+  activity_id     uuid primary key default uuid_generate_v4(),
+  organization_id uuid not null references organizations(organization_id),
+  person_id       uuid references people(person_id) on delete cascade,
+  company_id      uuid references companies(company_id) on delete cascade,
+  opportunity_id  uuid references bd_opportunities(opportunity_id) on delete cascade,
+  entry_id        uuid references pipeline_entries(entry_id) on delete cascade,
+  channel         text not null
                  check (channel in ('li_message','li_inmail','li_connect',
                                     'email','call','meeting','note')),
-  direction      text not null default 'outbound'
+  direction       text not null default 'outbound'
                  check (direction in ('outbound','inbound','internal')),
-  occurred_at    timestamptz not null default now(),
-  subject        text,
-  body           text,
-  created_by     uuid references users(user_id),
-  created_at     timestamptz not null default now(),
+  occurred_at     timestamptz not null default now(),
+  subject         text,
+  body            text,
+  created_by      uuid references users(user_id),
+  created_at      timestamptz not null default now(),
   constraint activities_has_subject
     check (person_id is not null or company_id is not null)
 );
@@ -284,7 +298,8 @@ five candidates in the local database were entered by hand. Flushing
 without a seed means hand-entering data after every reset, across five
 new screens.
 
-P1 adds `infra/db/seed.sql`: an organisation, a user, the status ladder,
+P1 adds `infra/db/seed.sql`: an organisation whose id every seeded row
+carries, a user, the status ladder,
 companies spanning every `relationship` value, people, open and won
 opportunities with contacts attached, requisitions, pipeline entries, and
 a scatter of activities across several dates. Enough to develop and
@@ -292,37 +307,44 @@ screenshot all five BD screens without touching a form.
 
 ## API
 
-### Compatibility shim
+### The rename runs straight through
 
-`candidateSelect` in `apps/api/src/modules/candidate/candidate.service.ts`
-is the single read path for every candidate query. It is rewritten to
-join the new tables and alias columns back to their existing names:
+An earlier draft kept `candidateSelect` returning the old DTO under
+column aliases so the web app needed no edits. That shim is dropped. It
+existed to protect real data behind a working UI, and there is no real
+data to protect; 78 web tests will catch a bad rename far more reliably
+than a compatibility layer nobody is checking.
 
-```sql
-select s.entry_id     as candidate_id,
-       p.full_name         as name,
-       p.email, p.phone, p.skills,
-       s.company_id        as target_agency_id,
-       s.job_id            as job_requisition_id,
-       s.current_status_id, s.recruiter_id, s.flags, s.notes, s.created_at,
-       st.name as status_name, st.order_index,
-       co.name as agency_name,
-       j.title as job_title, j.status as job_status
-  from pipeline_entries s
-  join people      p  on p.person_id = s.person_id
-  join status_config st on st.status_id = s.current_status_id
-  join companies   co on co.company_id = s.company_id
-  left join job_requisitions j on j.job_id = s.job_id
+| Old | New |
+|---|---|
+| `candidate_id` | `entry_id` |
+| `name` (on a candidate) | `full_name` (on a person) |
+| `target_agency_id` | `company_id` |
+| `job_requisition_id` | `job_id` |
+| `GET /candidates` | `GET /pipeline-entries` |
+| `GET /agencies` | `GET /companies` |
+
+**26 files reference these names** — 22 source and 4 test, split 9 API
+and 17 web. That is more than double the ten estimated when the shim was
+first proposed, which is the honest reason the shim looked attractive.
+It is still the right call: the rename is mechanical, it is covered by
+tests, and doing it now means no follow-up project exists to forget.
+
+The full list, so the plan can assign them:
+
 ```
+api   common/types.ts · types.ts
+      modules/agency/agency.service.ts
+      modules/candidate/{routes,schema,service}.ts · candidate.schema.test.ts
+      modules/history/history.service.ts · modules/job/job.service.ts
 
-The DTO is unchanged, so the entire web app keeps working on day one with
-no edits. The same treatment applies to the `agency` module, which reads
-`companies` while returning `agency_id` / `name` / `contact_email`.
-
-**This shim is scheduled debt, not architecture.** It exists so the
-migration and the UI can land in separate reviewable steps. It is removed
-in P2 when the pipeline UI is rewritten to speak pipeline_entries directly. It
-must not acquire new callers.
+web   api/{agencies,candidates}.ts · common/types.ts
+      components/CandidateCard.tsx · DetailRail.tsx · DraggableCandidateCard.tsx
+      components/FilterBar.tsx · PipelineBoard.tsx · PipelineList.tsx
+      components/{CandidateCard,DetailRail,PipelineBoard}.test.tsx
+      pages/AdminAgenciesPage.tsx · CandidateEditPage.tsx · CandidateFormPage.tsx
+      pages/DashboardPage.tsx · JobDealPage.tsx
+```
 
 ### New modules
 
@@ -460,13 +482,21 @@ Deferred with intent, not forgotten:
 Recorded here because they were found while reading the schema, not
 because this project fixes them.
 
-1. **Multi-tenancy is decorative below the auth layer.** `organization_id`
-   exists on `users`, `organizations`, `org_invite_codes` and
-   `organization_skills` only. No business table carries it and no query
-   filters by it, so any user of any organisation reads all candidates,
-   agencies and requisitions. Harmless for a single user; a data breach
-   the moment a second organisation exists. New tables in this project
-   match the existing business tables and omit the column.
+1. **Multi-tenancy is enforced at the auth layer and nowhere below it.**
+   Signing up, invite redemption and roles are all org-aware. But no
+   business table filters by organisation, so any signed-in user of any
+   organisation can read every candidate, agency and requisition.
+   Harmless for a single user; a data breach the moment a second
+   organisation exists.
+
+   This project does not change that behaviour. It does make the fix
+   cheaper: the five new entity tables carry `organization_id` and set
+   it on insert, so closing the hole later is adding `where
+   organization_id = $n` to the read paths rather than migrating ten
+   tables first. The four pre-existing business tables
+   (`job_requisitions`, `status_config`, and the two being dropped)
+   still lack the column; `job_requisitions` and `status_config` would
+   need it before any filtering work could be complete.
 2. **Passwords are stored and compared in plaintext**
    (`auth.routes.ts:51`). Out of scope here; belongs to the deferred
    architecture review.
