@@ -1,6 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { fetchPerson } from '../api/people';
+import { createActivity, type NewActivity } from '../api/activities';
+import { ActivityComposer } from '../components/ActivityComposer';
+import { Modal } from '../components/Modal';
 import { ActivityTimeline } from '../components/ActivityTimeline';
 import { Button, Card, Chip, SectionLabel, StageDot, BdStageDot } from '../components/ui';
 import { formatMoney } from '../utils/money';
@@ -22,10 +26,20 @@ function formatMonthYear(iso: string | null | undefined): string {
 
 export function PersonDetailPage() {
   const { personId } = useParams();
+  const queryClient = useQueryClient();
+  const [composerOpen, setComposerOpen] = useState(false);
   const { data: person, isLoading } = useQuery({
     queryKey: ['people', personId],
     queryFn: () => fetchPerson(personId!),
     enabled: Boolean(personId),
+  });
+
+  const logActivity = useMutation({
+    mutationFn: (activity: NewActivity) => createActivity(activity),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['people', personId] });
+      setComposerOpen(false);
+    },
   });
 
   if (isLoading) return <p className="p-8 text-base text-ink-2">Loading…</p>;
@@ -96,7 +110,9 @@ export function PersonDetailPage() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button>Edit</Button>
-            <Button variant="primary">Log activity</Button>
+            <Button variant="primary" onClick={() => setComposerOpen(true)}>
+              Log activity
+            </Button>
           </div>
         </div>
 
@@ -211,6 +227,15 @@ export function PersonDetailPage() {
           perspective="person"
         />
       </div>
+
+      <Modal isOpen={composerOpen} onClose={() => setComposerOpen(false)} title="">
+        <ActivityComposer
+          person={person}
+          companyId={person.current_company_id ?? undefined}
+          onSubmit={(activity) => logActivity.mutate(activity)}
+          onClose={() => setComposerOpen(false)}
+        />
+      </Modal>
     </div>
   );
 }
