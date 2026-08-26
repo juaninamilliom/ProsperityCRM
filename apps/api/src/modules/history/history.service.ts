@@ -1,25 +1,42 @@
-import { query } from '../../utils/sql.js';
+import { desc, eq, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import { db, entryStatusHistory, statusConfig } from '../../db/drizzle.js';
+
+const statusFrom = alias(statusConfig, 'status_from');
+const statusTo = alias(statusConfig, 'status_to');
 
 export async function getEntryHistory(entryId: string) {
-  const result = await query(
-    `select h.*, s_from.name as from_status_name, s_to.name as to_status_name
-     from entry_status_history h
-     left join status_config s_from on h.from_status_id = s_from.status_id
-     left join status_config s_to on h.to_status_id = s_to.status_id
-     where h.entry_id = $1
-     order by h.change_date desc`,
-    [entryId]
-  );
-  return result.rows;
+  const result = await db
+    .select({
+      history_id: entryStatusHistory.history_id,
+      entry_id: entryStatusHistory.entry_id,
+      from_status_id: entryStatusHistory.from_status_id,
+      to_status_id: entryStatusHistory.to_status_id,
+      change_date: entryStatusHistory.change_date,
+      changed_by: entryStatusHistory.changed_by,
+      from_status_name: statusFrom.name,
+      to_status_name: statusTo.name,
+    })
+    .from(entryStatusHistory)
+    .leftJoin(statusFrom, eq(entryStatusHistory.from_status_id, statusFrom.status_id))
+    .leftJoin(statusTo, eq(entryStatusHistory.to_status_id, statusTo.status_id))
+    .where(eq(entryStatusHistory.entry_id, entryId))
+    .orderBy(desc(entryStatusHistory.change_date));
+
+  return result;
 }
 
 export async function getPlacementMetrics() {
-  const result = await query(
-    `select date_trunc('month', change_date) as month, count(*) as placements
-     from entry_status_history h
-     join status_config s on h.to_status_id = s.status_id
-     where s.is_terminal = true
-     group by 1 order by 1 desc`
-  );
-  return result.rows;
+  const result = await db
+    .select({
+      month: sql<string>`date_trunc('month', ${entryStatusHistory.change_date})`,
+      placements: sql<number>`count(*)::int`,
+    })
+    .from(entryStatusHistory)
+    .innerJoin(statusConfig, eq(entryStatusHistory.to_status_id, statusConfig.status_id))
+    .where(eq(statusConfig.is_terminal, true))
+    .groupBy(sql`date_trunc('month', ${entryStatusHistory.change_date})`)
+    .orderBy(desc(sql`date_trunc('month', ${entryStatusHistory.change_date})`));
+
+  return result;
 }

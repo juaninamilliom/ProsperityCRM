@@ -1,119 +1,129 @@
-import type { JobRequisition, JobRequisitionWithStats } from '../../types.js';
-import { query } from '../../utils/sql.js';
+import { asc, desc, eq, sql } from 'drizzle-orm';
+import {
+  companies,
+  db,
+  jobDealSplits,
+  jobRequisitions,
+  people,
+  pipelineEntries,
+  statusConfig,
+} from '../../db/drizzle.js';
 import type { JobInput } from './job.schema.js';
 
-/** The counts come back from aggregates rather than the table, so they are
- *  typed here instead of cast away at each use. Postgres returns them as
- *  strings unless cast, which the ::int in the SQL already does. */
-type JobRow = JobRequisition & { total_entries: number | string | null; company_name: string | null };
-type JobStatsRow = JobRequisitionWithStats & {
-  total_entries: number | string | null;
-  placements: number | string | null;
-};
-
 export async function listJobs() {
-  const result = await query<JobRow>(
-    `select j.*, co.name as company_name,
-            coalesce(e.cnt,0)::int as total_entries
-     from job_requisitions j
-     left join companies co on co.company_id = j.company_id
-     left join (
-       select job_id, count(*) cnt
-       from pipeline_entries
-       group by job_id
-     ) e on e.job_id = j.job_id
-     order by j.created_at desc`
-  );
-  return result.rows.map((row) => ({
+  const result = await db
+    .select({
+      job_id: jobRequisitions.job_id,
+      title: jobRequisitions.title,
+      department: jobRequisitions.department,
+      location: jobRequisitions.location,
+      status: jobRequisitions.status,
+      description: jobRequisitions.description,
+      close_date: jobRequisitions.close_date,
+      deal_amount: jobRequisitions.deal_amount,
+      weighted_deal_amount: jobRequisitions.weighted_deal_amount,
+      owner_name: jobRequisitions.owner_name,
+      stage: jobRequisitions.stage,
+      company_id: jobRequisitions.company_id,
+      opportunity_id: jobRequisitions.opportunity_id,
+      created_at: jobRequisitions.created_at,
+      company_name: companies.name,
+      total_entries: sql<number>`coalesce((select count(*) from pipeline_entries e where e.job_id = ${jobRequisitions.job_id}), 0)::int`,
+    })
+    .from(jobRequisitions)
+    .leftJoin(companies, eq(companies.company_id, jobRequisitions.company_id))
+    .orderBy(desc(jobRequisitions.created_at));
+
+  return result.map((row) => ({
     ...row,
     total_entries: Number(row.total_entries ?? 0),
   }));
 }
 
 export async function createJob(input: JobInput) {
-  const dealAmount = input.deal_amount ? Number(input.deal_amount) : null;
-  const weightedAmount = input.weighted_deal_amount ? Number(input.weighted_deal_amount) : null;
-  const result = await query<JobRequisition>(
-    `insert into job_requisitions (title, department, location, status, description, close_date, deal_amount, weighted_deal_amount, owner_name, stage, company_id, opportunity_id)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-     returning *`,
-    [
-      input.title,
-      input.department ?? null,
-      input.location ?? null,
-      input.status ?? 'open',
-      input.description ?? null,
-      input.close_date ?? null,
-      dealAmount,
-      weightedAmount,
-      input.owner_name ?? null,
-      input.stage ?? null,
-      input.company_id ?? null,
-      input.opportunity_id ?? null,
-    ]
-  );
-  return result.rows[0];
+  const dealAmount = input.deal_amount ? String(input.deal_amount) : null;
+  const weightedAmount = input.weighted_deal_amount ? String(input.weighted_deal_amount) : null;
+
+  const [row] = await db
+    .insert(jobRequisitions)
+    .values({
+      title: input.title,
+      department: input.department ?? null,
+      location: input.location ?? null,
+      status: input.status ?? 'open',
+      description: input.description ?? null,
+      close_date: input.close_date ?? null,
+      deal_amount: dealAmount,
+      weighted_deal_amount: weightedAmount,
+      owner_name: input.owner_name ?? null,
+      stage: input.stage ?? null,
+      company_id: input.company_id ?? null,
+      opportunity_id: input.opportunity_id ?? null,
+    })
+    .returning();
+  return row;
 }
 
 export async function updateJob(jobId: string, input: JobInput) {
-  const dealAmount = input.deal_amount ? Number(input.deal_amount) : null;
-  const weightedAmount = input.weighted_deal_amount ? Number(input.weighted_deal_amount) : null;
-  const result = await query<JobRequisition>(
-    `update job_requisitions
-     set title=$1,
-         department=$2,
-         location=$3,
-         status=$4,
-         description=$5,
-         close_date=$6,
-         deal_amount=$7,
-         weighted_deal_amount=$8,
-         owner_name=$9,
-         stage=$10,
-         company_id=$11,
-         opportunity_id=$12
-     where job_id=$13
-     returning *`,
-    [
-      input.title,
-      input.department ?? null,
-      input.location ?? null,
-      input.status ?? 'open',
-      input.description ?? null,
-      input.close_date ?? null,
-      dealAmount,
-      weightedAmount,
-      input.owner_name ?? null,
-      input.stage ?? null,
-      input.company_id ?? null,
-      input.opportunity_id ?? null,
-      jobId,
-    ]
-  );
-  return result.rows[0];
+  const dealAmount = input.deal_amount ? String(input.deal_amount) : null;
+  const weightedAmount = input.weighted_deal_amount ? String(input.weighted_deal_amount) : null;
+
+  const [row] = await db
+    .update(jobRequisitions)
+    .set({
+      title: input.title,
+      department: input.department ?? null,
+      location: input.location ?? null,
+      status: input.status ?? 'open',
+      description: input.description ?? null,
+      close_date: input.close_date ?? null,
+      deal_amount: dealAmount,
+      weighted_deal_amount: weightedAmount,
+      owner_name: input.owner_name ?? null,
+      stage: input.stage ?? null,
+      company_id: input.company_id ?? null,
+      opportunity_id: input.opportunity_id ?? null,
+    })
+    .where(eq(jobRequisitions.job_id, jobId))
+    .returning();
+  return row;
 }
 
 export async function deleteJob(jobId: string) {
-  await query('delete from job_requisitions where job_id = $1', [jobId]);
+  await db.delete(jobRequisitions).where(eq(jobRequisitions.job_id, jobId));
 }
 
 export async function getJobWithStats(jobId: string) {
-  const result = await query(
-    `select j.*, co.name as company_name,
-            coalesce(count(e.entry_id), 0)::int as total_entries,
-            coalesce(count(e.entry_id) filter (where sc.is_terminal), 0)::int as placements
-     from job_requisitions j
-     left join companies co on co.company_id = j.company_id
-     left join pipeline_entries e on e.job_id = j.job_id
-     left join status_config sc on e.current_status_id = sc.status_id
-     where j.job_id = $1
-     group by j.job_id, co.name`,
-    [jobId]
-  );
-  if (!result.rows[0]) {
+  const [row] = await db
+    .select({
+      job_id: jobRequisitions.job_id,
+      title: jobRequisitions.title,
+      department: jobRequisitions.department,
+      location: jobRequisitions.location,
+      status: jobRequisitions.status,
+      description: jobRequisitions.description,
+      close_date: jobRequisitions.close_date,
+      deal_amount: jobRequisitions.deal_amount,
+      weighted_deal_amount: jobRequisitions.weighted_deal_amount,
+      owner_name: jobRequisitions.owner_name,
+      stage: jobRequisitions.stage,
+      company_id: jobRequisitions.company_id,
+      opportunity_id: jobRequisitions.opportunity_id,
+      created_at: jobRequisitions.created_at,
+      company_name: companies.name,
+      total_entries: sql<number>`coalesce(count(${pipelineEntries.entry_id}), 0)::int`,
+      placements: sql<number>`coalesce(count(${pipelineEntries.entry_id}) filter (where ${statusConfig.is_terminal}), 0)::int`,
+    })
+    .from(jobRequisitions)
+    .leftJoin(companies, eq(companies.company_id, jobRequisitions.company_id))
+    .leftJoin(pipelineEntries, eq(pipelineEntries.job_id, jobRequisitions.job_id))
+    .leftJoin(statusConfig, eq(statusConfig.status_id, pipelineEntries.current_status_id))
+    .where(eq(jobRequisitions.job_id, jobId))
+    .groupBy(jobRequisitions.job_id, companies.name);
+
+  if (!row) {
     return null;
   }
-  const row = result.rows[0] as JobStatsRow;
   return {
     ...row,
     total_entries: Number(row.total_entries ?? 0),
@@ -122,28 +132,43 @@ export async function getJobWithStats(jobId: string) {
 }
 
 export async function getJobEntries(jobId: string) {
-  const result = await query(
-    `select e.entry_id, e.person_id, p.full_name, p.email, p.skills,
-            e.current_status_id, s.name as status_name, e.flags
-     from pipeline_entries e
-     join people p on p.person_id = e.person_id
-     join status_config s on s.status_id = e.current_status_id
-     where e.job_id = $1
-     order by e.created_at desc`,
-    [jobId]
-  );
-  return result.rows;
+  const result = await db
+    .select({
+      entry_id: pipelineEntries.entry_id,
+      person_id: pipelineEntries.person_id,
+      full_name: people.full_name,
+      email: people.email,
+      skills: people.skills,
+      current_status_id: pipelineEntries.current_status_id,
+      status_name: statusConfig.name,
+      flags: pipelineEntries.flags,
+    })
+    .from(pipelineEntries)
+    .innerJoin(people, eq(people.person_id, pipelineEntries.person_id))
+    .innerJoin(statusConfig, eq(statusConfig.status_id, pipelineEntries.current_status_id))
+    .where(eq(pipelineEntries.job_id, jobId))
+    .orderBy(desc(pipelineEntries.created_at));
+
+  return result;
 }
 
 export async function listJobSplits(jobId: string) {
-  const result = await query(
-    `select split_id, job_id, teammate_name, teammate_status, split_percent, role, total_deal, weighted_deal
-     from job_deal_splits
-     where job_id = $1
-     order by created_at asc`,
-    [jobId]
-  );
-  return result.rows;
+  const result = await db
+    .select({
+      split_id: jobDealSplits.split_id,
+      job_id: jobDealSplits.job_id,
+      teammate_name: jobDealSplits.teammate_name,
+      teammate_status: jobDealSplits.teammate_status,
+      split_percent: jobDealSplits.split_percent,
+      role: jobDealSplits.role,
+      total_deal: jobDealSplits.total_deal,
+      weighted_deal: jobDealSplits.weighted_deal,
+    })
+    .from(jobDealSplits)
+    .where(eq(jobDealSplits.job_id, jobId))
+    .orderBy(asc(jobDealSplits.created_at));
+
+  return result;
 }
 
 export async function replaceJobSplits(
@@ -157,38 +182,65 @@ export async function replaceJobSplits(
     weighted_deal?: string;
   }>
 ) {
-  const jobInfo = await query<{ deal_amount: number | null; weighted_deal_amount: number | null }>(
-    `select deal_amount, weighted_deal_amount from job_requisitions where job_id = $1`,
-    [jobId]
-  );
-  const dealBase = Number(jobInfo.rows[0]?.deal_amount ?? 0);
-  const weightedBase = Number(jobInfo.rows[0]?.weighted_deal_amount ?? 0);
-  let leadDealAccumulator = 0;
-  let leadWeightedAccumulator = 0;
+  return db.transaction(async (tx) => {
+    const [jobInfo] = await tx
+      .select({
+        deal_amount: jobRequisitions.deal_amount,
+        weighted_deal_amount: jobRequisitions.weighted_deal_amount,
+      })
+      .from(jobRequisitions)
+      .where(eq(jobRequisitions.job_id, jobId));
 
-  await query('delete from job_deal_splits where job_id = $1', [jobId]);
-  for (const split of splits) {
-    const normalizedRole = split.role?.toLowerCase() === 'secondary' ? 'secondary' : 'lead';
-    const percentValue = Number(split.split_percent ?? 0);
-    const ratio = percentValue / 100;
-    let totalDeal: number;
-    let weightedDeal: number;
-    if (normalizedRole === 'secondary' && leadDealAccumulator > 0) {
-      totalDeal = split.total_deal ? Number(split.total_deal) : leadDealAccumulator * ratio;
-      weightedDeal = split.weighted_deal ? Number(split.weighted_deal) : leadWeightedAccumulator * ratio;
-    } else {
-      totalDeal = split.total_deal ? Number(split.total_deal) : dealBase * ratio;
-      weightedDeal = split.weighted_deal ? Number(split.weighted_deal) : weightedBase * ratio;
-      if (normalizedRole === 'lead') {
-        leadDealAccumulator += totalDeal;
-        leadWeightedAccumulator += weightedDeal;
+    const dealBase = Number(jobInfo?.deal_amount ?? 0);
+    const weightedBase = Number(jobInfo?.weighted_deal_amount ?? 0);
+    let leadDealAccumulator = 0;
+    let leadWeightedAccumulator = 0;
+
+    await tx.delete(jobDealSplits).where(eq(jobDealSplits.job_id, jobId));
+
+    for (const split of splits) {
+      const normalizedRole = split.role?.toLowerCase() === 'secondary' ? 'secondary' : 'lead';
+      const percentValue = Number(split.split_percent ?? 0);
+      const ratio = percentValue / 100;
+      let totalDeal: number;
+      let weightedDeal: number;
+      if (normalizedRole === 'secondary' && leadDealAccumulator > 0) {
+        totalDeal = split.total_deal ? Number(split.total_deal) : leadDealAccumulator * ratio;
+        weightedDeal = split.weighted_deal
+          ? Number(split.weighted_deal)
+          : leadWeightedAccumulator * ratio;
+      } else {
+        totalDeal = split.total_deal ? Number(split.total_deal) : dealBase * ratio;
+        weightedDeal = split.weighted_deal ? Number(split.weighted_deal) : weightedBase * ratio;
+        if (normalizedRole === 'lead') {
+          leadDealAccumulator += totalDeal;
+          leadWeightedAccumulator += weightedDeal;
+        }
       }
+      await tx.insert(jobDealSplits).values({
+        job_id: jobId,
+        teammate_name: split.teammate_name,
+        teammate_status: split.teammate_status ?? 'active',
+        split_percent: String(percentValue),
+        role: normalizedRole,
+        total_deal: String(totalDeal),
+        weighted_deal: String(weightedDeal),
+      });
     }
-    await query(
-      `insert into job_deal_splits (job_id, teammate_name, teammate_status, split_percent, role, total_deal, weighted_deal)
-       values ($1,$2,$3,$4,$5,$6,$7)`,
-      [jobId, split.teammate_name, split.teammate_status ?? 'active', percentValue, normalizedRole, totalDeal, weightedDeal]
-    );
-  }
-  return listJobSplits(jobId);
+
+    return tx
+      .select({
+        split_id: jobDealSplits.split_id,
+        job_id: jobDealSplits.job_id,
+        teammate_name: jobDealSplits.teammate_name,
+        teammate_status: jobDealSplits.teammate_status,
+        split_percent: jobDealSplits.split_percent,
+        role: jobDealSplits.role,
+        total_deal: jobDealSplits.total_deal,
+        weighted_deal: jobDealSplits.weighted_deal,
+      })
+      .from(jobDealSplits)
+      .where(eq(jobDealSplits.job_id, jobId))
+      .orderBy(asc(jobDealSplits.created_at));
+  });
 }

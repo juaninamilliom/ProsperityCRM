@@ -1,147 +1,247 @@
-import type { Company } from '../../types.js';
-import { query } from '../../utils/sql.js';
+import { and, asc, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import {
+  activities,
+  bdOpportunities,
+  companies,
+  db,
+  jobRequisitions,
+  people,
+  pipelineEntries,
+} from '../../db/drizzle.js';
 import type { CreateCompanyInput, UpdateCompanyInput } from './company.schema.js';
 
 export async function listCompanies(filters: { relationship?: string; search?: string }) {
-  const conditions: string[] = [];
-  const params: unknown[] = [];
+  const conditions = [];
 
   if (filters.relationship) {
-    params.push(filters.relationship);
-    conditions.push(`c.relationship = $${params.length}`);
+    conditions.push(
+      eq(
+        companies.relationship,
+        filters.relationship as 'prospect' | 'client' | 'former' | 'do_not_contact'
+      )
+    );
   }
   if (filters.search) {
-    params.push(`%${filters.search.toLowerCase()}%`);
-    const idx = params.length;
-    conditions.push(`(lower(c.name) like $${idx} or lower(coalesce(c.domain,'')) like $${idx})`);
+    const term = `%${filters.search.toLowerCase()}%`;
+    conditions.push(or(ilike(companies.name, term), ilike(companies.domain, term)));
   }
 
-  const where = conditions.length ? `where ${conditions.join(' and ')}` : '';
-  // The list shows four derived numbers per row; doing them as subqueries keeps
-  // the table from firing a request per company.
-  const result = await query(
-    `select c.*,
-        (select count(*) from people p where p.current_company_id = c.company_id)::int as contact_count,
-        (select count(*) from bd_opportunities o
-           where o.company_id = c.company_id and o.stage not in ('signed','lost'))::int as open_deals,
-        (select count(*) from job_requisitions j
-           where j.company_id = c.company_id and j.status = 'open')::int as open_reqs,
-        (select max(a.occurred_at) from activities a where a.company_id = c.company_id) as last_touch
-      from companies c ${where} order by c.name asc`,
-    params,
-  );
-  return result.rows;
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const result = await db
+    .select({
+      company_id: companies.company_id,
+      organization_id: companies.organization_id,
+      name: companies.name,
+      linkedin_url: companies.linkedin_url,
+      domain: companies.domain,
+      industry: companies.industry,
+      headcount: companies.headcount,
+      location: companies.location,
+      relationship: companies.relationship,
+      contact_email: companies.contact_email,
+      notes: companies.notes,
+      created_at: companies.created_at,
+      updated_at: companies.updated_at,
+      contact_count: sql<number>`(select count(*) from people p where p.current_company_id = ${companies.company_id})::int`,
+      open_deals: sql<number>`(select count(*) from bd_opportunities o where o.company_id = ${companies.company_id} and o.stage not in ('signed','lost'))::int`,
+      open_reqs: sql<number>`(select count(*) from job_requisitions j where j.company_id = ${companies.company_id} and j.status = 'open')::int`,
+      last_touch: sql<string | null>`(select max(a.occurred_at) from activities a where a.company_id = ${companies.company_id})`,
+    })
+    .from(companies)
+    .where(whereClause)
+    .orderBy(asc(companies.name));
+
+  return result;
 }
 
 export async function getCompany(companyId: string) {
-  const [company, contacts, deals, reqs, activity] = await Promise.all([
-    query<Company>('select * from companies where company_id = $1', [companyId]),
-    query(
-      `select p.*,
-          (select oc.role from opportunity_contacts oc
-             join bd_opportunities o on o.opportunity_id = oc.opportunity_id
-            where oc.person_id = p.person_id and o.company_id = $1
-            order by oc.created_at asc limit 1) as role,
-          (select max(a.occurred_at) from activities a where a.person_id = p.person_id) as last_touch
-        from people p
-       where p.current_company_id = $1
-       order by p.full_name asc`,
-      [companyId],
-    ),
-    query(
-      `select o.* from bd_opportunities o
-        where o.company_id = $1 order by o.expected_close asc nulls last`,
-      [companyId],
-    ),
-    query(
-      `select j.*,
-          (select count(*) from pipeline_entries e where e.job_id = j.job_id)::int as entry_count
-        from job_requisitions j where j.company_id = $1 order by j.created_at desc`,
-      [companyId],
-    ),
-    query(
-      `select a.*, p.full_name as person_name, o.name as opportunity_name
-         from activities a
-         left join people p on p.person_id = a.person_id
-         left join bd_opportunities o on o.opportunity_id = a.opportunity_id
-        where a.company_id = $1 order by a.occurred_at desc limit 50`,
-      [companyId],
-    ),
+  const [companyRows, contacts, deals, reqs, activity] = await Promise.all([
+    db.select().from(companies).where(eq(companies.company_id, companyId)),
+
+    db
+      .select({
+        person_id: people.person_id,
+        organization_id: people.organization_id,
+        full_name: people.full_name,
+        email: people.email,
+        phone: people.phone,
+        linkedin_url: people.linkedin_url,
+        headline: people.headline,
+        location: people.location,
+        current_company_id: people.current_company_id,
+        current_title: people.current_title,
+        skills: people.skills,
+        notes: people.notes,
+        source: people.source,
+        created_at: people.created_at,
+        updated_at: people.updated_at,
+        role: sql<string | null>`(
+          select oc.role from opportunity_contacts oc
+          join bd_opportunities o on o.opportunity_id = oc.opportunity_id
+          where oc.person_id = ${people.person_id} and o.company_id = ${companyId}
+          order by oc.created_at asc limit 1
+        )`,
+        last_touch: sql<string | null>`(select max(a.occurred_at) from activities a where a.person_id = ${people.person_id})`,
+      })
+      .from(people)
+      .where(eq(people.current_company_id, companyId))
+      .orderBy(asc(people.full_name)),
+
+    db
+      .select()
+      .from(bdOpportunities)
+      .where(eq(bdOpportunities.company_id, companyId))
+      .orderBy(asc(bdOpportunities.expected_close)),
+
+    db
+      .select({
+        job_id: jobRequisitions.job_id,
+        title: jobRequisitions.title,
+        department: jobRequisitions.department,
+        location: jobRequisitions.location,
+        status: jobRequisitions.status,
+        description: jobRequisitions.description,
+        close_date: jobRequisitions.close_date,
+        deal_amount: jobRequisitions.deal_amount,
+        weighted_deal_amount: jobRequisitions.weighted_deal_amount,
+        owner_name: jobRequisitions.owner_name,
+        stage: jobRequisitions.stage,
+        company_id: jobRequisitions.company_id,
+        opportunity_id: jobRequisitions.opportunity_id,
+        created_at: jobRequisitions.created_at,
+        entry_count: sql<number>`(select count(*) from pipeline_entries e where e.job_id = ${jobRequisitions.job_id})::int`,
+      })
+      .from(jobRequisitions)
+      .where(eq(jobRequisitions.company_id, companyId))
+      .orderBy(desc(jobRequisitions.created_at)),
+
+    db
+      .select({
+        activity_id: activities.activity_id,
+        organization_id: activities.organization_id,
+        person_id: activities.person_id,
+        company_id: activities.company_id,
+        opportunity_id: activities.opportunity_id,
+        entry_id: activities.entry_id,
+        channel: activities.channel,
+        direction: activities.direction,
+        occurred_at: activities.occurred_at,
+        subject: activities.subject,
+        body: activities.body,
+        created_by: activities.created_by,
+        created_at: activities.created_at,
+        person_name: people.full_name,
+        opportunity_name: bdOpportunities.name,
+      })
+      .from(activities)
+      .leftJoin(people, eq(people.person_id, activities.person_id))
+      .leftJoin(bdOpportunities, eq(bdOpportunities.opportunity_id, activities.opportunity_id))
+      .where(eq(activities.company_id, companyId))
+      .orderBy(desc(activities.occurred_at))
+      .limit(50),
   ]);
 
-  if (!company.rows[0]) return null;
+  if (!companyRows[0]) return null;
   return {
-    ...company.rows[0],
-    contacts: contacts.rows,
-    deals: deals.rows,
-    requisitions: reqs.rows,
-    activity: activity.rows,
+    ...companyRows[0],
+    contacts,
+    deals,
+    requisitions: reqs,
+    activity,
   };
 }
 
 export async function createCompany(organizationId: string, input: CreateCompanyInput) {
-  const result = await query<Company>(
-    `insert into companies (organization_id, name, linkedin_url, domain, industry,
-        headcount, location, relationship, contact_email, notes)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *`,
-    [
-      organizationId, input.name, input.linkedin_url, input.domain, input.industry,
-      input.headcount, input.location, input.relationship, input.contact_email, input.notes,
-    ],
-  );
-  return result.rows[0];
+  const [row] = await db
+    .insert(companies)
+    .values({
+      organization_id: organizationId,
+      name: input.name,
+      linkedin_url: input.linkedin_url,
+      domain: input.domain,
+      industry: input.industry,
+      headcount: input.headcount,
+      location: input.location,
+      relationship: input.relationship,
+      contact_email: input.contact_email,
+      notes: input.notes,
+    })
+    .returning();
+  return row;
 }
 
 export async function updateCompany(companyId: string, input: UpdateCompanyInput) {
-  const fields: string[] = [];
-  const params: unknown[] = [];
+  const updateValues: Record<string, unknown> = {};
 
-  Object.entries(input).forEach(([key, value]) => {
-    if (value === undefined) return;
-    params.push(value);
-    fields.push(`${key} = $${params.length}`);
-  });
-
-  if (!fields.length) {
-    const current = await query<Company>('select * from companies where company_id = $1', [companyId]);
-    return current.rows[0] ?? null;
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) {
+      updateValues[key] = value;
+    }
   }
 
-  params.push(companyId);
-  const result = await query<Company>(
-    `update companies set ${fields.join(', ')}, updated_at = now()
-      where company_id = $${params.length} returning *`,
-    params,
-  );
-  return result.rows[0] ?? null;
+  if (Object.keys(updateValues).length === 0) {
+    const [current] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.company_id, companyId));
+    return current ?? null;
+  }
+
+  updateValues.updated_at = new Date();
+
+  const [updated] = await db
+    .update(companies)
+    .set(updateValues)
+    .where(eq(companies.company_id, companyId))
+    .returning();
+  return updated ?? null;
 }
 
 export async function findDuplicateCompany(
   organizationId: string,
   name: string | undefined,
   linkedinUrl: string | null | undefined,
-  domain: string | null | undefined,
+  domain: string | null | undefined
 ) {
-  const result = await query<Company>(
-    `select * from companies
-      where organization_id = $1
-        and (lower(name) = lower(coalesce($2, ''))
-          or (linkedin_url is not null and linkedin_url = $3)
-          or (domain is not null and lower(domain) = lower(coalesce($4, ''))))
-      limit 1`,
-    [organizationId, name ?? null, linkedinUrl ?? null, domain ?? null],
-  );
-  return result.rows[0] ?? null;
+  const duplicateConditions = [];
+  if (name) {
+    duplicateConditions.push(sql`lower(${companies.name}) = lower(${name})`);
+  }
+  if (linkedinUrl) {
+    duplicateConditions.push(eq(companies.linkedin_url, linkedinUrl));
+  }
+  if (domain) {
+    duplicateConditions.push(sql`lower(${companies.domain}) = lower(${domain})`);
+  }
+
+  if (duplicateConditions.length === 0) return null;
+
+  const [row] = await db
+    .select()
+    .from(companies)
+    .where(
+      and(
+        eq(companies.organization_id, organizationId),
+        or(...duplicateConditions)
+      )
+    )
+    .limit(1);
+
+  return row ?? null;
 }
 
 export async function countEntriesForCompany(companyId: string) {
-  const result = await query<{ count: string }>(
-    'select count(*) as count from pipeline_entries where company_id = $1',
-    [companyId],
-  );
-  return Number(result.rows[0].count);
+  const [result] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+    })
+    .from(pipelineEntries)
+    .where(eq(pipelineEntries.company_id, companyId));
+
+  return Number(result?.count ?? 0);
 }
 
 export async function deleteCompany(companyId: string) {
-  await query('delete from companies where company_id = $1', [companyId]);
+  await db.delete(companies).where(eq(companies.company_id, companyId));
 }

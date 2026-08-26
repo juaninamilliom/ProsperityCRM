@@ -1,29 +1,41 @@
+import { asc, eq } from 'drizzle-orm';
+import { db, statusConfig } from '../../db/drizzle.js';
 import type { StatusConfig } from '../../types.js';
-import { query } from '../../utils/sql.js';
 import type { StatusInput } from './status.schema.js';
 
-export async function listStatuses() {
-  const result = await query<StatusConfig>('select * from status_config order by order_index asc');
-  return result.rows;
+export async function listStatuses(): Promise<StatusConfig[]> {
+  const rows = await db
+    .select()
+    .from(statusConfig)
+    .orderBy(asc(statusConfig.order_index));
+  return rows as unknown as StatusConfig[];
 }
 
-export async function createStatus(input: StatusInput) {
-  const result = await query<StatusConfig>(
-    `insert into status_config (name, order_index, is_terminal)
-     values ($1,$2,$3) returning *`,
-    [input.name, input.order_index, input.is_terminal]
-  );
-  return result.rows[0];
+export async function createStatus(input: StatusInput): Promise<StatusConfig> {
+  const [row] = await db
+    .insert(statusConfig)
+    .values({
+      name: input.name,
+      order_index: input.order_index,
+      is_terminal: input.is_terminal,
+    })
+    .returning();
+  return row as unknown as StatusConfig;
 }
 
-export async function updateStatus(id: string, input: StatusInput) {
-  const result = await query<StatusConfig>(
-    `update status_config set name=$1, order_index=$2, is_terminal=$3 where status_id=$4 returning *`,
-    [input.name, input.order_index, input.is_terminal, id]
-  );
-  return result.rows[0];
+export async function updateStatus(id: string, input: StatusInput): Promise<StatusConfig> {
+  const [row] = await db
+    .update(statusConfig)
+    .set({
+      name: input.name,
+      order_index: input.order_index,
+      is_terminal: input.is_terminal,
+    })
+    .where(eq(statusConfig.status_id, id))
+    .returning();
+  return row as unknown as StatusConfig;
 }
 
-export async function deleteStatus(id: string) {
-  await query('delete from status_config where status_id = $1', [id]);
+export async function deleteStatus(id: string): Promise<void> {
+  await db.delete(statusConfig).where(eq(statusConfig.status_id, id));
 }
