@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { resolveBaseUrl } from './baseUrl';
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+const baseURL = resolveBaseUrl(import.meta.env);
 const TOKEN_KEY = 'prosperity_token';
 
 export const apiClient = axios.create({
