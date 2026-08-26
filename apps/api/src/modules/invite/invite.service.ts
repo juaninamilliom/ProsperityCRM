@@ -1,8 +1,7 @@
 import crypto from 'node:crypto';
-import type { PoolClient } from 'pg';
+import { desc, eq, sql } from 'drizzle-orm';
 import type { Role } from '../../common/types.js';
-import { query } from '../../utils/sql.js';
-import { withTransaction } from '../../utils/transaction.js';
+import { db, orgInviteCodes, users } from '../../db/drizzle.js';
 import type { User } from '../../types.js';
 import { assertInviteUsable, nextInviteState } from './invite.rules.js';
 
@@ -30,29 +29,37 @@ export async function createInviteCode({
   role: Role;
   createdBy?: string;
   maxUses?: number;
-}) {
+}): Promise<InviteRecord> {
   const code = generateCode();
-  const result = await query<InviteRecord>(
-    `insert into org_invite_codes (organization_id, code, role, created_by, max_uses)
-     values ($1,$2,$3,$4,$5)
-     returning *`,
-    [organizationId, code, role, createdBy ?? null, maxUses]
-  );
-  return result.rows[0];
+  const [row] = await db
+    .insert(orgInviteCodes)
+    .values({
+      organization_id: organizationId,
+      code,
+      role,
+      created_by: createdBy ?? null,
+      max_uses: maxUses,
+    })
+    .returning();
+
+  return row as unknown as InviteRecord;
 }
 
-export async function revokeInviteCode({ code, revokedBy }: { code: string; revokedBy?: string }) {
-  await query(
-    `update org_invite_codes
-     set status = 'revoked', revoked_at = now(), revoked_by = $2
-     where code = $1`,
-    [code, revokedBy ?? null]
-  );
-}
-
-async function fetchInviteForUpdate(client: PoolClient, code: string) {
-  const result = await client.query<InviteRecord>(`select * from org_invite_codes where code = $1 for update`, [code]);
-  return result.rows[0];
+export async function revokeInviteCode({
+  code,
+  revokedBy,
+}: {
+  code: string;
+  revokedBy?: string;
+}) {
+  await db
+    .update(orgInviteCodes)
+    .set({
+      status: 'revoked',
+      revoked_at: new Date(),
+      revoked_by: revokedBy ?? null,
+    })
+    .where(eq(orgInviteCodes.code, code));
 }
 
 export async function redeemInviteCode({
@@ -66,8 +73,13 @@ export async function redeemInviteCode({
     sso_id: string;
   };
 }) {
-  return withTransaction(async (client) => {
-    const invite = await fetchInviteForUpdate(client, code);
+  return db.transaction(async (tx) => {
+    const [invite] = await tx
+      .select()
+      .from(orgInviteCodes)
+      .where(eq(orgInviteCodes.code, code))
+      .for('update');
+
     if (!invite) {
       throw new Error('Invalid passcode');
     }
@@ -78,35 +90,42 @@ export async function redeemInviteCode({
       throw new Error('Passcode exhausted');
     }
 
-    const userResult = await client.query<User>(
-      `insert into users (email, name, role, sso_id, organization_id)
-       values ($1,$2,$3,$4,$5)
-       on conflict (sso_id) do update set email = excluded.email,
-                                         name = excluded.name,
-                                         role = excluded.role,
-                                         organization_id = excluded.organization_id
-       returning *`,
-      [userPayload.email, userPayload.name, invite.role, userPayload.sso_id, invite.organization_id]
-    );
-    const user = userResult.rows[0];
+    const [user] = await tx
+      .insert(users)
+      .values({
+        email: userPayload.email,
+        name: userPayload.name,
+        role: invite.role as 'OrgAdmin' | 'OrgEmployee',
+        sso_id: userPayload.sso_id,
+        organization_id: invite.organization_id,
+      })
+      .onConflictDoUpdate({
+        target: users.sso_id,
+        set: {
+          email: userPayload.email,
+          name: userPayload.name,
+          role: invite.role as 'OrgAdmin' | 'OrgEmployee',
+          organization_id: invite.organization_id,
+        },
+      })
+      .returning();
 
     const newUsedCount = invite.used_count + 1;
     const newStatus = newUsedCount >= invite.max_uses ? 'used' : invite.status;
 
-    await client.query(
-      `update org_invite_codes
-       set used_count = $1, status = $2, metadata = jsonb_set(metadata, '{last_user_id}', to_jsonb($3::text), true)
-       where code_id = $4`,
-      [newUsedCount, newStatus, user.user_id, invite.code_id]
-    );
+    await tx
+      .update(orgInviteCodes)
+      .set({
+        used_count: newUsedCount,
+        status: newStatus,
+        metadata: sql`jsonb_set(${orgInviteCodes.metadata}, '{last_user_id}', to_jsonb(${user.user_id}::text), true)`,
+      })
+      .where(eq(orgInviteCodes.code_id, invite.code_id));
 
-    return { user, invite };
+    return { user: user as unknown as User, invite: invite as unknown as InviteRecord };
   });
 }
 
-/** Redeem a code for an email/password signup. Runs in one transaction with
- *  SELECT ... FOR UPDATE so two people racing the last use of a code cannot
- *  both get in. The code - not the request - decides the org and the role. */
 export async function redeemInviteForLocalSignup({
   code,
   email,
@@ -118,39 +137,55 @@ export async function redeemInviteForLocalSignup({
   name: string;
   password: string;
 }) {
-  return withTransaction(async (client) => {
-    const invite = await fetchInviteForUpdate(client, code);
-    assertInviteUsable(invite);
+  return db.transaction(async (tx) => {
+    const [invite] = await tx
+      .select()
+      .from(orgInviteCodes)
+      .where(eq(orgInviteCodes.code, code))
+      .for('update');
 
-    const userResult = await client.query<User>(
-      `insert into users (email, name, role, organization_id, password)
-       values ($1,$2,$3,$4,$5)
-       returning *`,
-      [email, name, invite.role, invite.organization_id, password]
-    );
-    const user = userResult.rows[0];
+    assertInviteUsable(invite as unknown as InviteRecord);
 
-    const next = nextInviteState(invite);
-    await client.query(
-      `update org_invite_codes
-       set used_count = $1, status = $2, metadata = jsonb_set(metadata, '{last_user_id}', to_jsonb($3::text), true)
-       where code_id = $4`,
-      [next.used_count, next.status, user.user_id, invite.code_id]
-    );
+    const [user] = await tx
+      .insert(users)
+      .values({
+        email,
+        name,
+        role: invite.role as 'OrgAdmin' | 'OrgEmployee',
+        organization_id: invite.organization_id,
+        password,
+      })
+      .returning();
 
-    return { user, invite };
+    const next = nextInviteState(invite as unknown as InviteRecord);
+    await tx
+      .update(orgInviteCodes)
+      .set({
+        used_count: next.used_count,
+        status: next.status,
+        metadata: sql`jsonb_set(${orgInviteCodes.metadata}, '{last_user_id}', to_jsonb(${user.user_id}::text), true)`,
+      })
+      .where(eq(orgInviteCodes.code_id, invite.code_id));
+
+    return { user: user as unknown as User, invite: invite as unknown as InviteRecord };
   });
 }
 
-export async function getInviteCodesForOrg(organizationId: string) {
-  const result = await query<InviteRecord>(
-    `select * from org_invite_codes where organization_id = $1 order by created_at desc`,
-    [organizationId]
-  );
-  return result.rows;
+export async function getInviteCodesForOrg(organizationId: string): Promise<InviteRecord[]> {
+  const rows = await db
+    .select()
+    .from(orgInviteCodes)
+    .where(eq(orgInviteCodes.organization_id, organizationId))
+    .orderBy(desc(orgInviteCodes.created_at));
+
+  return rows as unknown as InviteRecord[];
 }
 
-export async function getInviteByCode(code: string) {
-  const result = await query<InviteRecord>(`select * from org_invite_codes where code = $1`, [code]);
-  return result.rows[0];
+export async function getInviteByCode(code: string): Promise<InviteRecord | undefined> {
+  const [row] = await db
+    .select()
+    .from(orgInviteCodes)
+    .where(eq(orgInviteCodes.code, code));
+
+  return (row as unknown as InviteRecord) ?? undefined;
 }

@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
-import type { BdOpportunity, OpportunityStage } from '../../types.js';
-import { withTransaction } from '../../utils/transaction.js';
+import type { OpportunityStage } from '../../types.js';
 import {
   addContactSchema,
   createOpportunitySchema,
@@ -78,36 +77,24 @@ opportunityRouter.patch('/:opportunityId/stage', async (req: AuthenticatedReques
   }
 
   const userId = req.dbUser.user_id;
-  const updated = await withTransaction(async (client) => {
-    const row = await client.query<BdOpportunity>(
-      `update bd_opportunities
-          set stage = $1, closed_at = $2, lost_reason = $3, updated_at = now()
-        where opportunity_id = $4 returning *`,
-      [parsed.data.stage, move.closed_at, parsed.data.lost_reason ?? null, deal.opportunity_id],
-    );
-
-    if (move.promoteCompanyToClient) {
-      await client.query(
-        `update companies set relationship = 'client', updated_at = now()
-          where company_id = $1 and relationship <> 'client'`,
-        [deal.company_id],
-      );
-      await client.query(
-        `insert into activities (organization_id, company_id, opportunity_id,
-            channel, direction, occurred_at, subject, body, created_by)
-         values ($1,$2,$3,'note','internal',$4,$5,$6,$7)`,
-        [
-          deal.organization_id, deal.company_id, deal.opportunity_id, now,
-          'Deal won', `${deal.name} signed. Relationship moved to client.`, userId,
-        ],
-      );
-    }
-
-    return row.rows[0];
+  const updated = await service.transitionOpportunityStage({
+    deal,
+    nextStage: parsed.data.stage as
+      | 'prospect'
+      | 'contacted'
+      | 'meeting'
+      | 'proposal'
+      | 'negotiation'
+      | 'signed'
+      | 'lost',
+    lostReason: parsed.data.lost_reason,
+    userId,
+    move,
   });
 
   res.json(updated);
 });
+
 
 opportunityRouter.post('/:opportunityId/contacts', async (req, res) => {
   const parsed = addContactSchema.safeParse(req.body);

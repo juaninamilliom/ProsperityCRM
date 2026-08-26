@@ -22,12 +22,41 @@ async function main() {
   await client.connect();
 
   try {
-    for (const file of files) {
+    // Ensure tracking table exists
+    await client.query(`
+      create table if not exists schema_migrations (
+        id serial primary key,
+        name text not null unique,
+        applied_at timestamptz not null default now()
+      );
+    `);
+
+    const appliedResult = await client.query('select name from schema_migrations');
+    const applied = new Set(appliedResult.rows.map((row) => row.name));
+
+    const pending = files.filter((file) => !applied.has(file));
+
+    if (pending.length === 0) {
+      console.log('✅ All migrations up to date (0 pending)');
+      return;
+    }
+
+    console.log(`Found ${pending.length} pending migration(s)...`);
+
+    for (const file of pending) {
       const sql = await readFile(path.join(migrationsDir, file), 'utf-8');
       console.log(`Running migration ${file}`);
-      await client.query(sql);
+      await client.query('BEGIN');
+      try {
+        await client.query(sql);
+        await client.query('insert into schema_migrations (name) values ($1)', [file]);
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      }
     }
-    console.log('✅ Migrations applied');
+    console.log('✅ All migrations applied successfully');
   } finally {
     await client.end();
   }

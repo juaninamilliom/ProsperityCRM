@@ -1,5 +1,11 @@
-import type { Activity } from '../../types.js';
-import { query } from '../../utils/sql.js';
+import { and, desc, eq } from 'drizzle-orm';
+import {
+  activities,
+  bdOpportunities,
+  companies,
+  db,
+  people,
+} from '../../db/drizzle.js';
 import type { CreateActivityInput } from './activity.schema.js';
 
 export async function listActivities(filters: {
@@ -7,43 +13,71 @@ export async function listActivities(filters: {
   company_id?: string;
   opportunity_id?: string;
 }) {
-  const conditions: string[] = [];
-  const params: unknown[] = [];
+  const conditions = [];
 
-  for (const key of ['person_id', 'company_id', 'opportunity_id'] as const) {
-    const value = filters[key];
-    if (value) {
-      params.push(value);
-      conditions.push(`a.${key} = $${params.length}`);
-    }
+  if (filters.person_id) {
+    conditions.push(eq(activities.person_id, filters.person_id));
+  }
+  if (filters.company_id) {
+    conditions.push(eq(activities.company_id, filters.company_id));
+  }
+  if (filters.opportunity_id) {
+    conditions.push(eq(activities.opportunity_id, filters.opportunity_id));
   }
 
-  const where = conditions.length ? `where ${conditions.join(' and ')}` : '';
-  const result = await query(
-    `select a.*, p.full_name as person_name, c.name as company_name, o.name as opportunity_name
-       from activities a
-       left join people p on p.person_id = a.person_id
-       left join companies c on c.company_id = a.company_id
-       left join bd_opportunities o on o.opportunity_id = a.opportunity_id
-       ${where} order by a.occurred_at desc limit 200`,
-    params,
-  );
-  return result.rows;
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const result = await db
+    .select({
+      activity_id: activities.activity_id,
+      organization_id: activities.organization_id,
+      person_id: activities.person_id,
+      company_id: activities.company_id,
+      opportunity_id: activities.opportunity_id,
+      entry_id: activities.entry_id,
+      channel: activities.channel,
+      direction: activities.direction,
+      occurred_at: activities.occurred_at,
+      subject: activities.subject,
+      body: activities.body,
+      created_by: activities.created_by,
+      created_at: activities.created_at,
+      person_name: people.full_name,
+      company_name: companies.name,
+      opportunity_name: bdOpportunities.name,
+    })
+    .from(activities)
+    .leftJoin(people, eq(people.person_id, activities.person_id))
+    .leftJoin(companies, eq(companies.company_id, activities.company_id))
+    .leftJoin(bdOpportunities, eq(bdOpportunities.opportunity_id, activities.opportunity_id))
+    .where(whereClause)
+    .orderBy(desc(activities.occurred_at))
+    .limit(200);
+
+  return result;
 }
 
 export async function createActivity(
   organizationId: string,
   userId: string,
-  input: CreateActivityInput,
+  input: CreateActivityInput
 ) {
-  const result = await query<Activity>(
-    `insert into activities (organization_id, person_id, company_id, opportunity_id, entry_id,
-        channel, direction, occurred_at, subject, body, created_by)
-     values ($1,$2,$3,$4,$5,$6,$7,coalesce($8::timestamptz, now()),$9,$10,$11) returning *`,
-    [
-      organizationId, input.person_id, input.company_id, input.opportunity_id, input.entry_id,
-      input.channel, input.direction, input.occurred_at ?? null, input.subject, input.body, userId,
-    ],
-  );
-  return result.rows[0];
+  const [row] = await db
+    .insert(activities)
+    .values({
+      organization_id: organizationId,
+      person_id: input.person_id,
+      company_id: input.company_id,
+      opportunity_id: input.opportunity_id,
+      entry_id: input.entry_id,
+      channel: input.channel,
+      direction: input.direction,
+      occurred_at: input.occurred_at ? new Date(input.occurred_at) : new Date(),
+      subject: input.subject,
+      body: input.body,
+      created_by: userId,
+    })
+    .returning();
+
+  return row;
 }

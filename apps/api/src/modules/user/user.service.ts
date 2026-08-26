@@ -1,35 +1,45 @@
-import type { QueryResult } from 'pg';
+import { asc, desc, eq } from 'drizzle-orm';
+import { db, organizations, users } from '../../db/drizzle.js';
 import type { User } from '../../types.js';
-import { query } from '../../utils/sql.js';
 import type { UpsertUserInput } from './user.schema.js';
 
 export async function upsertUser(input: UpsertUserInput): Promise<User> {
-  const result: QueryResult<User> = await query(
-    `insert into users (email, name, role, sso_id, organization_id)
-     values ($1, $2, $3, $4, $5)
-     on conflict (sso_id) do update set email = excluded.email,
-                                      name = excluded.name,
-                                      role = excluded.role,
-                                      organization_id = excluded.organization_id
-     returning *`,
-    [input.email, input.name, input.role, input.sso_id, input.organization_id]
-  );
-  return result.rows[0];
+  const [row] = await db
+    .insert(users)
+    .values({
+      email: input.email,
+      name: input.name,
+      role: input.role,
+      sso_id: input.sso_id,
+      organization_id: input.organization_id,
+    })
+    .onConflictDoUpdate({
+      target: users.sso_id,
+      set: {
+        email: input.email,
+        name: input.name,
+        role: input.role,
+        organization_id: input.organization_id,
+      },
+    })
+    .returning();
+
+  return row as unknown as User;
 }
 
 export async function getUserBySsoId(ssoId: string) {
-  const result = await query<User>(`select * from users where sso_id = $1`, [ssoId]);
-  return result.rows[0];
+  const [row] = await db.select().from(users).where(eq(users.sso_id, ssoId));
+  return (row as unknown as User) ?? undefined;
 }
 
 export async function getUserById(userId: string) {
-  const result = await query<User>(`select * from users where user_id = $1`, [userId]);
-  return result.rows[0];
+  const [row] = await db.select().from(users).where(eq(users.user_id, userId));
+  return (row as unknown as User) ?? undefined;
 }
 
 export async function getUserByEmail(email: string) {
-  const result = await query<User>(`select * from users where email = $1`, [email]);
-  return result.rows[0];
+  const [row] = await db.select().from(users).where(eq(users.email, email));
+  return (row as unknown as User) ?? undefined;
 }
 
 export async function updateUserRoleAndOrg({
@@ -41,16 +51,26 @@ export async function updateUserRoleAndOrg({
   organizationId: string;
   role: 'OrgAdmin' | 'OrgEmployee';
 }) {
-  const result = await query<User>(
-    `update users set organization_id = $1, role = $2 where user_id = $3 returning *`,
-    [organizationId, role, userId]
-  );
-  return result.rows[0];
+  const [row] = await db
+    .update(users)
+    .set({
+      organization_id: organizationId,
+      role,
+    })
+    .where(eq(users.user_id, userId))
+    .returning();
+
+  return (row as unknown as User) ?? undefined;
 }
 
 export async function listUsersByOrg(organizationId: string) {
-  const result = await query<User>(`select * from users where organization_id = $1 order by name asc`, [organizationId]);
-  return result.rows;
+  const rows = await db
+    .select()
+    .from(users)
+    .where(eq(users.organization_id, organizationId))
+    .orderBy(asc(users.name));
+
+  return rows as unknown as User[];
 }
 
 export async function createLocalUser(input: {
@@ -60,11 +80,41 @@ export async function createLocalUser(input: {
   organization_id: string;
   role: 'OrgAdmin' | 'OrgEmployee';
 }) {
-  const result = await query<User>(
-    `insert into users (email, name, password, organization_id, role)
-     values ($1,$2,$3,$4,$5)
-     returning *`,
-    [input.email, input.name, input.password, input.organization_id, input.role]
-  );
-  return result.rows[0];
+  const [row] = await db
+    .insert(users)
+    .values({
+      email: input.email,
+      name: input.name,
+      password: input.password,
+      organization_id: input.organization_id,
+      role: input.role,
+    })
+    .returning();
+
+  return row as unknown as User;
+}
+
+export async function listAllUsers() {
+  const rows = await db
+    .select({
+      user_id: users.user_id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      sso_id: users.sso_id,
+      password: users.password,
+      is_active: users.is_active,
+      organization_id: users.organization_id,
+      created_at: users.created_at,
+      organization_name: organizations.name,
+    })
+    .from(users)
+    .leftJoin(organizations, eq(organizations.organization_id, users.organization_id))
+    .orderBy(desc(users.created_at));
+
+  return rows;
+}
+
+export async function deleteUser(userId: string) {
+  await db.delete(users).where(eq(users.user_id, userId));
 }

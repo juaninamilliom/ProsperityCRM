@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/auth.js';
-import { ssoSignupSchema, updateRoleSchema } from './user.schema.js';
-import { getUserById, getUserBySsoId, listUsersByOrg, updateUserRoleAndOrg, upsertUser } from './user.service.js';
+import { createUserSchema, ssoSignupSchema, updateRoleSchema } from './user.schema.js';
+import { createLocalUser, getUserByEmail, getUserById, getUserBySsoId, listUsersByOrg, updateUserRoleAndOrg, upsertUser } from './user.service.js';
 import { redeemInviteCode } from '../invite/invite.service.js';
+
 
 export const userRouter = Router();
 
@@ -14,6 +15,33 @@ userRouter.get('/', async (req: AuthenticatedRequest, res) => {
   const users = await listUsersByOrg(req.dbUser.organization_id);
   res.json(users);
 });
+
+userRouter.post('/', requireRole('OrgAdmin'), async (req: AuthenticatedRequest, res) => {
+  if (!req.dbUser) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+
+  const parsed = createUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json(parsed.error.flatten());
+  }
+
+  const existing = await getUserByEmail(parsed.data.email);
+  if (existing) {
+    return res.status(409).json({ message: 'Email already in use' });
+  }
+
+  const user = await createLocalUser({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    name: parsed.data.name,
+    organization_id: req.dbUser.organization_id,
+    role: parsed.data.role,
+  });
+
+  res.status(201).json(user);
+});
+
 
 userRouter.get('/me', async (req: AuthenticatedRequest, res) => {
   if (req.dbUser) {

@@ -1,5 +1,6 @@
+import { and, asc, eq, sql } from 'drizzle-orm';
+import { db, organizationSkills } from '../../db/drizzle.js';
 import type { OrganizationSkill } from '../../types.js';
-import { query } from '../../utils/sql.js';
 
 export function normalizeSkillNames(skills: string[] = []) {
   const normalized: string[] = [];
@@ -15,41 +16,74 @@ export function normalizeSkillNames(skills: string[] = []) {
   return normalized;
 }
 
-export async function listOrganizationSkills(organizationId: string) {
-  const result = await query<OrganizationSkill>(
-    `select skill_id, organization_id, name, created_at
-     from organization_skills
-     where organization_id = $1
-     order by lower(name) asc`,
-    [organizationId]
-  );
-  return result.rows;
+export async function listOrganizationSkills(organizationId: string): Promise<OrganizationSkill[]> {
+  const rows = await db
+    .select()
+    .from(organizationSkills)
+    .where(eq(organizationSkills.organization_id, organizationId))
+    .orderBy(asc(sql`lower(${organizationSkills.name})`));
+
+  return rows as unknown as OrganizationSkill[];
 }
 
-export async function createOrganizationSkill(organizationId: string, name: string) {
+export async function createOrganizationSkill(
+  organizationId: string,
+  name: string
+): Promise<OrganizationSkill> {
   const [normalized] = normalizeSkillNames([name]);
   if (!normalized) {
     throw new Error('Skill name is required');
   }
-  const result = await query<OrganizationSkill>(
-    `insert into organization_skills (organization_id, name)
-     values ($1,$2)
-     on conflict (organization_id, lower(name)) do update set name = excluded.name
-     returning *`,
-    [organizationId, normalized]
-  );
-  return result.rows[0];
+
+  const [existing] = await db
+    .select()
+    .from(organizationSkills)
+    .where(
+      and(
+        eq(organizationSkills.organization_id, organizationId),
+        sql`lower(${organizationSkills.name}) = lower(${normalized})`
+      )
+    );
+
+  if (existing) {
+    const [updated] = await db
+      .update(organizationSkills)
+      .set({ name: normalized })
+      .where(eq(organizationSkills.skill_id, existing.skill_id))
+      .returning();
+    return updated as unknown as OrganizationSkill;
+  }
+
+  const [row] = await db
+    .insert(organizationSkills)
+    .values({
+      organization_id: organizationId,
+      name: normalized,
+    })
+    .returning();
+
+  return row as unknown as OrganizationSkill;
 }
 
-export async function ensureOrganizationSkills(organizationId: string, skills: string[]) {
+export async function ensureOrganizationSkills(
+  organizationId: string,
+  skills: string[]
+): Promise<void> {
   const normalized = normalizeSkillNames(skills);
   if (!normalized.length) {
     return;
   }
-  await query(
-    `insert into organization_skills (organization_id, name)
-     select $1, skill from unnest($2::text[]) as skill
-     on conflict (organization_id, lower(name)) do nothing`,
-    [organizationId, normalized]
-  );
+
+  const existingSkills = await listOrganizationSkills(organizationId);
+  const existingSet = new Set(existingSkills.map((s) => s.name.toLowerCase()));
+
+  const toInsert = normalized.filter((s) => !existingSet.has(s.toLowerCase()));
+  if (toInsert.length > 0) {
+    await db.insert(organizationSkills).values(
+      toInsert.map((skillName) => ({
+        organization_id: organizationId,
+        name: skillName,
+      }))
+    );
+  }
 }
