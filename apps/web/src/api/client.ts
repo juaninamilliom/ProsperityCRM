@@ -34,9 +34,10 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthEndpoint = error.config?.url?.includes('/auth/');
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       setAuthToken(null);
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
