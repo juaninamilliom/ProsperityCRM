@@ -15,6 +15,7 @@ import { PersonDetailPage } from './pages/PersonDetailPage';
 import { JobDealPage } from './pages/JobDealPage';
 import { useTheme } from './theme';
 import { AppSidebar } from './components/AppSidebar';
+import { PasskeyEnrollmentBanner } from './components/PasskeyEnrollmentBanner';
 import { fetchCurrentUser } from './api/users';
 import { getAuthToken, setAuthToken } from './api/client';
 
@@ -78,6 +79,7 @@ function ProtectedLayout() {
         onLogout={handleLogout}
       />
       <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden p-8">
+        <PasskeyEnrollmentBanner />
         <Outlet context={{ theme, toggleTheme }} />
       </main>
     </div>
