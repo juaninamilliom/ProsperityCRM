@@ -3,17 +3,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Select from 'react-select';
 import { fetchCurrentUser, fetchOrgUsers, updateUserRole } from '../api/users';
 import { createInviteCode, fetchInviteCodes, revokeInvite } from '../api/invites';
+import { deleteUserPasskey, fetchUserPasskeys, registerPasskey } from '../api/auth';
 import { AdminStatusesPage } from './AdminStatusesPage';
 import { AdminJobsPage } from './AdminJobsPage';
 import { useTheme } from 'src/theme';
 import { getSelectStyles } from 'src/components/selectStyles';
 import { MembersTable } from '../components/MembersTable';
-import { Card, SectionLabel } from '../components/ui';
+import { Button, Card, SectionLabel } from '../components/ui';
 import type { Role } from 'src/common';
 
 const TABS = [
   { id: 'organisation', label: 'Organisation' },
   { id: 'members', label: 'Members' },
+  { id: 'security', label: 'Security & Passkeys' },
   { id: 'stages', label: 'Pipeline stages' },
   { id: 'jobs', label: 'Jobs' },
 ] as const;
@@ -39,6 +41,8 @@ export function AccountSettingsPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [revokeMessage, setRevokeMessage] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
+  const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   const membersQuery = useQuery({
     queryKey: ['org-users', organizationId],
@@ -58,6 +62,41 @@ export function AccountSettingsPage() {
     queryKey: ['invites', organizationId],
     queryFn: () => fetchInviteCodes(organizationId!),
     enabled: Boolean(organizationId && isOrgAdmin),
+  });
+
+  const passkeysQuery = useQuery({
+    queryKey: ['passkeys'],
+    queryFn: fetchUserPasskeys,
+  });
+
+  const registerPasskeyMutation = useMutation({
+    mutationFn: (deviceName?: string) => registerPasskey(deviceName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['passkeys'] });
+      setPasskeyMessage('Passkey registered successfully! You can now use Touch ID / Face ID.');
+      setPasskeyError(null);
+    },
+    onError: (err: unknown) => {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as { message?: string })?.message ??
+        'Failed to register passkey.';
+      setPasskeyError(message);
+      setPasskeyMessage(null);
+    },
+  });
+
+  const deletePasskeyMutation = useMutation({
+    mutationFn: (passkeyId: string) => deleteUserPasskey(passkeyId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['passkeys'] });
+      setPasskeyMessage('Passkey removed.');
+      setPasskeyError(null);
+    },
+    onError: () => {
+      setPasskeyError('Failed to remove passkey.');
+      setPasskeyMessage(null);
+    },
   });
 
   const createMutation = useMutation({
@@ -82,25 +121,25 @@ export function AccountSettingsPage() {
     },
     onError: () => {
       setRevokeError('Failed to revoke passcode. Try again.');
-      setRevokeMessage(null);
+      setInviteMessage(null);
     },
   });
 
   useEffect(() => {
-    if (!inviteMessage && !inviteError && !revokeMessage && !revokeError) return;
+    if (!inviteMessage && !inviteError && !revokeMessage && !revokeError && !passkeyMessage && !passkeyError) return;
     const timer = setTimeout(() => {
       setInviteMessage(null);
       setInviteError(null);
       setRevokeMessage(null);
       setRevokeError(null);
-    }, 3000);
+      setPasskeyMessage(null);
+      setPasskeyError(null);
+    }, 4000);
     return () => clearTimeout(timer);
-  }, [inviteMessage, inviteError, revokeMessage, revokeError]);
+  }, [inviteMessage, inviteError, revokeMessage, revokeError, passkeyMessage, passkeyError]);
 
   const showInviteTab = activeTab === 'members';
-
   const selectStyles = getSelectStyles();
-
   const memberCount = membersQuery.data?.length ?? 0;
 
   return (
@@ -167,12 +206,108 @@ export function AccountSettingsPage() {
         </div>
       )}
 
+      {activeTab === 'security' && (
+        <div className="flex flex-col gap-5">
+          <Card className="flex flex-col gap-4 p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <SectionLabel>Apple Passkeys & Biometrics</SectionLabel>
+                <p className="text-sm text-ink-3 max-w-[580px]">
+                  Passkeys let you sign into your account instantly with <strong>Touch ID, Face ID, or Windows Hello</strong> without typing or remembering a password.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                onClick={() => registerPasskeyMutation.mutate(navigator.userAgent.includes('Mac') ? 'MacBook Touch ID' : 'Mobile / Desktop Device')}
+                disabled={registerPasskeyMutation.isPending}
+                className="flex items-center gap-2"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 004.07 9" />
+                </svg>
+                <span>{registerPasskeyMutation.isPending ? 'Prompting device…' : 'Register this Device'}</span>
+              </Button>
+            </div>
+
+            {passkeyMessage && (
+              <p className="rounded-[8px] bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-2.5 text-sm text-emerald-600 dark:text-emerald-400">
+                {passkeyMessage}
+              </p>
+            )}
+            {passkeyError && (
+              <p className="rounded-[8px] bg-warn-bg px-3.5 py-2.5 text-sm text-warn-fg">{passkeyError}</p>
+            )}
+
+            <div className="mt-2 border-t border-border pt-4">
+              <h3 className="text-sm font-semibold text-ink-2 mb-3">Your Registered Passkeys</h3>
+              {passkeysQuery.isLoading ? (
+                <p className="text-sm text-ink-3">Loading devices…</p>
+              ) : passkeysQuery.data?.length ? (
+                <ul className="space-y-2.5">
+                  {passkeysQuery.data.map((item) => (
+                    <li
+                      key={item.passkey_id}
+                      className="flex items-center justify-between rounded-card border border-border bg-surface-2 p-3.5 text-sm"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-control bg-surface-3 text-ink">
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 004.07 9" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="font-medium text-ink">{item.device_name || 'Passkey Device'}</p>
+                          <p className="text-xs text-ink-3">
+                            Created {new Date(item.created_at).toLocaleDateString()}
+                            {item.last_used_at && ` • Last used ${new Date(item.last_used_at).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => deletePasskeyMutation.mutate(item.passkey_id)}
+                        disabled={deletePasskeyMutation.isPending}
+                      >
+                        Remove
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-ink-3">
+                  No passkeys registered yet. Click "Register this Device" to enable 1-click biometric sign-in.
+                </p>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {showInviteTab && isOrgAdmin && (
         <>
           <div className="rounded-card border border-border bg-surface p-6">
             <SectionLabel>Invite codes</SectionLabel>
             <p className="mt-1 text-sm text-ink-3">
-              Share passcodes with teammates to onboard them via SSO. Codes are single use unless
+              Share passcodes with teammates to onboard them via magic link or passcode. Codes are single use unless
               you raise the max-uses value.
             </p>
             <div className="mt-4 flex flex-wrap items-end gap-4">

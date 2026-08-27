@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { signupSchema } from './auth.schema.js';
+import {
+  magicLinkRequestSchema,
+  magicLinkVerifySchema,
+  passkeyLoginOptionsSchema,
+  passkeyLoginVerifySchema,
+  signupSchema,
+} from './auth.schema.js';
 
 const valid = {
   email: 'dana@example.com',
@@ -35,5 +41,38 @@ describe('signupSchema', () => {
 
   it('still enforces a minimum password length', () => {
     expect(signupSchema.safeParse({ ...valid, password: 'short' }).success).toBe(false);
+  });
+});
+
+describe('magicLinkRequestSchema', () => {
+  it('accepts valid email', () => {
+    expect(magicLinkRequestSchema.safeParse({ email: 'user@prosperity.test' }).success).toBe(true);
+  });
+
+  it('rejects invalid email', () => {
+    expect(magicLinkRequestSchema.safeParse({ email: 'not-an-email' }).success).toBe(false);
+  });
+});
+
+describe('magicLinkVerifySchema', () => {
+  it('requires token string', () => {
+    expect(magicLinkVerifySchema.safeParse({ token: 'abc123token' }).success).toBe(true);
+    expect(magicLinkVerifySchema.safeParse({ token: '' }).success).toBe(false);
+  });
+});
+
+describe('passkey schemas', () => {
+  it('validates passkey login options schema', () => {
+    expect(passkeyLoginOptionsSchema.safeParse({ email: 'test@example.com' }).success).toBe(true);
+    expect(passkeyLoginOptionsSchema.safeParse({}).success).toBe(true);
+  });
+
+  it('validates passkey login verify schema', () => {
+    expect(
+      passkeyLoginVerifySchema.safeParse({
+        response: { id: 'cred-123', rawId: 'raw-123' },
+        challengeId: '00000000-0000-0000-0000-000000000000',
+      }).success
+    ).toBe(true);
   });
 });
