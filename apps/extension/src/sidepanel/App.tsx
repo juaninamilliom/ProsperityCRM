@@ -112,7 +112,13 @@ export function App() {
       setImportSuccess(null);
       setImportError(null);
 
-      if (!tab.url.includes('linkedin.com/in/')) {
+      const isProfile =
+        tab.url.includes('linkedin.com/in/') ||
+        tab.url.includes('linkedin.com/sales/lead/') ||
+        tab.url.includes('linkedin.com/sales/people/') ||
+        tab.url.includes('linkedin.com/talent/profile/');
+
+      if (!isProfile) {
         setProfile(null);
         return;
       }
@@ -120,16 +126,74 @@ export function App() {
       setExtracting(true);
       try {
         chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PROFILE' }, async (response) => {
-          if (chrome.runtime.lastError || !response?.profile) {
-            setProfile(null);
-          } else {
+          if (!chrome.runtime.lastError && response?.profile && response.profile.full_name) {
             setProfile(response.profile);
             if (response.profile.linkedin_url) {
               const match = await checkLinkedInMatch(response.profile.linkedin_url);
               setDuplicateInfo(match);
             }
+            setExtracting(false);
+            return;
           }
-          setExtracting(false);
+
+          // Fallback: Programmatic executeScript on active tab directly
+          try {
+            const results = await chrome.scripting.executeScript({
+              target: { tabId: tab.id! },
+              func: () => {
+                const h1 = document.querySelector('h1.text-heading-xlarge, section.artdeco-card h1, main h1, h1');
+                const headlineEl = document.querySelector('.text-body-medium.break-words, div.pv-text-details__left-panel .text-body-medium, [data-anonymize="headline"]');
+                const locEl = document.querySelector('.text-body-small.inline.t-black--light.break-words, span.text-body-small.inline, [data-anonymize="location"]');
+                const avatarEl = document.querySelector('img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="photo of"]');
+                
+                let name = h1?.textContent?.trim() || '';
+                if (!name && document.title) {
+                  name = document.title.split(/[-–—|]/)[0]?.trim() || '';
+                }
+                const headline = headlineEl?.textContent?.trim() || '';
+                const location = locEl?.textContent?.trim().replace(/Contact info/i, '').trim() || '';
+                const avatar = (avatarEl as HTMLImageElement)?.src || null;
+
+                let title = headline;
+                let company = '';
+                const parts = headline.split(/\s+(?:at|@)\s+/i);
+                if (parts.length >= 2) {
+                  title = parts[0].trim();
+                  company = parts[1].split('|')[0].split('•')[0].trim();
+                }
+
+                return {
+                  full_name: name,
+                  headline,
+                  current_title: title,
+                  current_company: company,
+                  location,
+                  linkedin_url: window.location.href.split('?')[0].replace(/\/+$/, ''),
+                  avatar_url: avatar && !avatar.includes('ghost-person') && !avatar.includes('data:image') ? avatar : null,
+                  about: null,
+                  skills: [],
+                  email: null,
+                  phone: null,
+                };
+              },
+            });
+
+            const parsed = results?.[0]?.result;
+            if (parsed && parsed.full_name) {
+              setProfile(parsed);
+              if (parsed.linkedin_url) {
+                const match = await checkLinkedInMatch(parsed.linkedin_url);
+                setDuplicateInfo(match);
+              }
+            } else {
+              setProfile(null);
+            }
+          } catch (e) {
+            console.error('ExecuteScript failed:', e);
+            setProfile(null);
+          } finally {
+            setExtracting(false);
+          }
         });
       } catch {
         setExtracting(false);
@@ -266,7 +330,11 @@ export function App() {
     }
   }
 
-  const isLinkedInProfile = activeUrl.includes('linkedin.com/in/');
+  const isLinkedInProfile =
+    activeUrl.includes('linkedin.com/in/') ||
+    activeUrl.includes('linkedin.com/sales/lead/') ||
+    activeUrl.includes('linkedin.com/sales/people/') ||
+    activeUrl.includes('linkedin.com/talent/profile/');
 
   return (
     <div className="flex min-h-screen flex-col bg-app text-ink">

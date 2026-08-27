@@ -1,4 +1,4 @@
-// Hybrid LinkedIn Profile Parser (JSON-LD + Embedded State + Semantic DOM Heuristics)
+// Hybrid LinkedIn Profile Parser (JSON-LD + Embedded State + Multi-View DOM Heuristics)
 
 export interface ParsedCandidateProfile {
   full_name: string;
@@ -17,17 +17,30 @@ export interface ParsedCandidateProfile {
 export function normalizeLinkedInUrl(raw: string): string {
   try {
     const url = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
-    const match = url.pathname.match(/^\/(in|company)\/([^/?#]+)/i);
+    const match = url.pathname.match(/^\/(in|company|sales\/lead|talent\/profile)\/([^/?#]+)/i);
     if (match) {
-      return `https://www.linkedin.com/${match[1].toLowerCase()}/${match[2].toLowerCase()}`;
+      const slug = match[2].toLowerCase();
+      if (match[1].toLowerCase().startsWith('sales') || match[1].toLowerCase().startsWith('talent')) {
+        return `https://www.linkedin.com/in/${slug}`;
+      }
+      return `https://www.linkedin.com/${match[1].toLowerCase()}/${slug}`;
     }
   } catch {}
   return raw.split('?')[0].replace(/\/+$/, '');
 }
 
+export function isLinkedInProfileUrl(url: string): boolean {
+  return (
+    url.includes('linkedin.com/in/') ||
+    url.includes('linkedin.com/sales/lead/') ||
+    url.includes('linkedin.com/sales/people/') ||
+    url.includes('linkedin.com/talent/profile/')
+  );
+}
+
 export function extractLinkedInProfile(): ParsedCandidateProfile | null {
   const currentUrl = window.location.href;
-  if (!currentUrl.includes('linkedin.com/in/')) {
+  if (!isLinkedInProfileUrl(currentUrl)) {
     return null;
   }
 
@@ -84,23 +97,18 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
         const elements = json?.included || (Array.isArray(json) ? json : [json]);
 
         for (const el of elements) {
-          // Name
           if (!profile.full_name && el?.firstName && el?.lastName) {
             profile.full_name = `${el.firstName} ${el.lastName}`.trim();
           }
-          // Headline
           if (!profile.headline && el?.headline) {
             profile.headline = el.headline.trim();
           }
-          // Location
           if (!profile.location && el?.geoLocationName) {
             profile.location = el.geoLocationName.trim();
           }
-          // Skills
-          if (el?.name && el?.['$type']?.includes('Skill')) {
+          if (el?.name && (el?.['$type']?.includes('Skill') || el?.entityUrn?.includes('skill'))) {
             if (!profile.skills.includes(el.name)) profile.skills.push(el.name.trim());
           }
-          // Experience / Company
           if (!profile.current_company && el?.companyName) {
             profile.current_company = el.companyName.trim();
           }
@@ -114,52 +122,91 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
 
   // ─── 3. Resilient Semantic DOM Extraction Fallback ─────────────────────────
 
-  // Name: Top level h1 on the main profile card
+  // Name: Target all possible name containers
   if (!profile.full_name) {
-    const h1 = document.querySelector('h1.text-heading-xlarge, section.artdeco-card h1, .pv-top-card--list h1, h1');
-    if (h1) {
-      profile.full_name = h1.textContent?.trim() || '';
+    const nameSelectors = [
+      'h1.text-heading-xlarge',
+      'section.artdeco-card h1',
+      '.pv-top-card--list h1',
+      'div.pv-text-details__left-panel h1',
+      '[data-anonymize="person-name"]',
+      'main h1',
+      'h1',
+    ];
+    for (const selector of nameSelectors) {
+      const el = document.querySelector(selector);
+      const text = el?.textContent?.trim();
+      if (text && text.length > 1 && !text.toLowerCase().includes('feed')) {
+        profile.full_name = text;
+        break;
+      }
     }
   }
 
-  // Headline: Text immediately below name
+  // Fallback name from document title (e.g. "Juan Guardado | LinkedIn")
+  if (!profile.full_name && document.title) {
+    const titleMatch = document.title.split(/[-–—|]/)[0]?.trim();
+    if (titleMatch && !titleMatch.toLowerCase().includes('linkedin')) {
+      profile.full_name = titleMatch;
+    }
+  }
+
+  // Headline: Text immediately below name or top card
   if (!profile.headline) {
-    const headlineEl = document.querySelector(
-      '.text-body-medium.break-words, .pv-top-card--list-bullet .text-body-medium, [data-generated-suggestion-target]'
-    );
-    if (headlineEl) {
-      profile.headline = headlineEl.textContent?.trim() || '';
+    const headlineSelectors = [
+      '.text-body-medium.break-words',
+      '.pv-top-card--list-bullet .text-body-medium',
+      'div.pv-text-details__left-panel .text-body-medium',
+      '[data-anonymize="headline"]',
+      '[data-generated-suggestion-target]',
+    ];
+    for (const selector of headlineSelectors) {
+      const el = document.querySelector(selector);
+      const text = el?.textContent?.trim();
+      if (text && text.length > 2) {
+        profile.headline = text;
+        break;
+      }
     }
   }
 
   // Location
   if (!profile.location) {
-    const locEl = document.querySelector(
-      '.text-body-small.inline.t-black--light.break-words, .pv-top-card--list-bullet .text-body-small, span.text-body-small.inline'
-    );
-    if (locEl) {
-      profile.location = locEl.textContent?.trim().replace(/Contact info/i, '').trim() || '';
+    const locSelectors = [
+      '.text-body-small.inline.t-black--light.break-words',
+      '.pv-top-card--list-bullet .text-body-small',
+      'div.pv-text-details__left-panel span.text-body-small',
+      '[data-anonymize="location"]',
+      'span.text-body-small.inline',
+    ];
+    for (const selector of locSelectors) {
+      const el = document.querySelector(selector);
+      const text = el?.textContent?.trim().replace(/Contact info/i, '').trim();
+      if (text && text.length > 2 && !text.toLowerCase().includes('connections')) {
+        profile.location = text;
+        break;
+      }
     }
   }
 
   // Avatar Image
   if (!profile.avatar_url) {
     const avatarEl = document.querySelector<HTMLImageElement>(
-      'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo'
+      'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="profile picture"], img[alt*="photo of"]'
     );
-    if (avatarEl && avatarEl.src && !avatarEl.src.includes('ghost-person')) {
+    if (avatarEl && avatarEl.src && !avatarEl.src.includes('ghost-person') && !avatarEl.src.includes('data:image/gif')) {
       profile.avatar_url = avatarEl.src;
     }
   }
 
   // Parse Experience Section for Title & Company
   if (!profile.current_title || !profile.current_company) {
-    const expSection = document.querySelector('#experience, section[data-view-name*="profile-experience"]');
+    const expSection = document.querySelector('#experience, section[data-view-name*="profile-experience"], section[data-view-name*="experience"]');
     if (expSection) {
       const firstExp = expSection.closest('section')?.querySelector('li, ul > li');
       if (firstExp) {
-        const titleEl = firstExp.querySelector('span[aria-hidden="true"], .t-bold span');
-        const companyEl = firstExp.querySelector('span.t-normal span[aria-hidden="true"], span.t-14.t-normal span');
+        const titleEl = firstExp.querySelector('span[aria-hidden="true"], .t-bold span, div.display-flex span');
+        const companyEl = firstExp.querySelector('span.t-normal span[aria-hidden="true"], span.t-14.t-normal span, span.t-14.t-black--light span');
 
         if (titleEl && !profile.current_title) {
           profile.current_title = titleEl.textContent?.trim() || '';
@@ -172,7 +219,7 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     }
   }
 
-  // Infer Title and Company from Headline if still missing (e.g. "Senior Recruiter at Acme Corp")
+  // Infer Title and Company from Headline if still missing
   if (!profile.current_title && profile.headline) {
     const parts = profile.headline.split(/\s+(?:at|@)\s+/i);
     if (parts.length >= 2) {
@@ -185,10 +232,12 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
 
   // Extract visible skills badges
   if (profile.skills.length === 0) {
-    const skillCards = document.querySelectorAll('#skills ~ * a[data-field="skill_card_skill_topic"] span[aria-hidden="true"], [data-view-name*="profile-skills"] li span[aria-hidden="true"]');
+    const skillCards = document.querySelectorAll(
+      '#skills ~ * a[data-field="skill_card_skill_topic"] span[aria-hidden="true"], [data-view-name*="profile-skills"] li span[aria-hidden="true"], div.pv-skill-category-entity__name span'
+    );
     skillCards.forEach((el) => {
       const text = el.textContent?.trim();
-      if (text && !profile.skills.includes(text) && text.length < 40) {
+      if (text && !profile.skills.includes(text) && text.length < 40 && !text.includes('+')) {
         profile.skills.push(text);
       }
     });
