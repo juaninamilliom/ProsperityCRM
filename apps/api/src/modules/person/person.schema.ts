@@ -11,6 +11,8 @@ export const createPersonSchema = z.object({
   headline: z.string().optional().nullable().default(null),
   location: z.string().optional().nullable().default(null),
   current_company_id: z.string().uuid().optional().nullable().default(null),
+  current_company: z.string().optional().nullable(),
+  company_name: z.string().optional().nullable(),
   current_title: z.string().optional().nullable().default(null),
   skills: z.array(z.string()).default([]),
   notes: z.string().optional().nullable().default(null),
