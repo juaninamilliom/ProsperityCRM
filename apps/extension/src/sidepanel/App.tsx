@@ -17,7 +17,7 @@ import {
   type StatusConfig,
   type User,
 } from './api';
-import type { ParsedCandidateProfile } from '../content/linkedin-parser';
+import { extractLinkedInProfile, isLinkedInProfileUrl, type ParsedCandidateProfile } from '../content/linkedin-parser';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -112,19 +112,14 @@ export function App() {
       setImportSuccess(null);
       setImportError(null);
 
-      const isProfile =
-        tab.url.includes('linkedin.com/in/') ||
-        tab.url.includes('linkedin.com/sales/lead/') ||
-        tab.url.includes('linkedin.com/sales/people/') ||
-        tab.url.includes('linkedin.com/talent/profile/');
-
-      if (!isProfile) {
+      if (!isLinkedInProfileUrl(tab.url)) {
         setProfile(null);
         return;
       }
 
       setExtracting(true);
       try {
+        // Try content script message first
         chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PROFILE' }, async (response) => {
           if (!chrome.runtime.lastError && response?.profile && response.profile.full_name) {
             setProfile(response.profile);
@@ -136,49 +131,14 @@ export function App() {
             return;
           }
 
-          // Fallback: Programmatic executeScript on active tab directly
+          // Fallback: Direct executeScript on active tab
           try {
             const results = await chrome.scripting.executeScript({
               target: { tabId: tab.id! },
-              func: () => {
-                const h1 = document.querySelector('h1.text-heading-xlarge, section.artdeco-card h1, main h1, h1');
-                const headlineEl = document.querySelector('.text-body-medium.break-words, div.pv-text-details__left-panel .text-body-medium, [data-anonymize="headline"]');
-                const locEl = document.querySelector('.text-body-small.inline.t-black--light.break-words, span.text-body-small.inline, [data-anonymize="location"]');
-                const avatarEl = document.querySelector('img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="photo of"]');
-                
-                let name = h1?.textContent?.trim() || '';
-                if (!name && document.title) {
-                  name = document.title.split(/[-–—|]/)[0]?.trim() || '';
-                }
-                const headline = headlineEl?.textContent?.trim() || '';
-                const location = locEl?.textContent?.trim().replace(/Contact info/i, '').trim() || '';
-                const avatar = (avatarEl as HTMLImageElement)?.src || null;
-
-                let title = headline;
-                let company = '';
-                const parts = headline.split(/\s+(?:at|@)\s+/i);
-                if (parts.length >= 2) {
-                  title = parts[0].trim();
-                  company = parts[1].split('|')[0].split('•')[0].trim();
-                }
-
-                return {
-                  full_name: name,
-                  headline,
-                  current_title: title,
-                  current_company: company,
-                  location,
-                  linkedin_url: window.location.href.split('?')[0].replace(/\/+$/, ''),
-                  avatar_url: avatar && !avatar.includes('ghost-person') && !avatar.includes('data:image') ? avatar : null,
-                  about: null,
-                  skills: [],
-                  email: null,
-                  phone: null,
-                };
-              },
+              func: extractLinkedInProfile,
             });
 
-            const parsed = results?.[0]?.result;
+            const parsed = results?.[0]?.result as ParsedCandidateProfile | null;
             if (parsed && parsed.full_name) {
               setProfile(parsed);
               if (parsed.linkedin_url) {
@@ -189,7 +149,7 @@ export function App() {
               setProfile(null);
             }
           } catch (e) {
-            console.error('ExecuteScript failed:', e);
+            console.error('Extraction executeScript failed:', e);
             setProfile(null);
           } finally {
             setExtracting(false);
@@ -659,6 +619,34 @@ export function App() {
                   placeholder="Location"
                   className="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-xs"
                 />
+              </div>
+
+              {/* Contact Info (Email & Phone) */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] uppercase font-semibold text-ink-3">
+                    ✉️ Email
+                  </label>
+                  <input
+                    type="email"
+                    value={profile.email || ''}
+                    onChange={(e) => setProfile({ ...profile, email: e.target.value || null })}
+                    placeholder="candidate@email.com"
+                    className="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-semibold text-ink-3">
+                    📞 Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={profile.phone || ''}
+                    onChange={(e) => setProfile({ ...profile, phone: e.target.value || null })}
+                    placeholder="+1 (555) 000-0000"
+                    className="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-xs"
+                  />
+                </div>
               </div>
 
               {/* Skills */}
