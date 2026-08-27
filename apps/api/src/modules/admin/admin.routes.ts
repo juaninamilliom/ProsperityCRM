@@ -6,6 +6,7 @@ import { createLocalUser, deleteUser, getUserByEmail, listAllUsers, updateUserRo
 import { createInviteSchema } from '../invite/invite.schema.js';
 import { createInviteCode } from '../invite/invite.service.js';
 import { requireRootAdmin } from '../../middleware/root-admin.js';
+import { toPublicUser } from '../user/public-user.js';
 
 export const adminRouter = Router();
 
@@ -33,7 +34,7 @@ adminRouter.post('/organizations/:id/admins', requireRootAdmin, async (req, res)
     organizationId: req.params.id,
     role: 'OrgAdmin',
   });
-  res.json(updated);
+  res.json(updated ? toPublicUser(updated) : updated);
 });
 
 adminRouter.post('/organizations/:id/users', requireRootAdmin, async (req, res) => {
@@ -54,7 +55,7 @@ adminRouter.post('/organizations/:id/users', requireRootAdmin, async (req, res) 
     organization_id: req.params.id,
     role: parsed.data.role,
   });
-  res.status(201).json(user);
+  res.status(201).json(toPublicUser(user));
 });
 
 adminRouter.get('/users', requireRootAdmin, async (_req, res) => {
@@ -89,7 +90,7 @@ adminRouter.post('/users', requireRootAdmin, async (req, res) => {
     organization_id: orgId,
     role: parsed.data.role,
   });
-  res.status(201).json(user);
+  res.status(201).json(toPublicUser(user));
 });
 
 adminRouter.delete('/users/:id', requireRootAdmin, async (req, res) => {
