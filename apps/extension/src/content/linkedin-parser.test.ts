@@ -72,28 +72,59 @@ describe('LinkedIn Parser Utilities', () => {
       expect(profile?.phone).toBe('(415) 555-0199');
     });
 
-    it('extracts experience, title, and company from DOM structure', () => {
+    it('prioritizes structured Experience section for most recent title and company', () => {
+      document.body.innerHTML = `
+        <main>
+          <h1>Andrew Ng</h1>
+          <div class="text-body-medium">Founder of DeepLearning.AI; Managing General Partner at AI Fund; Co-Chairman & Co-Founder at Coursera</div>
+          <div id="experience"></div>
+          <div class="pvs-list__outer-container">
+            <ul>
+              <li class="artdeco-list__item">
+                <div class="display-flex">
+                  <span class="t-bold"><span aria-hidden="true">Managing General Partner</span></span>
+                  <span class="t-normal"><span aria-hidden="true">AI Fund · Full-time</span></span>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </main>
+      `;
+
+      const profile = extractLinkedInProfile();
+      expect(profile?.full_name).toBe('Andrew Ng');
+      expect(profile?.current_title).toBe('Managing General Partner');
+      expect(profile?.current_company).toBe('AI Fund');
+    });
+
+    it('handles nested grouped experiences with multiple positions at one company', () => {
       document.body.innerHTML = `
         <main>
           <h1>Elena Rostova</h1>
-          <div class="text-body-medium">Head of Growth at Fintech Co</div>
-          <div id="experience"></div>
-          <ul>
-            <li>
-              <div class="display-flex">
-                <span class="t-bold"><span aria-hidden="true">Head of Growth</span></span>
-                <span class="t-normal"><span aria-hidden="true">Fintech Co · Full-time</span></span>
-              </div>
-            </li>
-          </ul>
+          <div class="text-body-medium">Tech Leader & Advisor</div>
+          <section id="experience">
+            <ul>
+              <li class="artdeco-list__item">
+                <div class="display-flex">
+                  <span class="t-bold"><span aria-hidden="true">Google</span></span>
+                </div>
+                <div class="pvs-entity__sub-components">
+                  <ul class="pvs-list">
+                    <li>
+                      <span class="t-bold"><span aria-hidden="true">Senior Staff Software Engineer</span></span>
+                    </li>
+                  </ul>
+                </div>
+              </li>
+            </ul>
+          </section>
         </main>
       `;
 
       const profile = extractLinkedInProfile();
       expect(profile?.full_name).toBe('Elena Rostova');
-      expect(profile?.headline).toBe('Head of Growth at Fintech Co');
-      expect(profile?.current_title).toBe('Head of Growth');
-      expect(profile?.current_company).toBe('Fintech Co');
+      expect(profile?.current_title).toBe('Senior Staff Software Engineer');
+      expect(profile?.current_company).toBe('Google');
     });
   });
 });

@@ -143,17 +143,47 @@ export function App() {
 
       setExtracting(true);
       try {
+        const applyProfileAndMatch = async (candidate: ParsedCandidateProfile | null) => {
+          if (!candidate || !candidate.full_name) {
+            setProfile(null);
+            setExtracting(false);
+            return;
+          }
+
+          let finalProfile = candidate;
+          if (candidate.linkedin_url) {
+            const match = await checkLinkedInMatch(candidate.linkedin_url);
+            setDuplicateInfo(match);
+
+            if (match.isDuplicate && match.person) {
+              finalProfile = {
+                ...candidate,
+                full_name: candidate.full_name || match.person.full_name || '',
+                headline: candidate.headline || match.person.headline || '',
+                current_title: candidate.current_title || match.person.current_title || '',
+                current_company: candidate.current_company || match.person.company_name || '',
+                location: candidate.location || match.person.location || '',
+                email: candidate.email || match.person.email || null,
+                phone: candidate.phone || match.person.phone || null,
+                skills: candidate.skills && candidate.skills.length > 0 ? candidate.skills : match.person.skills || [],
+              };
+            }
+          }
+
+          setProfile(finalProfile);
+          setExtracting(false);
+        };
+
         chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PROFILE' }, async (response) => {
           const msgProfile = response?.profile as ParsedCandidateProfile | undefined;
-          
-          // If content script returned a full profile with title or company or headline, use it
-          if (!chrome.runtime.lastError && msgProfile?.full_name && (msgProfile.current_title || msgProfile.current_company || msgProfile.headline)) {
-            setProfile(msgProfile);
-            if (msgProfile.linkedin_url) {
-              const match = await checkLinkedInMatch(msgProfile.linkedin_url);
-              setDuplicateInfo(match);
-            }
-            setExtracting(false);
+
+          // If content script returned a full profile with title or company or headline
+          if (
+            !chrome.runtime.lastError &&
+            msgProfile?.full_name &&
+            (msgProfile.current_title || msgProfile.current_company || msgProfile.headline)
+          ) {
+            await applyProfileAndMatch(msgProfile);
             return;
           }
 
@@ -166,25 +196,19 @@ export function App() {
 
             const parsed = results?.[0]?.result as ParsedCandidateProfile | null;
             if (parsed && parsed.full_name) {
-              setProfile(parsed);
-              if (parsed.linkedin_url) {
-                const match = await checkLinkedInMatch(parsed.linkedin_url);
-                setDuplicateInfo(match);
-              }
+              await applyProfileAndMatch(parsed);
             } else if (msgProfile && msgProfile.full_name) {
-              setProfile(msgProfile);
+              await applyProfileAndMatch(msgProfile);
             } else {
-              setProfile(null);
+              await applyProfileAndMatch(null);
             }
           } catch (e) {
             console.error('Extraction executeScript failed:', e);
             if (msgProfile && msgProfile.full_name) {
-              setProfile(msgProfile);
+              await applyProfileAndMatch(msgProfile);
             } else {
-              setProfile(null);
+              await applyProfileAndMatch(null);
             }
-          } finally {
-            setExtracting(false);
           }
         });
       } catch {

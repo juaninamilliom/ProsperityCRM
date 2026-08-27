@@ -29,9 +29,13 @@ export interface CandidateDuplicateResult {
   person?: {
     person_id: string;
     full_name: string;
-    headline?: string;
-    current_title?: string;
-    company_name?: string;
+    headline?: string | null;
+    current_title?: string | null;
+    company_name?: string | null;
+    location?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    skills?: string[];
   };
 }
 
