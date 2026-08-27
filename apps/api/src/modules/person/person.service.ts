@@ -247,7 +247,21 @@ export async function findDuplicatePerson(
 
   const duplicateConditions = [];
   if (linkedinUrl) {
-    duplicateConditions.push(eq(people.linkedin_url, linkedinUrl));
+    const cleanUrl = linkedinUrl.split('?')[0].replace(/\/+$/, '').toLowerCase();
+    const slugMatch = cleanUrl.match(/\/(in|sales\/lead|sales\/people|talent\/profile)\/([^/?#]+)/i);
+    const slug = slugMatch ? slugMatch[2].toLowerCase() : null;
+
+    if (slug) {
+      duplicateConditions.push(
+        or(
+          sql`lower(${people.linkedin_url}) = ${cleanUrl}`,
+          ilike(people.linkedin_url, `%/in/${slug}%`),
+          ilike(people.linkedin_url, `%/${slug}`)
+        )
+      );
+    } else {
+      duplicateConditions.push(sql`lower(${people.linkedin_url}) = ${cleanUrl}`);
+    }
   }
   if (email) {
     duplicateConditions.push(sql`lower(${people.email}) = lower(${email})`);

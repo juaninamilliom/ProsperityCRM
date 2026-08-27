@@ -43,8 +43,16 @@ personRouter.post('/', async (req: AuthenticatedRequest, res) => {
 
   try {
     res.status(201).json(await service.createPerson(req.dbUser.organization_id, parsed.data));
-  } catch (error) {
-    if ((error as { code?: string }).code !== UNIQUE_VIOLATION) throw error;
+  } catch (error: any) {
+    const isUniqueViolation =
+      error?.code === UNIQUE_VIOLATION ||
+      error?.cause?.code === UNIQUE_VIOLATION ||
+      error?.code === '23505' ||
+      error?.message?.includes('unique constraint') ||
+      error?.message?.includes('duplicate key') ||
+      error?.detail?.includes('already exists');
+
+    if (!isUniqueViolation) throw error;
     const existing = await service.findDuplicatePerson(
       req.dbUser.organization_id,
       parsed.data.linkedin_url,

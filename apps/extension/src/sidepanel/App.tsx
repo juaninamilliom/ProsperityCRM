@@ -1,27 +1,37 @@
 import { useEffect, useState } from 'react';
 import {
+  autoDetectWebSession,
   checkLinkedInMatch,
+  clearAuthSession,
   fetchJobs,
   fetchMe,
   fetchStatuses,
-  getStoredConfig,
+  getAuthToken,
   importCandidateToCRM,
-  saveStoredConfig,
+  launchPasskeyAuthBridge,
+  loginWithPassword,
+  requestMagicLink,
+  verifyMagicLink,
+  WEB_APP_URL,
   type JobRequisition,
   type StatusConfig,
   type User,
 } from './api';
-import type { ParsedCandidateProfile } from '../content/linkedin-parser';
+import { extractLinkedInProfile, isLinkedInProfileUrl, type ParsedCandidateProfile } from '../content/linkedin-parser';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
 
-  // Settings State
-  const [apiUrl, setApiUrl] = useState('https://prosperitycrm.onrender.com');
-  const [token, setToken] = useState('');
-  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+  // Auth State
+  const [authMethod, setAuthMethod] = useState<'passwordless' | 'password'>('passwordless');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [magicCode, setMagicCode] = useState('');
+  const [magicSent, setMagicSent] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
 
   // Tab & Candidate State
   const [activeUrl, setActiveUrl] = useState<string>('');
@@ -41,13 +51,17 @@ export function App() {
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
-  // Initial load: config + user + active tab
+  // Initial load
   useEffect(() => {
-    getStoredConfig().then((cfg) => {
-      setApiUrl(cfg.apiUrl);
-      setToken(cfg.token);
+    getAuthToken().then(async (token) => {
+      let activeToken = token;
+      // If no token in extension storage, attempt to auto-sync from web CRM tab
+      if (!activeToken) {
+        const detected = await autoDetectWebSession();
+        if (detected) activeToken = detected;
+      }
 
-      if (cfg.token) {
+      if (activeToken) {
         fetchMe()
           .then((res) => {
             setCurrentUser(res.dbUser);
@@ -59,22 +73,45 @@ export function App() {
           .finally(() => setLoadingUser(false));
       } else {
         setLoadingUser(false);
-        setShowSettings(true); // Prompt token setup if missing
       }
     });
 
     inspectActiveTab();
   }, []);
 
-  // Listen for tab updates from background service worker
+  // Listen for tab switches, SPA navigation, and updates
   useEffect(() => {
     const messageListener = (msg: any) => {
       if (msg.type === 'LINKEDIN_PAGE_CHANGED' || msg.type === 'LINKEDIN_PAGE_UPDATED') {
         inspectActiveTab();
       }
     };
+
+    const tabActivatedListener = () => {
+      inspectActiveTab();
+    };
+
+    const tabUpdatedListener = (_tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (changeInfo.url || changeInfo.status === 'complete') {
+        inspectActiveTab();
+      }
+    };
+
+    const focusListener = () => {
+      inspectActiveTab();
+    };
+
     chrome.runtime.onMessage.addListener(messageListener);
-    return () => chrome.runtime.onMessage.removeListener(messageListener);
+    chrome.tabs.onActivated.addListener(tabActivatedListener);
+    chrome.tabs.onUpdated.addListener(tabUpdatedListener);
+    window.addEventListener('focus', focusListener);
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(messageListener);
+      chrome.tabs.onActivated.removeListener(tabActivatedListener);
+      chrome.tabs.onUpdated.removeListener(tabUpdatedListener);
+      window.removeEventListener('focus', focusListener);
+    };
   }, []);
 
   async function loadJobsAndStatuses() {
@@ -99,7 +136,7 @@ export function App() {
       setImportSuccess(null);
       setImportError(null);
 
-      if (!tab.url.includes('linkedin.com/in/')) {
+      if (!isLinkedInProfileUrl(tab.url)) {
         setProfile(null);
         return;
       }
@@ -107,17 +144,48 @@ export function App() {
       setExtracting(true);
       try {
         chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PROFILE' }, async (response) => {
-          if (chrome.runtime.lastError || !response?.profile) {
-            setProfile(null);
-          } else {
-            setProfile(response.profile);
-            // Check for CRM duplicate
-            if (response.profile.linkedin_url) {
-              const match = await checkLinkedInMatch(response.profile.linkedin_url);
+          const msgProfile = response?.profile as ParsedCandidateProfile | undefined;
+          
+          // If content script returned a full profile with title or company or headline, use it
+          if (!chrome.runtime.lastError && msgProfile?.full_name && (msgProfile.current_title || msgProfile.current_company || msgProfile.headline)) {
+            setProfile(msgProfile);
+            if (msgProfile.linkedin_url) {
+              const match = await checkLinkedInMatch(msgProfile.linkedin_url);
               setDuplicateInfo(match);
             }
+            setExtracting(false);
+            return;
           }
-          setExtracting(false);
+
+          // Fallback / Refresh: Execute the latest extractLinkedInProfile directly in the tab
+          try {
+            const results = await chrome.scripting.executeScript({
+              target: { tabId: tab.id! },
+              func: extractLinkedInProfile,
+            });
+
+            const parsed = results?.[0]?.result as ParsedCandidateProfile | null;
+            if (parsed && parsed.full_name) {
+              setProfile(parsed);
+              if (parsed.linkedin_url) {
+                const match = await checkLinkedInMatch(parsed.linkedin_url);
+                setDuplicateInfo(match);
+              }
+            } else if (msgProfile && msgProfile.full_name) {
+              setProfile(msgProfile);
+            } else {
+              setProfile(null);
+            }
+          } catch (e) {
+            console.error('Extraction executeScript failed:', e);
+            if (msgProfile && msgProfile.full_name) {
+              setProfile(msgProfile);
+            } else {
+              setProfile(null);
+            }
+          } finally {
+            setExtracting(false);
+          }
         });
       } catch {
         setExtracting(false);
@@ -125,22 +193,99 @@ export function App() {
     });
   }
 
-  async function handleSaveSettings() {
-    await saveStoredConfig({ apiUrl, token });
-    setSettingsMessage('Settings saved. Connecting…');
+  // ─── Authentication Handlers ───────────────────────────────────────────────
+
+  async function handlePasskeyLogin() {
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthSuccess('Opening Touch ID / Passkey authentication…');
     try {
-      const res = await fetchMe();
-      setCurrentUser(res.dbUser);
-      loadJobsAndStatuses();
-      setSettingsMessage('Connected to Prosperity CRM!');
-      setTimeout(() => {
-        setShowSettings(false);
-        setSettingsMessage(null);
-      }, 1200);
-    } catch {
-      setSettingsMessage('Invalid API URL or Token. Please verify.');
+      const token = await launchPasskeyAuthBridge();
+      if (token) {
+        const res = await fetchMe();
+        setCurrentUser(res.dbUser);
+        loadJobsAndStatuses();
+        setAuthSuccess('Welcome back, ' + res.dbUser.name + '!');
+      } else {
+        setAuthError('Authentication was not completed.');
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Touch ID authentication failed.');
+    } finally {
+      setAuthLoading(false);
     }
   }
+
+  async function handleMagicLinkRequest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!authEmail.trim()) {
+      setAuthError('Please enter your email.');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthSuccess(null);
+    try {
+      const res = await requestMagicLink(authEmail);
+      setMagicSent(true);
+      setAuthSuccess(res.message || 'Magic link sent! Check your email or paste the token below.');
+    } catch (err: any) {
+      setAuthError(err.message || 'Could not send magic link.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleMagicLinkVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (!magicCode.trim()) {
+      setAuthError('Please paste your sign-in code.');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const res = await verifyMagicLink(magicCode);
+      setCurrentUser(res.user);
+      loadJobsAndStatuses();
+      setAuthSuccess('Authenticated successfully!');
+    } catch (err: any) {
+      setAuthError(err.message || 'Invalid or expired magic link code.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handlePasswordLogin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!authEmail.trim() || !authPassword) {
+      setAuthError('Email and password are required.');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const res = await loginWithPassword(authEmail, authPassword);
+      setCurrentUser(res.user);
+      loadJobsAndStatuses();
+    } catch (err: any) {
+      setAuthError(err.message || 'Invalid email or password.');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    await clearAuthSession();
+    setCurrentUser(null);
+    setAuthSuccess(null);
+    setMagicSent(false);
+  }
+
+  // ─── Sourcing Handlers ─────────────────────────────────────────────────────
 
   async function handleImport() {
     if (!profile || !profile.full_name) {
@@ -152,8 +297,11 @@ export function App() {
     setImportError(null);
     setImportSuccess(null);
 
+    const isDuplicate = duplicateInfo.isDuplicate;
+    const selectedJob = jobs.find((j) => j.job_id === selectedJobId);
+
     try {
-      await importCandidateToCRM({
+      const result = await importCandidateToCRM({
         full_name: profile.full_name,
         headline: profile.headline,
         current_title: profile.current_title,
@@ -164,27 +312,40 @@ export function App() {
         email: profile.email || undefined,
         phone: profile.phone || undefined,
         job_id: selectedJobId || undefined,
+        company_id: selectedJob?.company_id || undefined,
         status_id: selectedStatusId || undefined,
         notes: notes || undefined,
+        existing_person_id: duplicateInfo.person?.person_id || undefined,
       });
 
-      setImportSuccess(`Successfully imported ${profile.full_name} into Prosperity CRM!`);
-      setDuplicateInfo({ isDuplicate: true });
+      if (isDuplicate) {
+        setImportSuccess(`Successfully updated info for ${profile.full_name}!`);
+      } else {
+        setImportSuccess(`Successfully imported ${profile.full_name} into Prosperity CRM!`);
+        if (result?.personId) {
+          setDuplicateInfo({ isDuplicate: true, person: { person_id: result.personId, full_name: profile.full_name } });
+        }
+      }
+      setNotes(''); // Clear notes input after saving
     } catch (err: any) {
-      setImportError(err.message || 'Failed to import candidate.');
+      setImportError(err.message || 'Failed to save candidate.');
     } finally {
       setImporting(false);
     }
   }
 
-  const isLinkedInProfile = activeUrl.includes('linkedin.com/in/');
+  const isLinkedInProfile =
+    activeUrl.includes('linkedin.com/in/') ||
+    activeUrl.includes('linkedin.com/sales/lead/') ||
+    activeUrl.includes('linkedin.com/sales/people/') ||
+    activeUrl.includes('linkedin.com/talent/profile/');
 
   return (
     <div className="flex min-h-screen flex-col bg-app text-ink">
       {/* ─── Header ────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-4 py-3 shadow-token">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-accent text-white shadow-sm">
+          <span className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-accent text-white shadow-sm font-bold text-xs">
             <svg
               width="15"
               height="15"
@@ -206,89 +367,204 @@ export function App() {
         </div>
 
         <div className="flex items-center gap-2">
-          {currentUser && (
-            <span className="hidden sm:inline-block rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-2">
-              {currentUser.name}
-            </span>
-          )}
           <button
             type="button"
-            onClick={() => setShowSettings(!showSettings)}
-            className="flex h-7 w-7 items-center justify-center rounded-control border border-border bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink transition"
-            title="Settings & API Key"
+            onClick={inspectActiveTab}
+            disabled={extracting}
+            className="flex items-center gap-1 rounded-[6px] border border-border bg-surface-2 px-2 py-1 text-[11px] font-medium text-ink-2 hover:text-ink hover:bg-surface-3 transition disabled:opacity-50"
+            title="Refresh active tab & re-extract candidate data"
           >
-            ⚙️
+            <span className={extracting ? 'animate-spin' : ''}>↻</span>
+            <span>Refresh</span>
           </button>
+          {currentUser && (
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-2">
+                {currentUser.name}
+              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-[11px] text-ink-3 hover:text-ink transition"
+                title="Sign out"
+              >
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </header>
-
-      {/* ─── Settings Drawer ────────────────────────────────────────────────── */}
-      {showSettings && (
-        <div className="border-b border-border bg-surface-2 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-2">
-              Extension Connection
-            </h2>
-            <button
-              onClick={() => setShowSettings(false)}
-              className="text-xs text-ink-3 hover:text-ink"
-            >
-              ✕ Close
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <div>
-              <label className="block text-[11px] font-medium text-ink-2 mb-1">API URL</label>
-              <input
-                type="text"
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
-                placeholder="https://prosperitycrm.onrender.com"
-                className="w-full rounded-control border border-border bg-surface px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-3"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-medium text-ink-2 mb-1">
-                Auth Token (JWT or Login)
-              </label>
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Paste your JWT token from Prosperity CRM"
-                className="w-full rounded-control border border-border bg-surface px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-3"
-              />
-            </div>
-
-            {settingsMessage && (
-              <p className="text-xs text-accent font-medium">{settingsMessage}</p>
-            )}
-
-            <button
-              type="button"
-              onClick={handleSaveSettings}
-              className="w-full rounded-control bg-accent py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
-            >
-              Save & Verify
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ─── Main Content ──────────────────────────────────────────────────── */}
       <main className="flex-1 p-4 flex flex-col gap-4">
         {loadingUser ? (
-          <div className="py-12 text-center text-xs text-ink-3">Connecting to workspace…</div>
+          <div className="py-12 text-center text-xs text-ink-3 flex flex-col items-center gap-2">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+            <span>Checking authentication…</span>
+          </div>
+        ) : !currentUser ? (
+          /* ─── Seamless Login Screen (Passkeys, Magic Link, Password) ────── */
+          <div className="my-auto flex flex-col gap-4 rounded-card border border-border bg-surface p-5 shadow-token">
+            <div className="text-center">
+              <h2 className="text-sm font-bold text-ink">Sign In to Prosperity CRM</h2>
+              <p className="text-xs text-ink-3 mt-0.5">
+                Authenticate to start sourcing candidates directly from LinkedIn.
+              </p>
+            </div>
+
+            {/* Passkey 1-Click Button */}
+            <button
+              type="button"
+              onClick={handlePasskeyLogin}
+              disabled={authLoading}
+              className="flex items-center justify-center gap-2 w-full rounded-control bg-accent py-2.5 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-50"
+            >
+              <span>🍏</span>
+              <span>{authLoading ? 'Verifying Touch ID…' : 'Sign in with Touch ID / Passkey'}</span>
+            </button>
+
+            <div className="relative flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border" />
+              </div>
+              <span className="relative bg-surface px-2 text-[10px] uppercase font-semibold text-ink-3">
+                Or with email
+              </span>
+            </div>
+
+            {authMethod === 'passwordless' ? (
+              /* Magic Link Flow */
+              !magicSent ? (
+                <form onSubmit={handleMagicLinkRequest} className="flex flex-col gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                      Work Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={authEmail}
+                      onChange={(e) => setAuthEmail(e.target.value)}
+                      placeholder="you@company.com"
+                      className="w-full rounded-control border border-border bg-surface px-3 py-2 text-xs text-ink outline-none focus:border-accent"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full rounded-control border border-border bg-surface-2 py-2 text-xs font-semibold text-ink hover:bg-surface-3 transition disabled:opacity-50"
+                  >
+                    {authLoading ? 'Sending…' : '✉️ Send 1-Click Sign-In Link'}
+                  </button>
+                </form>
+              ) : (
+                /* Magic Code Verification Flow */
+                <form onSubmit={handleMagicLinkVerify} className="flex flex-col gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                      Enter Sign-In Code or Token
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={magicCode}
+                      onChange={(e) => setMagicCode(e.target.value)}
+                      placeholder="Paste token or click link in email"
+                      className="w-full rounded-control border border-border bg-surface px-3 py-2 text-xs text-ink font-mono"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={authLoading}
+                      className="flex-1 rounded-control bg-accent py-2 text-xs font-semibold text-white transition hover:opacity-90"
+                    >
+                      Verify & Sign In
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMagicSent(false)}
+                      className="rounded-control border border-border px-3 py-2 text-xs text-ink-2 hover:text-ink"
+                    >
+                      Back
+                    </button>
+                  </div>
+                </form>
+              )
+            ) : (
+              /* Password Fallback Flow */
+              <form onSubmit={handlePasswordLogin} className="flex flex-col gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-medium text-ink-2 mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    className="w-full rounded-control border border-border bg-surface px-3 py-2 text-xs text-ink outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-ink-2 mb-1">Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-control border border-border bg-surface px-3 py-2 text-xs text-ink outline-none focus:border-accent"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full rounded-control bg-accent py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {authLoading ? 'Signing in…' : 'Sign In with Password'}
+                </button>
+              </form>
+            )}
+
+            {/* Auth Method Toggle */}
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={() =>
+                  setAuthMethod(authMethod === 'passwordless' ? 'password' : 'passwordless')
+                }
+                className="text-[11px] text-accent font-medium hover:underline"
+              >
+                {authMethod === 'passwordless'
+                  ? 'Use password instead'
+                  : 'Use 1-Click Magic Link instead'}
+              </button>
+            </div>
+
+            {/* Feedback Alerts */}
+            {authError && (
+              <p className="rounded-[8px] bg-warn-bg border border-warn-dot/20 p-2 text-xs text-warn-fg">
+                {authError}
+              </p>
+            )}
+            {authSuccess && (
+              <p className="rounded-[8px] bg-ok-bg border border-ok-dot/20 p-2 text-xs text-ok-fg">
+                {authSuccess}
+              </p>
+            )}
+          </div>
         ) : !isLinkedInProfile ? (
-          /* Empty / Prompt state when not on a profile */
+          /* ─── Empty / Helper state when not on a profile ──────────────────── */
           <div className="my-auto flex flex-col items-center gap-3 rounded-card border border-border bg-surface p-6 text-center shadow-token">
             <span className="text-3xl">🔍</span>
             <div className="flex flex-col gap-1">
               <h3 className="text-sm font-semibold">Navigate to a LinkedIn Profile</h3>
               <p className="text-xs text-ink-3 max-w-[240px]">
-                Open any candidate's profile page (e.g. <span className="font-mono text-accent">linkedin.com/in/...</span>) to capture details instantly.
+                Open any candidate's profile (e.g.{' '}
+                <span className="font-mono text-accent">linkedin.com/in/...</span>) to capture
+                details instantly.
               </p>
             </div>
             <button
@@ -300,13 +576,13 @@ export function App() {
             </button>
           </div>
         ) : extracting ? (
-          /* Parsing state */
+          /* ─── Extracting Profile State ─────────────────────────────────────── */
           <div className="my-auto flex flex-col items-center gap-3 py-12 text-center">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
             <p className="text-xs font-medium text-ink-2">Extracting profile data…</p>
           </div>
         ) : profile ? (
-          /* Parsed Profile Form & Pipeline Card */
+          /* ─── Candidate Form & Pipeline Sourcing ──────────────────────────── */
           <div className="flex flex-col gap-4">
             {/* Duplicate / New Banner */}
             {duplicateInfo.isDuplicate ? (
@@ -317,7 +593,7 @@ export function App() {
                 </span>
                 {duplicateInfo.person?.person_id && (
                   <a
-                    href={`${apiUrl.replace(/\/api$/, '')}/people/${duplicateInfo.person.person_id}`}
+                    href={`${WEB_APP_URL}/people/${duplicateInfo.person.person_id}`}
                     target="_blank"
                     rel="noreferrer"
                     className="font-semibold underline hover:opacity-80"
@@ -327,7 +603,7 @@ export function App() {
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 rounded-[8px] bg-accent/10 border border-accent/20 p-2.5 text-xs text-accent-ink">
+              <div className="flex items-center gap-1.5 rounded-[8px] bg-accent-soft border border-accent/20 p-2.5 text-xs text-accent-ink">
                 <span className="h-2 w-2 rounded-full bg-accent" />
                 <span className="font-semibold">New Candidate Ready to Import</span>
               </div>
@@ -335,6 +611,22 @@ export function App() {
 
             {/* Candidate Card Form */}
             <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-token">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
+                  Candidate Details
+                </span>
+                <button
+                  type="button"
+                  onClick={inspectActiveTab}
+                  disabled={extracting}
+                  className="text-[11px] text-accent font-medium hover:underline flex items-center gap-1 disabled:opacity-50"
+                  title="Re-scrape current page"
+                >
+                  <span className={extracting ? 'animate-spin' : ''}>↻</span>
+                  <span>Re-extract</span>
+                </button>
+              </div>
+
               <div className="flex items-center gap-3">
                 {profile.avatar_url ? (
                   <img
@@ -362,6 +654,33 @@ export function App() {
                     placeholder="Headline"
                     className="w-full text-xs text-ink-2 truncate bg-transparent border-b border-transparent hover:border-border focus:border-accent outline-none"
                   />
+                </div>
+              </div>
+
+              {/* LinkedIn URL Link & Field */}
+              <div className="pt-2 border-t border-border">
+                <label className="block text-[10px] uppercase font-semibold text-ink-3 mb-0.5">
+                  🔗 LinkedIn Profile URL
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={profile.linkedin_url}
+                    onChange={(e) => setProfile({ ...profile, linkedin_url: e.target.value })}
+                    placeholder="https://www.linkedin.com/in/username"
+                    className="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-xs font-mono text-accent truncate"
+                  />
+                  {profile.linkedin_url && (
+                    <a
+                      href={profile.linkedin_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-control border border-border bg-surface-2 px-2 py-1 text-xs hover:bg-surface-3 transition"
+                      title="Open Profile in New Tab"
+                    >
+                      ↗
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -397,6 +716,34 @@ export function App() {
                   placeholder="Location"
                   className="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-xs"
                 />
+              </div>
+
+              {/* Contact Info (Email & Phone) */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] uppercase font-semibold text-ink-3">
+                    ✉️ Email
+                  </label>
+                  <input
+                    type="email"
+                    value={profile.email || ''}
+                    onChange={(e) => setProfile({ ...profile, email: e.target.value || null })}
+                    placeholder="candidate@email.com"
+                    className="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-semibold text-ink-3">
+                    📞 Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={profile.phone || ''}
+                    onChange={(e) => setProfile({ ...profile, phone: e.target.value || null })}
+                    placeholder="+1 (555) 000-0000"
+                    className="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-xs"
+                  />
+                </div>
               </div>
 
               {/* Skills */}
@@ -489,7 +836,13 @@ export function App() {
                 disabled={importing}
                 className="w-full rounded-control bg-accent py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
               >
-                {importing ? 'Importing candidate…' : 'Import to Prosperity CRM'}
+                {importing
+                  ? duplicateInfo.isDuplicate
+                    ? 'Updating Info…'
+                    : 'Importing candidate…'
+                  : duplicateInfo.isDuplicate
+                  ? 'Update Info'
+                  : 'Import to Prosperity CRM'}
               </button>
             </div>
           </div>

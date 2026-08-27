@@ -38,11 +38,13 @@
     "activeTab",
     "scripting",
     "storage",
-    "tabs"
+    "tabs",
+    "cookies"
   ],
   "host_permissions": [
     "https://www.linkedin.com/*",
     "https://*.onrender.com/*",
+    "https://prosperity-crm-web.vercel.app/*",
     "http://localhost:*/*"
   ]
 }
