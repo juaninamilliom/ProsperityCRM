@@ -1,4 +1,4 @@
-// Hybrid LinkedIn Profile Parser (Experience-First Architecture + Clean DOM Tree-Walking)
+// Multi-Tiered LinkedIn Candidate Parser (JSON-LD + Voyager Entity Graph + Experience DOM + Top-Card)
 
 export interface ParsedCandidateProfile {
   full_name: string;
@@ -40,7 +40,12 @@ export function isLinkedInProfileUrl(url: string): boolean {
 
 /**
  * Extracts candidate information from the active LinkedIn tab.
- * Prioritizes the structured Experience section for current job title and company.
+ * Uses a robust cascade:
+ * 1. Schema.org JSON-LD (instant in HTML head)
+ * 2. LinkedIn Voyager Position data blobs
+ * 3. Structured Experience section DOM
+ * 4. Top-Card right panel widgets
+ * 5. Headline decomposition
  */
 export function extractLinkedInProfile(): ParsedCandidateProfile | null {
   const currentUrl = window.location.href;
@@ -79,7 +84,88 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     phone: null,
   };
 
-  // ─── 1. Name Extraction ───────────────────────────────────────────────────
+  // ─── TIER 1: Schema.org JSON-LD (Always in HTML head on initial SSR) ───────
+  try {
+    const jsonLdScripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+    for (const s of jsonLdScripts) {
+      const raw = s.textContent?.trim();
+      if (!raw) continue;
+      try {
+        const data = JSON.parse(raw);
+        const items = Array.isArray(data) ? data : data['@graph'] ? data['@graph'] : [data];
+        for (const item of items) {
+          if (item['@type'] === 'Person' || (item.name && (item.jobTitle || item.worksFor))) {
+            if (!profile.full_name && item.name) {
+              profile.full_name = typeof item.name === 'string' ? item.name.trim() : '';
+            }
+            if (!profile.current_title && item.jobTitle) {
+              if (Array.isArray(item.jobTitle) && item.jobTitle.length > 0) {
+                profile.current_title = String(item.jobTitle[0]).trim();
+              } else if (typeof item.jobTitle === 'string') {
+                profile.current_title = item.jobTitle.trim();
+              }
+            }
+            if (!profile.current_company && item.worksFor) {
+              const orgs = Array.isArray(item.worksFor) ? item.worksFor : [item.worksFor];
+              if (orgs[0]?.name && typeof orgs[0].name === 'string') {
+                profile.current_company = orgs[0].name.trim();
+              }
+            }
+            if (!profile.location && item.address) {
+              if (typeof item.address === 'string') {
+                profile.location = item.address.trim();
+              } else if (typeof item.address === 'object') {
+                const parts = [
+                  item.address.addressLocality,
+                  item.address.addressRegion,
+                  item.address.addressCountry,
+                ].filter(Boolean);
+                if (parts.length > 0) profile.location = parts.join(', ');
+              }
+            }
+            if (!profile.avatar_url && item.image) {
+              if (typeof item.image === 'string') profile.avatar_url = item.image;
+              else if (item.image?.contentUrl) profile.avatar_url = item.image.contentUrl;
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+
+  // ─── TIER 2: LinkedIn Voyager Position Blobs (code[id^="bpr-guid-"]) ───────
+  if (!profile.current_title || !profile.current_company) {
+    try {
+      const codeBlocks = Array.from(document.querySelectorAll('code[id^="bpr-guid-"]'));
+      for (const code of codeBlocks) {
+        const text = code.textContent?.trim();
+        if (!text || (!text.includes('Position') && !text.includes('companyName') && !text.includes('miniCompany'))) continue;
+        try {
+          const json = JSON.parse(text);
+          const elements = json.included || (Array.isArray(json) ? json : [json]);
+          for (const el of elements) {
+            // Check position entities
+            if (el.$type?.includes('Position') || (el.title && (el.companyName || el.company))) {
+              if (!profile.current_title && el.title && typeof el.title === 'string') {
+                profile.current_title = el.title.trim();
+              }
+              const comp = el.companyName || el.company?.name;
+              if (!profile.current_company && comp && typeof comp === 'string') {
+                profile.current_company = comp.trim();
+              }
+              if (!profile.location && el.locationName && typeof el.locationName === 'string') {
+                profile.location = el.locationName.trim();
+              }
+            }
+            if (profile.current_title && profile.current_company) break;
+          }
+        } catch {}
+        if (profile.current_title && profile.current_company) break;
+      }
+    } catch {}
+  }
+
+  // ─── TIER 3: DOM Name Extraction ──────────────────────────────────────────
   let nameEl: Element | null = null;
   const nameSelectors = [
     'h1.text-heading-xlarge',
@@ -105,7 +191,7 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       !text.toLowerCase().includes('notifications')
     ) {
       nameEl = el;
-      profile.full_name = text;
+      if (!profile.full_name) profile.full_name = text;
       break;
     }
   }
@@ -118,24 +204,12 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     }
   }
 
-  // If name was from title, locate its DOM element
-  if (!nameEl && profile.full_name) {
-    const headings = Array.from(document.querySelectorAll('h1, h2, h3, strong, b'));
-    for (const h of headings) {
-      if (h.textContent?.trim() === profile.full_name) {
-        nameEl = h;
-        break;
-      }
-    }
-  }
-
-  // ─── 2. Top-Card Container ────────────────────────────────────────────────
+  // ─── TIER 4: Top-Card Container & Headline ─────────────────────────────────
   const topCard: HTMLElement | null =
     (nameEl?.closest('section.artdeco-card, section, div[data-view-name="profile-top-card"], div.ph5, main') as HTMLElement) ||
     (document.querySelector('main section, [data-view-name="profile-top-card"], section.artdeco-card') as HTMLElement) ||
     (document.querySelector('main') as HTMLElement);
 
-  // ─── 3. Headline Extraction ───────────────────────────────────────────────
   const headlineSelectors = [
     '.text-body-medium.break-words',
     'div.pv-text-details__left-panel .text-body-medium',
@@ -167,122 +241,96 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     }
   }
 
-  // Tree-Walking Fallback for Headline
-  if (!profile.headline && nameEl) {
-    const parentContainer = nameEl.parentElement?.parentElement || nameEl.parentElement;
-    const textEls = parentContainer?.querySelectorAll('div, p, span') || [];
-    for (const el of Array.from(textEls)) {
-      const text = el.textContent?.trim();
+  // ─── TIER 5: Location Extraction ──────────────────────────────────────────
+  if (!profile.location) {
+    const locSelectors = [
+      '.text-body-small.inline.t-black--light.break-words',
+      'div.pv-text-details__left-panel span.text-body-small',
+      'div[data-view-name="profile-top-card"] span.text-body-small',
+      '[data-anonymize="location"]',
+      'span.text-body-small.inline',
+      '.pv-top-card--list-bullet .text-body-small',
+      'span.top-card__subline-item',
+      '.text-body-small',
+    ];
+
+    for (const sel of locSelectors) {
+      const el = topCard?.querySelector(sel) || document.querySelector(sel);
+      const rawText = el?.textContent?.trim() || '';
+      const text = rawText.replace(/Contact info/i, '').replace(/·.*$/, '').trim();
       if (
         text &&
         text.length > 2 &&
         text !== profile.full_name &&
+        text !== profile.headline &&
         !text.toLowerCase().includes('connection') &&
-        !text.toLowerCase().includes('contact info') &&
+        !text.toLowerCase().includes('followers') &&
         !text.toLowerCase().includes('message') &&
-        !text.toLowerCase().includes('follow')
+        !text.toLowerCase().includes('connect')
       ) {
-        profile.headline = text;
+        profile.location = text;
         break;
       }
     }
   }
 
-  // ─── 4. Location Extraction ───────────────────────────────────────────────
-  const locSelectors = [
-    '.text-body-small.inline.t-black--light.break-words',
-    'div.pv-text-details__left-panel span.text-body-small',
-    'div[data-view-name="profile-top-card"] span.text-body-small',
-    '[data-anonymize="location"]',
-    'span.text-body-small.inline',
-    '.pv-top-card--list-bullet .text-body-small',
-    'span.top-card__subline-item',
-    '.text-body-small',
-  ];
+  // ─── TIER 6: Structured Experience Section (DOM) ──────────────────────────
+  if (!profile.current_title || !profile.current_company) {
+    try {
+      const expSection = document.querySelector(
+        '#experience ~ .pvs-list__outer-container, section:has(#experience), section#experience, div#experience ~ ul, div[data-view-name*="profile-experience"]'
+      );
 
-  for (const sel of locSelectors) {
-    const el = topCard?.querySelector(sel) || document.querySelector(sel);
-    const rawText = el?.textContent?.trim() || '';
-    const text = rawText.replace(/Contact info/i, '').replace(/·.*$/, '').trim();
-    if (
-      text &&
-      text.length > 2 &&
-      text !== profile.full_name &&
-      text !== profile.headline &&
-      !text.toLowerCase().includes('connection') &&
-      !text.toLowerCase().includes('followers') &&
-      !text.toLowerCase().includes('message') &&
-      !text.toLowerCase().includes('connect')
-    ) {
-      profile.location = text;
-      break;
-    }
-  }
+      const firstExpItem = expSection?.querySelector(
+        'ul > li.artdeco-list__item, ul > li.pvs-list__paged-list-item, ul > li'
+      );
 
-  // ─── 5. Experience Section (PRIMARY: Most Recent Title & Company) ──────────
-  try {
-    const expSection = document.querySelector(
-      '#experience ~ .pvs-list__outer-container, section:has(#experience), section#experience, div#experience ~ ul, div[data-view-name*="profile-experience"]'
-    );
+      if (firstExpItem) {
+        const nestedSubList = firstExpItem.querySelector('.pvs-entity__sub-components, ul.pvs-list, ul');
+        if (nestedSubList) {
+          const compLine = firstExpItem.querySelector(
+            '.display-flex .t-bold span[aria-hidden="true"], span.t-bold span[aria-hidden="true"], span.t-bold'
+          );
+          const nestedTitle = nestedSubList.querySelector(
+            '.t-bold span[aria-hidden="true"], span.t-bold span[aria-hidden="true"], span.t-bold'
+          );
 
-    const firstExpItem = expSection?.querySelector(
-      'ul > li.artdeco-list__item, ul > li.pvs-list__paged-list-item, ul > li'
-    );
-
-    if (firstExpItem) {
-      // Check if this item represents multiple roles at the same company (nested grouping)
-      const nestedSubList = firstExpItem.querySelector('.pvs-entity__sub-components, ul.pvs-list, ul');
-      if (nestedSubList) {
-        // Top line is Company Name
-        const compLine = firstExpItem.querySelector(
-          '.display-flex .t-bold span[aria-hidden="true"], span.t-bold span[aria-hidden="true"], span.t-bold'
-        );
-        // First nested entry has the most recent Job Title
-        const nestedTitle = nestedSubList.querySelector(
-          '.t-bold span[aria-hidden="true"], span.t-bold span[aria-hidden="true"], span.t-bold'
-        );
-
-        if (nestedTitle?.textContent?.trim()) {
-          profile.current_title = nestedTitle.textContent.trim();
-        }
-        if (compLine?.textContent?.trim()) {
-          profile.current_company = compLine.textContent.trim().split('·')[0].trim();
-        }
-      } else {
-        // Single role at company
-        // Line 1: Job Title (bold)
-        const titleEl = firstExpItem.querySelector(
-          '.t-bold span[aria-hidden="true"], div.display-flex span.t-bold, span[aria-hidden="true"]'
-        );
-        // Line 2: Company Name (normal weight)
-        const compEl = firstExpItem.querySelector(
-          '.t-normal span[aria-hidden="true"], .t-black--light span[aria-hidden="true"], span.t-14.t-normal span, span.t-14.t-normal, span.t-14'
-        );
-        // Also check company logo link
-        const compLogoLink = firstExpItem.querySelector<HTMLAnchorElement>('a[href*="/company/"]');
-
-        if (titleEl?.textContent?.trim()) {
-          const t = titleEl.textContent.trim();
-          if (t !== profile.full_name && !t.toLowerCase().includes('present')) {
-            profile.current_title = t;
+          if (!profile.current_title && nestedTitle?.textContent?.trim()) {
+            profile.current_title = nestedTitle.textContent.trim();
           }
-        }
-
-        if (compEl?.textContent?.trim()) {
-          const c = compEl.textContent.trim().split('·')[0].split('•')[0].trim();
-          if (c && !c.toLowerCase().includes('yr') && !c.toLowerCase().includes('mo') && !c.toLowerCase().includes('present')) {
-            profile.current_company = c;
+          if (!profile.current_company && compLine?.textContent?.trim()) {
+            profile.current_company = compLine.textContent.trim().split('·')[0].trim();
           }
-        } else if (compLogoLink?.textContent?.trim()) {
-          profile.current_company = compLogoLink.textContent.trim().split('·')[0].trim();
+        } else {
+          const titleEl = firstExpItem.querySelector(
+            '.t-bold span[aria-hidden="true"], div.display-flex span.t-bold, span[aria-hidden="true"]'
+          );
+          const compEl = firstExpItem.querySelector(
+            '.t-normal span[aria-hidden="true"], .t-black--light span[aria-hidden="true"], span.t-14.t-normal span, span.t-14.t-normal, span.t-14'
+          );
+          const compLogoLink = firstExpItem.querySelector<HTMLAnchorElement>('a[href*="/company/"]');
+
+          if (!profile.current_title && titleEl?.textContent?.trim()) {
+            const t = titleEl.textContent.trim();
+            if (t !== profile.full_name && !t.toLowerCase().includes('present')) {
+              profile.current_title = t;
+            }
+          }
+
+          if (!profile.current_company && compEl?.textContent?.trim()) {
+            const c = compEl.textContent.trim().split('·')[0].split('•')[0].trim();
+            if (c && !c.toLowerCase().includes('yr') && !c.toLowerCase().includes('mo') && !c.toLowerCase().includes('present')) {
+              profile.current_company = c;
+            }
+          } else if (!profile.current_company && compLogoLink?.textContent?.trim()) {
+            profile.current_company = compLogoLink.textContent.trim().split('·')[0].trim();
+          }
         }
       }
-    }
-  } catch (err) {
-    console.debug('Experience section parsing error:', err);
+    } catch {}
   }
 
-  // ─── 6. Top-Card Right Panel Fallback for Company ─────────────────────────
+  // ─── TIER 7: Top-Card Right Panel Fallback for Company ────────────────────
   if (!profile.current_company) {
     const topCompSelectors = [
       'ul.pv-text-details__right-panel button span[aria-hidden="true"]',
@@ -305,7 +353,7 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     }
   }
 
-  // ─── 7. Headline Decomposition Fallback (if Experience wasn't available) ───
+  // ─── TIER 8: Headline Decomposition Fallback ──────────────────────────────
   if (!profile.current_title || !profile.current_company) {
     if (profile.headline) {
       const headline = profile.headline.trim();
@@ -332,20 +380,22 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     }
   }
 
-  // ─── 8. Avatar Image Extraction ───────────────────────────────────────────
-  const avatarEl =
-    topCard?.querySelector<HTMLImageElement>(
-      'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="profile picture"], img[alt*="photo of"], img[alt*="Profile photo"], img.evi-image'
-    ) ||
-    document.querySelector<HTMLImageElement>(
-      'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="photo of"]'
-    );
+  // ─── TIER 9: Avatar Image Extraction ──────────────────────────────────────
+  if (!profile.avatar_url) {
+    const avatarEl =
+      topCard?.querySelector<HTMLImageElement>(
+        'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="profile picture"], img[alt*="photo of"], img[alt*="Profile photo"], img.evi-image'
+      ) ||
+      document.querySelector<HTMLImageElement>(
+        'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="photo of"]'
+      );
 
-  if (avatarEl?.src && !avatarEl.src.includes('ghost-person') && !avatarEl.src.includes('data:image/gif')) {
-    profile.avatar_url = avatarEl.src;
+    if (avatarEl?.src && !avatarEl.src.includes('ghost-person') && !avatarEl.src.includes('data:image/gif')) {
+      profile.avatar_url = avatarEl.src;
+    }
   }
 
-  // ─── 9. About Summary & Candidate-Scoped Contact Info ────────────────────
+  // ─── TIER 10: About Summary & Candidate-Scoped Contact Info ───────────────
   try {
     const aboutSection = document.querySelector('#about, #about ~ *, section:has(#about), [data-view-name*="profile-about"]');
     if (aboutSection) {
@@ -388,7 +438,7 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     }
   } catch {}
 
-  // ─── 10. Skills Extraction ────────────────────────────────────────────────
+  // ─── TIER 11: Skills Extraction ───────────────────────────────────────────
   try {
     const skillElements = document.querySelectorAll(
       '#skills ~ * a[data-field="skill_card_skill_topic"] span[aria-hidden="true"], [data-view-name*="profile-skills"] li span[aria-hidden="true"], div.pv-skill-category-entity__name span, section:has(#skills) li span[aria-hidden="true"]'
