@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardPage } from './pages/DashboardPage';
 import { CandidateFormPage } from './pages/CandidateFormPage';
@@ -42,6 +42,7 @@ export default function App() {
 }
 
 function ProtectedLayout() {
+  const navigate = useNavigate();
   const [theme, toggleTheme] = useTheme();
   const token = getAuthToken();
   const { data, isLoading } = useQuery({
@@ -66,7 +67,7 @@ function ProtectedLayout() {
 
   function handleLogout() {
     setAuthToken(null);
-    window.location.href = '/login';
+    navigate('/login', { replace: true });
   }
 
   return (
