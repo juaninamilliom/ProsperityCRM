@@ -6,10 +6,8 @@ import {
   type PublicKeyCredentialRequestOptionsJSON,
 } from '@simplewebauthn/browser';
 
-export interface StoredConfig {
-  apiUrl: string;
-  token: string;
-}
+export const API_URL = 'https://prosperitycrm.onrender.com';
+export const WEB_APP_URL = 'https://prosperity-crm-web.vercel.app';
 
 export interface User {
   user_id: string;
@@ -43,22 +41,17 @@ export interface CandidateDuplicateResult {
   };
 }
 
-const DEFAULT_API_URL = 'https://prosperitycrm.onrender.com';
-
-export async function getStoredConfig(): Promise<StoredConfig> {
+export async function getAuthToken(): Promise<string> {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['apiUrl', 'token'], (result) => {
-      resolve({
-        apiUrl: result.apiUrl || DEFAULT_API_URL,
-        token: result.token || '',
-      });
+    chrome.storage.local.get(['token'], (result) => {
+      resolve(result.token || '');
     });
   });
 }
 
-export async function saveStoredConfig(config: Partial<StoredConfig>): Promise<void> {
+export async function saveAuthToken(token: string): Promise<void> {
   return new Promise((resolve) => {
-    chrome.storage.local.set(config, () => resolve());
+    chrome.storage.local.set({ token }, () => resolve());
   });
 }
 
@@ -89,7 +82,7 @@ export async function autoDetectWebSession(): Promise<string | null> {
 
       const detectedToken = results?.[0]?.result;
       if (detectedToken && typeof detectedToken === 'string') {
-        await saveStoredConfig({ token: detectedToken });
+        await saveAuthToken(detectedToken);
         return detectedToken;
       }
     }
@@ -100,8 +93,7 @@ export async function autoDetectWebSession(): Promise<string | null> {
 }
 
 export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const { apiUrl, token } = await getStoredConfig();
-  const cleanApiUrl = apiUrl.replace(/\/+$/, '');
+  const token = await getAuthToken();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -112,7 +104,7 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${cleanApiUrl}${endpoint}`, {
+  const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
   });
@@ -158,7 +150,7 @@ export async function loginWithPasskey(email?: string): Promise<{ token: string;
     }),
   });
 
-  await saveStoredConfig({ token: res.token });
+  await saveAuthToken(res.token);
   return res;
 }
 
@@ -174,7 +166,7 @@ export async function verifyMagicLink(token: string): Promise<{ token: string; u
     method: 'POST',
     body: JSON.stringify({ token: token.trim() }),
   });
-  await saveStoredConfig({ token: res.token });
+  await saveAuthToken(res.token);
   return res;
 }
 
@@ -183,7 +175,7 @@ export async function loginWithPassword(email: string, password: string): Promis
     method: 'POST',
     body: JSON.stringify({ email: email.trim(), password }),
   });
-  await saveStoredConfig({ token: res.token });
+  await saveAuthToken(res.token);
   return res;
 }
 

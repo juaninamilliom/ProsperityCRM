@@ -6,14 +6,14 @@ import {
   fetchJobs,
   fetchMe,
   fetchStatuses,
-  getStoredConfig,
+  getAuthToken,
   importCandidateToCRM,
   isPasskeySupported,
   loginWithPasskey,
   loginWithPassword,
   requestMagicLink,
-  saveStoredConfig,
   verifyMagicLink,
+  WEB_APP_URL,
   type JobRequisition,
   type StatusConfig,
   type User,
@@ -23,10 +23,8 @@ import type { ParsedCandidateProfile } from '../content/linkedin-parser';
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
 
-  // Settings & Auth State
-  const [apiUrl, setApiUrl] = useState('https://prosperitycrm.onrender.com');
+  // Auth State
   const [passkeySupported, setPasskeySupported] = useState(true);
   const [authMethod, setAuthMethod] = useState<'passwordless' | 'password'>('passwordless');
   const [authEmail, setAuthEmail] = useState('');
@@ -59,10 +57,8 @@ export function App() {
   useEffect(() => {
     isPasskeySupported().then(setPasskeySupported);
 
-    getStoredConfig().then(async (cfg) => {
-      setApiUrl(cfg.apiUrl);
-
-      let activeToken = cfg.token;
+    getAuthToken().then(async (token) => {
+      let activeToken = token;
       // If no token in extension storage, attempt to auto-sync from web CRM tab
       if (!activeToken) {
         const detected = await autoDetectWebSession();
@@ -298,7 +294,7 @@ export function App() {
         </div>
 
         <div className="flex items-center gap-2">
-          {currentUser ? (
+          {currentUser && (
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-2">
                 {currentUser.name}
@@ -312,57 +308,9 @@ export function App() {
                 Sign out
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowSettings(!showSettings)}
-              className="flex h-7 w-7 items-center justify-center rounded-control border border-border bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink transition text-xs"
-              title="Server Settings"
-            >
-              ⚙️
-            </button>
           )}
         </div>
       </header>
-
-      {/* ─── Settings / Server Config ───────────────────────────────────────── */}
-      {showSettings && (
-        <div className="border-b border-border bg-surface-2 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-2">
-              Server Connection
-            </h2>
-            <button
-              onClick={() => setShowSettings(false)}
-              className="text-xs text-ink-3 hover:text-ink"
-            >
-              ✕ Close
-            </button>
-          </div>
-          <div>
-            <label className="block text-[11px] font-medium text-ink-2 mb-1">API URL</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
-                placeholder="https://prosperitycrm.onrender.com"
-                className="flex-1 rounded-control border border-border bg-surface px-2.5 py-1.5 text-xs text-ink"
-              />
-              <button
-                type="button"
-                onClick={async () => {
-                  await saveStoredConfig({ apiUrl });
-                  setShowSettings(false);
-                }}
-                className="rounded-control bg-accent px-3 py-1.5 text-xs font-semibold text-white"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ─── Main Content ──────────────────────────────────────────────────── */}
       <main className="flex-1 p-4 flex flex-col gap-4">
@@ -564,7 +512,7 @@ export function App() {
                 </span>
                 {duplicateInfo.person?.person_id && (
                   <a
-                    href={`${apiUrl.replace(/\/api$/, '')}/people/${duplicateInfo.person.person_id}`}
+                    href={`${WEB_APP_URL}/people/${duplicateInfo.person.person_id}`}
                     target="_blank"
                     rel="noreferrer"
                     className="font-semibold underline hover:opacity-80"
