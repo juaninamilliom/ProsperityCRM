@@ -330,24 +330,58 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     } catch {}
   }
 
-  // ─── TIER 7: Top-Card Right Panel Fallback for Company ────────────────────
+  // ─── TIER 7: Top-Card Right Panel & Company Links Fallback ───────────────
+  if (!profile.current_company) {
+    // 1. Check direct company links in top-card or header
+    const compLinks = Array.from(
+      topCard?.querySelectorAll('a[href*="/company/"], a[href*="linkedin.com/company/"]') || []
+    );
+    for (const a of compLinks) {
+      const raw = a.textContent || '';
+      const text = raw
+        .replace(/Current company:?\s*/i, '')
+        .replace(/Company:?\s*/i, '')
+        .replace(/Education:?\s*/i, '')
+        .replace(/logo/i, '')
+        .trim();
+      if (text && text.length > 1 && !text.toLowerCase().includes('linkedin') && !text.toLowerCase().includes('follow')) {
+        profile.current_company = text.split('\n')[0].trim();
+        break;
+      }
+    }
+  }
+
   if (!profile.current_company) {
     const topCompSelectors = [
       'ul.pv-text-details__right-panel button span[aria-hidden="true"]',
       'ul.pv-text-details__right-panel li button div',
+      'ul.pv-text-details__right-panel li a span',
       'ul.pv-text-details__right-panel li span',
       'button[aria-label*="Current company"] span',
       'button[aria-label*="Current company"]',
       'div.pv-text-details__right-panel a span',
       'div.pv-text-details__right-panel button',
       'div[aria-label*="Current company"]',
+      'div.pv-text-details__right-panel',
     ];
 
     for (const sel of topCompSelectors) {
       const el = topCard?.querySelector(sel) || document.querySelector(sel);
-      const text = el?.textContent?.trim();
-      if (text && text.length > 1 && !text.toLowerCase().includes('company') && !text.toLowerCase().includes('education')) {
-        profile.current_company = text;
+      const raw = el?.textContent?.trim() || '';
+      const text = raw
+        .replace(/Current company:?\s*/i, '')
+        .replace(/Company:?\s*/i, '')
+        .replace(/Education:?\s*/i, '')
+        .replace(/Click to skip.*/i, '')
+        .trim();
+      if (
+        text &&
+        text.length > 1 &&
+        !text.toLowerCase().includes('followers') &&
+        !text.toLowerCase().includes('connections') &&
+        !text.toLowerCase().includes('education')
+      ) {
+        profile.current_company = text.split('\n')[0].trim();
         break;
       }
     }
@@ -375,6 +409,17 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       } else {
         if (!profile.current_title) {
           profile.current_title = primarySegment;
+        }
+      }
+
+      // Secondary check across full headline for company if still missing
+      if (!profile.current_company) {
+        const match = headline.match(/(?:at|@|of|–|-)\s+([A-Za-z0-9&.,\s'-]+?)(?:;|\/|\||•|$)/i);
+        if (match && match[1]) {
+          const comp = match[1].trim().split(/[,;]/)[0].trim();
+          if (comp.length > 1 && !comp.toLowerCase().includes('helping') && !comp.toLowerCase().includes('building')) {
+            profile.current_company = comp;
+          }
         }
       }
     }
