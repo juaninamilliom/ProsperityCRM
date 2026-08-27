@@ -79,15 +79,39 @@ export function App() {
     inspectActiveTab();
   }, []);
 
-  // Listen for tab updates from background service worker
+  // Listen for tab switches, SPA navigation, and updates
   useEffect(() => {
     const messageListener = (msg: any) => {
       if (msg.type === 'LINKEDIN_PAGE_CHANGED' || msg.type === 'LINKEDIN_PAGE_UPDATED') {
         inspectActiveTab();
       }
     };
+
+    const tabActivatedListener = () => {
+      inspectActiveTab();
+    };
+
+    const tabUpdatedListener = (_tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (changeInfo.url || changeInfo.status === 'complete') {
+        inspectActiveTab();
+      }
+    };
+
+    const focusListener = () => {
+      inspectActiveTab();
+    };
+
     chrome.runtime.onMessage.addListener(messageListener);
-    return () => chrome.runtime.onMessage.removeListener(messageListener);
+    chrome.tabs.onActivated.addListener(tabActivatedListener);
+    chrome.tabs.onUpdated.addListener(tabUpdatedListener);
+    window.addEventListener('focus', focusListener);
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(messageListener);
+      chrome.tabs.onActivated.removeListener(tabActivatedListener);
+      chrome.tabs.onUpdated.removeListener(tabUpdatedListener);
+      window.removeEventListener('focus', focusListener);
+    };
   }, []);
 
   async function loadJobsAndStatuses() {
@@ -331,6 +355,16 @@ export function App() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={inspectActiveTab}
+            disabled={extracting}
+            className="flex items-center gap-1 rounded-[6px] border border-border bg-surface-2 px-2 py-1 text-[11px] font-medium text-ink-2 hover:text-ink hover:bg-surface-3 transition disabled:opacity-50"
+            title="Refresh active tab & re-extract candidate data"
+          >
+            <span className={extracting ? 'animate-spin' : ''}>↻</span>
+            <span>Refresh</span>
+          </button>
           {currentUser && (
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-2">
@@ -565,6 +599,22 @@ export function App() {
 
             {/* Candidate Card Form */}
             <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-token">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
+                  Candidate Details
+                </span>
+                <button
+                  type="button"
+                  onClick={inspectActiveTab}
+                  disabled={extracting}
+                  className="text-[11px] text-accent font-medium hover:underline flex items-center gap-1 disabled:opacity-50"
+                  title="Re-scrape current page"
+                >
+                  <span className={extracting ? 'animate-spin' : ''}>↻</span>
+                  <span>Re-extract</span>
+                </button>
+              </div>
+
               <div className="flex items-center gap-3">
                 {profile.avatar_url ? (
                   <img
