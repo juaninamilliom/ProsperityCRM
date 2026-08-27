@@ -91,15 +91,31 @@ export function PersonDetailPage() {
                 {person.deals.length > 0 && <Chip tone="accent">BD contact</Chip>}
               </div>
               <div className="flex flex-wrap items-center gap-2.5 text-sm text-ink-2">
-                {person.current_title && person.company_name && (
+                {(person.current_title || person.company_name || person.headline) && (
                   <span>
-                    {person.current_title} at{' '}
-                    {person.current_company_id ? (
-                      <Link to={`/companies/${person.current_company_id}`} className="text-accent hover:text-accent-ink">
-                        {person.company_name}
-                      </Link>
+                    {person.current_title && person.company_name ? (
+                      <>
+                        {person.current_title} at{' '}
+                        {person.current_company_id ? (
+                          <Link to={`/companies/${person.current_company_id}`} className="text-accent hover:text-accent-ink">
+                            {person.company_name}
+                          </Link>
+                        ) : (
+                          person.company_name
+                        )}
+                      </>
+                    ) : person.current_title ? (
+                      person.current_title
+                    ) : person.company_name ? (
+                      person.current_company_id ? (
+                        <Link to={`/companies/${person.current_company_id}`} className="text-accent hover:text-accent-ink">
+                          {person.company_name}
+                        </Link>
+                      ) : (
+                        person.company_name
+                      )
                     ) : (
-                      person.company_name
+                      person.headline
                     )}
                   </span>
                 )}

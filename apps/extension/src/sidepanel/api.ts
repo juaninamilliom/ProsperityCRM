@@ -249,6 +249,8 @@ export async function importCandidateToCRM(payload: {
         body: JSON.stringify({
           headline: payload.headline || undefined,
           current_title: payload.current_title || undefined,
+          current_company: payload.current_company || undefined,
+          company_name: payload.current_company || undefined,
           location: payload.location || undefined,
           skills: payload.skills && payload.skills.length > 0 ? payload.skills : undefined,
           email: payload.email || undefined,
@@ -267,6 +269,8 @@ export async function importCandidateToCRM(payload: {
           full_name: payload.full_name,
           headline: payload.headline,
           current_title: payload.current_title,
+          current_company: payload.current_company,
+          company_name: payload.current_company,
           location: payload.location,
           linkedin_url: payload.linkedin_url,
           skills: payload.skills || [],

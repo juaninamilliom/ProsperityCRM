@@ -104,7 +104,9 @@ export function PeoplePage() {
                   </span>
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-base font-medium">{person.full_name}</span>
-                    <span className="truncate text-xs text-ink-3">{person.headline ?? '—'}</span>
+                    <span className="truncate text-xs text-ink-3">
+                      {person.headline ?? person.current_title ?? '—'}
+                    </span>
                   </span>
                 </span>
                 <span className="truncate text-sm text-ink-2">{person.company_name ?? '—'}</span>

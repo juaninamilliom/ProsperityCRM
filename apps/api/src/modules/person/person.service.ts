@@ -181,9 +181,51 @@ export async function getPerson(personId: string) {
   };
 }
 
+async function resolveOrCreateCompanyId(
+  organizationId: string,
+  companyId?: string | null,
+  companyName?: string | null
+): Promise<string | null> {
+  if (companyId) return companyId;
+  if (!companyName || companyName.trim().length === 0) return null;
+
+  const trimmed = companyName.trim();
+  const [existing] = await db
+    .select({ company_id: companies.company_id })
+    .from(companies)
+    .where(
+      and(
+        eq(companies.organization_id, organizationId),
+        ilike(companies.name, trimmed)
+      )
+    )
+    .limit(1);
+
+  if (existing) {
+    return existing.company_id;
+  }
+
+  const [created] = await db
+    .insert(companies)
+    .values({
+      organization_id: organizationId,
+      name: trimmed,
+      relationship: 'prospect',
+    })
+    .returning({ company_id: companies.company_id });
+
+  return created?.company_id ?? null;
+}
+
 export async function createPerson(organizationId: string, input: CreatePersonInput) {
   const skills = normalizeSkillNames(input.skills ?? []);
   await ensureOrganizationSkills(organizationId, skills);
+
+  const companyId = await resolveOrCreateCompanyId(
+    organizationId,
+    input.current_company_id,
+    input.current_company || input.company_name
+  );
 
   const [row] = await db
     .insert(people)
@@ -195,7 +237,7 @@ export async function createPerson(organizationId: string, input: CreatePersonIn
       linkedin_url: input.linkedin_url,
       headline: input.headline,
       location: input.location,
-      current_company_id: input.current_company_id,
+      current_company_id: companyId,
       current_title: input.current_title,
       skills,
       notes: input.notes,
@@ -218,9 +260,19 @@ export async function updatePerson(
       const skills = normalizeSkillNames((value as string[] | undefined) ?? []);
       await ensureOrganizationSkills(organizationId, skills);
       updateValues.skills = skills;
-    } else {
+    } else if (key !== 'company_name' && key !== 'current_company') {
       updateValues[key] = value;
     }
+  }
+
+  const companyNameInput = input.current_company || input.company_name;
+  if (input.current_company_id !== undefined || companyNameInput !== undefined) {
+    const companyId = await resolveOrCreateCompanyId(
+      organizationId,
+      input.current_company_id,
+      companyNameInput
+    );
+    updateValues.current_company_id = companyId;
   }
 
   if (Object.keys(updateValues).length === 0) {
@@ -233,7 +285,7 @@ export async function updatePerson(
   const [updated] = await db
     .update(people)
     .set(updateValues)
-    .where(eq(people.person_id, personId))
+    .where(and(eq(people.person_id, personId), eq(people.organization_id, organizationId)))
     .returning();
   return updated ?? null;
 }
