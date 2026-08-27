@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   integer,
   jsonb,
@@ -348,3 +349,43 @@ export const pipelineEntriesRelations = relations(pipelineEntries, ({ one, many 
   history: many(entryStatusHistory),
   activities: many(activities),
 }));
+
+export const passkeys = pgTable('passkeys', {
+  passkey_id: uuid('passkey_id').defaultRandom().primaryKey(),
+  user_id: uuid('user_id')
+    .references(() => users.user_id, { onDelete: 'cascade' })
+    .notNull(),
+  credential_id: text('credential_id').notNull().unique(),
+  public_key: text('public_key').notNull(),
+  counter: bigint('counter', { mode: 'number' }).default(0).notNull(),
+  device_name: text('device_name'),
+  transports: jsonb('transports').$type<string[]>().default([]),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  last_used_at: timestamp('last_used_at', { withTimezone: true }),
+});
+
+export const passkeysRelations = relations(passkeys, ({ one }) => ({
+  user: one(users, {
+    fields: [passkeys.user_id],
+    references: [users.user_id],
+  }),
+}));
+
+export const magicLinks = pgTable('magic_links', {
+  link_id: uuid('link_id').defaultRandom().primaryKey(),
+  email: text('email').notNull(),
+  token_hash: text('token_hash').notNull().unique(),
+  invite_code: text('invite_code'),
+  expires_at: timestamp('expires_at', { withTimezone: true }).notNull(),
+  used_at: timestamp('used_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const authChallenges = pgTable('auth_challenges', {
+  challenge_id: uuid('challenge_id').defaultRandom().primaryKey(),
+  user_id: uuid('user_id').references(() => users.user_id, { onDelete: 'cascade' }),
+  challenge: text('challenge').notNull(),
+  expires_at: timestamp('expires_at', { withTimezone: true }).notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
