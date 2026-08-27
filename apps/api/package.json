@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
+    "migrate": "node ../../scripts/run-migrations.mjs",
     "test": "vitest run"
   },
   "dependencies": {
