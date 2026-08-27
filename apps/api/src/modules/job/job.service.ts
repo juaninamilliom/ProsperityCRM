@@ -28,7 +28,7 @@ export async function listJobs() {
       opportunity_id: jobRequisitions.opportunity_id,
       created_at: jobRequisitions.created_at,
       company_name: companies.name,
-      total_entries: sql<number>`coalesce((select count(*) from pipeline_entries e where e.job_id = ${jobRequisitions.job_id}), 0)::int`,
+      total_entries: sql<number>`coalesce((select count(*) from pipeline_entries e where e.job_id = job_requisitions.job_id), 0)::int`,
     })
     .from(jobRequisitions)
     .leftJoin(companies, eq(companies.company_id, jobRequisitions.company_id))

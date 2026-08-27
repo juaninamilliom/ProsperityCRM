@@ -51,9 +51,9 @@ export async function listPeople(filters: { search?: string; company_id?: string
       updated_at: people.updated_at,
       company_name: companies.name,
       company_relationship: companies.relationship,
-      entry_count: sql<number>`(select count(*) from pipeline_entries e where e.person_id = ${people.person_id})::int`,
-      deal_count: sql<number>`(select count(*) from opportunity_contacts oc where oc.person_id = ${people.person_id})::int`,
-      last_touch: sql<string | null>`(select max(a.occurred_at) from activities a where a.person_id = ${people.person_id})`,
+      entry_count: sql<number>`(select count(*) from pipeline_entries e where e.person_id = people.person_id)::int`,
+      deal_count: sql<number>`(select count(*) from opportunity_contacts oc where oc.person_id = people.person_id)::int`,
+      last_touch: sql<string | null>`(select max(a.occurred_at) from activities a where a.person_id = people.person_id)`,
     })
     .from(people)
     .leftJoin(companies, eq(companies.company_id, people.current_company_id))

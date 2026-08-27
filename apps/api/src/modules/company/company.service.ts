@@ -43,10 +43,10 @@ export async function listCompanies(filters: { relationship?: string; search?: s
       notes: companies.notes,
       created_at: companies.created_at,
       updated_at: companies.updated_at,
-      contact_count: sql<number>`(select count(*) from people p where p.current_company_id = ${companies.company_id})::int`,
-      open_deals: sql<number>`(select count(*) from bd_opportunities o where o.company_id = ${companies.company_id} and o.stage not in ('signed','lost'))::int`,
-      open_reqs: sql<number>`(select count(*) from job_requisitions j where j.company_id = ${companies.company_id} and j.status = 'open')::int`,
-      last_touch: sql<string | null>`(select max(a.occurred_at) from activities a where a.company_id = ${companies.company_id})`,
+      contact_count: sql<number>`(select count(*) from people p where p.current_company_id = companies.company_id)::int`,
+      open_deals: sql<number>`(select count(*) from bd_opportunities o where o.company_id = companies.company_id and o.stage not in ('signed','lost'))::int`,
+      open_reqs: sql<number>`(select count(*) from job_requisitions j where j.company_id = companies.company_id and j.status = 'open')::int`,
+      last_touch: sql<string | null>`(select max(a.occurred_at) from activities a where a.company_id = companies.company_id)`,
     })
     .from(companies)
     .where(whereClause)

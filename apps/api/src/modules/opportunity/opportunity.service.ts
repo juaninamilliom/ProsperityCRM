@@ -56,11 +56,11 @@ export async function listOpportunities(filters: { company_id?: string; stage?: 
           order by oc.created_at)
           from opportunity_contacts oc
           join people p on p.person_id = oc.person_id
-         where oc.opportunity_id = ${bdOpportunities.opportunity_id}
+         where oc.opportunity_id = bd_opportunities.opportunity_id
       ), '[]'::json)`,
       last_touch: sql<string | null>`(
         select max(a.occurred_at) from activities a
-        where a.opportunity_id = ${bdOpportunities.opportunity_id}
+        where a.opportunity_id = bd_opportunities.opportunity_id
       )`,
     })
     .from(bdOpportunities)
@@ -95,11 +95,11 @@ export async function getOpportunity(opportunityId: string) {
           order by oc.created_at)
           from opportunity_contacts oc
           join people p on p.person_id = oc.person_id
-         where oc.opportunity_id = ${bdOpportunities.opportunity_id}
+         where oc.opportunity_id = bd_opportunities.opportunity_id
       ), '[]'::json)`,
       last_touch: sql<string | null>`(
         select max(a.occurred_at) from activities a
-        where a.opportunity_id = ${bdOpportunities.opportunity_id}
+        where a.opportunity_id = bd_opportunities.opportunity_id
       )`,
     })
     .from(bdOpportunities)
