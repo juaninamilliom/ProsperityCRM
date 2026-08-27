@@ -14,6 +14,7 @@ export interface JobRequisition {
   job_id: string;
   title: string;
   status: string;
+  company_id?: string | null;
   company_name: string | null;
 }
 
@@ -233,38 +234,97 @@ export async function importCandidateToCRM(payload: {
   email?: string;
   phone?: string;
   job_id?: string;
+  company_id?: string;
   status_id?: string;
+  existing_person_id?: string;
 }) {
-  const person = await apiRequest<any>('/people', {
-    method: 'POST',
-    body: JSON.stringify({
-      full_name: payload.full_name,
-      headline: payload.headline,
-      current_title: payload.current_title,
-      location: payload.location,
-      linkedin_url: payload.linkedin_url,
-      skills: payload.skills || [],
-      notes: payload.notes,
-      email: payload.email || undefined,
-      phone: payload.phone || undefined,
-      source: 'linkedin_capture',
-    }),
-  });
+  let personId = payload.existing_person_id;
+  let personData: any = null;
 
-  if (payload.job_id && person?.person?.person_id) {
-    const personId = person.person.person_id;
-    await apiRequest('/pipeline-entries', {
+  if (personId) {
+    // 1. Existing candidate: update details if changed
+    try {
+      personData = await apiRequest(`/people/${personId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          headline: payload.headline || undefined,
+          current_title: payload.current_title || undefined,
+          location: payload.location || undefined,
+          skills: payload.skills && payload.skills.length > 0 ? payload.skills : undefined,
+          email: payload.email || undefined,
+          phone: payload.phone || undefined,
+        }),
+      });
+    } catch (e) {
+      console.warn('Could not patch existing person:', e);
+    }
+  } else {
+    // 2. New candidate: create person (or gracefully resolve duplicate)
+    try {
+      const res = await apiRequest<any>('/people', {
+        method: 'POST',
+        body: JSON.stringify({
+          full_name: payload.full_name,
+          headline: payload.headline,
+          current_title: payload.current_title,
+          location: payload.location,
+          linkedin_url: payload.linkedin_url,
+          skills: payload.skills || [],
+          notes: payload.notes,
+          email: payload.email || undefined,
+          phone: payload.phone || undefined,
+          source: 'linkedin_capture',
+        }),
+      });
+      personData = res;
+      personId = res?.person?.person_id || res?.person_id;
+    } catch (err: any) {
+      // If candidate already exists in database, resolve their ID
+      const match = await checkLinkedInMatch(payload.linkedin_url);
+      if (match.person?.person_id) {
+        personId = match.person.person_id;
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // 3. If note is present, record as timestamped Activity note
+  if (personId && payload.notes && payload.notes.trim().length > 0) {
+    await apiRequest('/activities', {
       method: 'POST',
       body: JSON.stringify({
         person_id: personId,
-        job_id: payload.job_id,
-        current_status_id: payload.status_id,
-        notes: payload.notes,
+        channel: 'note',
+        direction: 'internal',
+        body: payload.notes.trim(),
       }),
     }).catch((err) => {
-      console.warn('Could not create pipeline entry immediately:', err);
+      console.warn('Could not record activity note:', err);
     });
   }
 
-  return person;
+  // 4. If assigned to a job requisition, create pipeline entry
+  if (personId && payload.job_id && payload.status_id) {
+    const me = await fetchMe().catch(() => null);
+    const recruiterId = me?.dbUser?.user_id || me?.tokenUser?.user_id;
+
+    if (payload.company_id && recruiterId) {
+      await apiRequest('/pipeline-entries', {
+        method: 'POST',
+        body: JSON.stringify({
+          person_id: personId,
+          company_id: payload.company_id,
+          job_id: payload.job_id,
+          current_status_id: payload.status_id,
+          recruiter_id: recruiterId,
+          notes: payload.notes || undefined,
+        }),
+      }).catch((err) => {
+        console.warn('Could not create pipeline entry:', err);
+      });
+    }
+  }
+
+  return { personId, person: personData };
 }

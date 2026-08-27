@@ -297,8 +297,11 @@ export function App() {
     setImportError(null);
     setImportSuccess(null);
 
+    const isDuplicate = duplicateInfo.isDuplicate;
+    const selectedJob = jobs.find((j) => j.job_id === selectedJobId);
+
     try {
-      await importCandidateToCRM({
+      const result = await importCandidateToCRM({
         full_name: profile.full_name,
         headline: profile.headline,
         current_title: profile.current_title,
@@ -309,14 +312,23 @@ export function App() {
         email: profile.email || undefined,
         phone: profile.phone || undefined,
         job_id: selectedJobId || undefined,
+        company_id: selectedJob?.company_id || undefined,
         status_id: selectedStatusId || undefined,
         notes: notes || undefined,
+        existing_person_id: duplicateInfo.person?.person_id || undefined,
       });
 
-      setImportSuccess(`Successfully imported ${profile.full_name} into Prosperity CRM!`);
-      setDuplicateInfo({ isDuplicate: true });
+      if (isDuplicate) {
+        setImportSuccess(`Successfully updated info for ${profile.full_name}!`);
+      } else {
+        setImportSuccess(`Successfully imported ${profile.full_name} into Prosperity CRM!`);
+        if (result?.personId) {
+          setDuplicateInfo({ isDuplicate: true, person: { person_id: result.personId, full_name: profile.full_name } });
+        }
+      }
+      setNotes(''); // Clear notes input after saving
     } catch (err: any) {
-      setImportError(err.message || 'Failed to import candidate.');
+      setImportError(err.message || 'Failed to save candidate.');
     } finally {
       setImporting(false);
     }
@@ -824,7 +836,13 @@ export function App() {
                 disabled={importing}
                 className="w-full rounded-control bg-accent py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
               >
-                {importing ? 'Importing candidate…' : 'Import to Prosperity CRM'}
+                {importing
+                  ? duplicateInfo.isDuplicate
+                    ? 'Updating Info…'
+                    : 'Importing candidate…'
+                  : duplicateInfo.isDuplicate
+                  ? 'Update Info'
+                  : 'Import to Prosperity CRM'}
               </button>
             </div>
           </div>
