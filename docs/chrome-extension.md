@@ -2,6 +2,9 @@
 
 The Prosperity CRM Chrome Extension (`@prosperity/extension`) empowers recruiters to source candidates directly from LinkedIn into Prosperity CRM with zero context switching.
 
+> 📖 **Looking for the Recruiter User Guide & Installation instructions?** Check out the [Recruiter User Guide](./recruiter-user-guide.md).
+> 📦 **To package the extension for distribution:** Run `npm run package:extension` to generate `prosperity-crm-extension.zip`.
+
 ---
 
 ## 1. Extension Architecture (Manifest V3)
