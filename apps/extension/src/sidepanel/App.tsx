@@ -645,6 +645,33 @@ export function App() {
                 </div>
               </div>
 
+              {/* LinkedIn URL Link & Field */}
+              <div className="pt-2 border-t border-border">
+                <label className="block text-[10px] uppercase font-semibold text-ink-3 mb-0.5">
+                  🔗 LinkedIn Profile URL
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={profile.linkedin_url}
+                    onChange={(e) => setProfile({ ...profile, linkedin_url: e.target.value })}
+                    placeholder="https://www.linkedin.com/in/username"
+                    className="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-xs font-mono text-accent truncate"
+                  />
+                  {profile.linkedin_url && (
+                    <a
+                      href={profile.linkedin_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-control border border-border bg-surface-2 px-2 py-1 text-xs hover:bg-surface-3 transition"
+                      title="Open Profile in New Tab"
+                    >
+                      ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
                 <div>
                   <label className="block text-[10px] uppercase font-semibold text-ink-3">Title</label>

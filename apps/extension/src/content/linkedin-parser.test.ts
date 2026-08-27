@@ -72,38 +72,21 @@ describe('LinkedIn Parser Utilities', () => {
       expect(profile?.phone).toBe('(415) 555-0199');
     });
 
-    it('decodes Voyager HTML-comment wrapped JSON hydration tags', () => {
-      const voyagerData = JSON.stringify({
-        included: [
-          {
-            $type: 'com.linkedin.voyager.dash.identity.profile.Profile',
-            firstName: 'Elena',
-            lastName: 'Rostova',
-            headline: 'Head of Growth at Fintech Co',
-            geoLocationName: 'New York City Metropolitan Area',
-            summary: 'Leading growth and product strategy.',
-            emailAddress: 'elena@fintech.co',
-            phoneNumber: '+1 212-555-1234',
-          },
-          {
-            $type: 'com.linkedin.voyager.dash.identity.profile.Position',
-            title: 'Head of Growth',
-            companyName: 'Fintech Co',
-          },
-          {
-            $type: 'com.linkedin.voyager.dash.identity.profile.Skill',
-            name: 'Growth Marketing',
-          },
-          {
-            $type: 'com.linkedin.voyager.dash.identity.profile.Skill',
-            name: 'Product Analytics',
-          },
-        ],
-      });
-
+    it('extracts experience, title, and company from DOM structure', () => {
       document.body.innerHTML = `
-        <code id="bpr-guid-999"><!--${voyagerData}--></code>
-        <h1>Elena Rostova</h1>
+        <main>
+          <h1>Elena Rostova</h1>
+          <div class="text-body-medium">Head of Growth at Fintech Co</div>
+          <div id="experience"></div>
+          <ul>
+            <li>
+              <div class="display-flex">
+                <span class="t-bold"><span aria-hidden="true">Head of Growth</span></span>
+                <span class="t-normal"><span aria-hidden="true">Fintech Co · Full-time</span></span>
+              </div>
+            </li>
+          </ul>
+        </main>
       `;
 
       const profile = extractLinkedInProfile();
@@ -111,11 +94,6 @@ describe('LinkedIn Parser Utilities', () => {
       expect(profile?.headline).toBe('Head of Growth at Fintech Co');
       expect(profile?.current_title).toBe('Head of Growth');
       expect(profile?.current_company).toBe('Fintech Co');
-      expect(profile?.location).toBe('New York City Metropolitan Area');
-      expect(profile?.email).toBe('elena@fintech.co');
-      expect(profile?.phone).toBe('+1 212-555-1234');
-      expect(profile?.skills).toContain('Growth Marketing');
-      expect(profile?.skills).toContain('Product Analytics');
     });
   });
 });
