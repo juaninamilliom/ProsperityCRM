@@ -19,3 +19,4 @@ apps/web/src/**/*.d.ts
 
 AGENTS.md
 *.tsbuildinfo
+*.zip
