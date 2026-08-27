@@ -23,3 +23,13 @@ See `AGENTS.md` for contributor details.
 ## Local Email/Password (Temporary)
 
 Until SSO is wired up, `/auth/signup` and `/auth/login` allow simple email/password onboarding. The `/login` page wraps those endpoints and stores the returned bearer token in `localStorage`; all app routes require that token, so logging out simply clears it. This flow is for development only (no password hashing or refresh tokens) and should be replaced/disabled once SSO + Passport are configured.
+
+## Chrome Extension (LinkedIn Sourcing)
+
+Prosperity CRM includes a Manifest V3 Chrome Extension located in `apps/extension` for 1-click candidate sourcing directly from LinkedIn into your CRM pipeline.
+
+1. Build the extension: `npm run build --workspace @prosperity/extension`
+2. Open Chrome → `chrome://extensions` → toggle **Developer mode** on
+3. Click **Load unpacked** and select `apps/extension/dist`
+4. For detailed documentation, see [docs/chrome-extension.md](docs/chrome-extension.md) and [apps/extension/README.md](apps/extension/README.md).
+

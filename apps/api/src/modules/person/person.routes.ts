@@ -15,6 +15,15 @@ personRouter.get('/', async (req, res) => {
   res.json(await service.listPeople(parsed.data));
 });
 
+personRouter.get('/lookup-linkedin', async (req: AuthenticatedRequest, res) => {
+  const url = req.query.url as string | undefined;
+  if (!url || !req.dbUser) {
+    return res.status(400).json({ message: 'LinkedIn URL and auth required' });
+  }
+  const duplicate = await service.findDuplicatePerson(req.dbUser.organization_id, url, undefined);
+  res.json({ match: Boolean(duplicate), person: duplicate });
+});
+
 personRouter.get('/:personId', async (req, res) => {
   const person = await service.getPerson(req.params.personId);
   if (!person) {
