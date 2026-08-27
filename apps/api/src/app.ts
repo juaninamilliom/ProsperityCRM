@@ -26,11 +26,27 @@ export function createApp() {
   app.use(
     cors({
       origin: (origin, callback) => {
-        if (!origin || config.corsOrigins.length === 0 || config.corsOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
+        if (!origin) {
+          return callback(null, true);
         }
+
+        // Allow localhost and local development ports
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+          return callback(null, true);
+        }
+
+        // Allow any Vercel deployment preview or production domain (*.vercel.app)
+        if (origin.endsWith('.vercel.app') || /^https:\/\/[a-zA-Z0-9_-]+\.vercel\.app$/.test(origin)) {
+          return callback(null, true);
+        }
+
+        // Allow configured origins
+        const allowedOrigins = config.corsOrigins.map((o) => o.trim().replace(/\/+$/, ''));
+        if (allowedOrigins.length === 0 || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        return callback(null, false);
       },
       credentials: true,
     })
