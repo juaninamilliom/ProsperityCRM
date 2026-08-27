@@ -1,11 +1,4 @@
 // Prosperity CRM API Client & Authentication Engine for Chrome Extension
-import {
-  browserSupportsWebAuthn,
-  platformAuthenticatorIsAvailable,
-  startAuthentication,
-  type PublicKeyCredentialRequestOptionsJSON,
-} from '@simplewebauthn/browser';
-
 export const API_URL = 'https://prosperitycrm.onrender.com';
 export const WEB_APP_URL = 'https://prosperity-crm-web.vercel.app';
 
@@ -76,7 +69,11 @@ export async function autoDetectWebSession(): Promise<string | null> {
       const results = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
-          return localStorage.getItem('token') || localStorage.getItem('auth_token');
+          return (
+            localStorage.getItem('prosperity_token') ||
+            localStorage.getItem('token') ||
+            localStorage.getItem('auth_token')
+          );
         },
       });
 
@@ -90,6 +87,52 @@ export async function autoDetectWebSession(): Promise<string | null> {
     console.debug('Auto-detect web session not available:', err);
   }
   return null;
+}
+
+/** Launches 1-click Touch ID / Passkey web authentication bridge */
+export async function launchPasskeyAuthBridge(): Promise<string | null> {
+  const tab = await chrome.tabs.create({
+    url: `${WEB_APP_URL}/login?extension_auth=1`,
+    active: true,
+  });
+
+  return new Promise((resolve) => {
+    const interval = setInterval(async () => {
+      try {
+        if (!tab.id) {
+          clearInterval(interval);
+          resolve(null);
+          return;
+        }
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            return (
+              localStorage.getItem('prosperity_token') ||
+              localStorage.getItem('token') ||
+              localStorage.getItem('auth_token')
+            );
+          },
+        });
+        const token = results?.[0]?.result;
+        if (token && typeof token === 'string') {
+          clearInterval(interval);
+          await saveAuthToken(token);
+          // Auto close the login helper tab
+          chrome.tabs.remove(tab.id).catch(() => {});
+          resolve(token);
+        }
+      } catch {
+        // Tab navigating or closing
+      }
+    }, 600);
+
+    // Timeout after 2 minutes
+    setTimeout(() => {
+      clearInterval(interval);
+      resolve(null);
+    }, 120000);
+  });
 }
 
 export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -118,41 +161,6 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
 }
 
 // ─── Authentication Methods ──────────────────────────────────────────────────
-
-export async function isPasskeySupported(): Promise<boolean> {
-  if (!browserSupportsWebAuthn()) return false;
-  try {
-    return await platformAuthenticatorIsAvailable();
-  } catch {
-    return false;
-  }
-}
-
-export async function loginWithPasskey(email?: string): Promise<{ token: string; user: User }> {
-  // 1. Get challenge options
-  const { options, challengeId } = await apiRequest<{
-    options: PublicKeyCredentialRequestOptionsJSON;
-    challengeId: string;
-  }>('/auth/passkey/login-options', {
-    method: 'POST',
-    body: JSON.stringify({ email: email?.trim() || undefined }),
-  });
-
-  // 2. Prompt Touch ID / Face ID / Device Biometrics
-  const credential = await startAuthentication({ optionsJSON: options });
-
-  // 3. Verify signature
-  const res = await apiRequest<{ token: string; user: User }>('/auth/passkey/login-verify', {
-    method: 'POST',
-    body: JSON.stringify({
-      response: credential,
-      challengeId,
-    }),
-  });
-
-  await saveAuthToken(res.token);
-  return res;
-}
 
 export async function requestMagicLink(email: string): Promise<{ message: string; devUrl?: string }> {
   return apiRequest('/auth/magic-link/request', {

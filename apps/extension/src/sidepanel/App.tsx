@@ -8,8 +8,7 @@ import {
   fetchStatuses,
   getAuthToken,
   importCandidateToCRM,
-  isPasskeySupported,
-  loginWithPasskey,
+  launchPasskeyAuthBridge,
   loginWithPassword,
   requestMagicLink,
   verifyMagicLink,
@@ -25,7 +24,6 @@ export function App() {
   const [loadingUser, setLoadingUser] = useState(true);
 
   // Auth State
-  const [passkeySupported, setPasskeySupported] = useState(true);
   const [authMethod, setAuthMethod] = useState<'passwordless' | 'password'>('passwordless');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -55,8 +53,6 @@ export function App() {
 
   // Initial load
   useEffect(() => {
-    isPasskeySupported().then(setPasskeySupported);
-
     getAuthToken().then(async (token) => {
       let activeToken = token;
       // If no token in extension storage, attempt to auto-sync from web CRM tab
@@ -146,14 +142,19 @@ export function App() {
   async function handlePasskeyLogin() {
     setAuthLoading(true);
     setAuthError(null);
-    setAuthSuccess(null);
+    setAuthSuccess('Opening Touch ID / Passkey authentication…');
     try {
-      const res = await loginWithPasskey(authEmail || undefined);
-      setCurrentUser(res.user);
-      loadJobsAndStatuses();
-      setAuthSuccess('Welcome back, ' + res.user.name + '!');
+      const token = await launchPasskeyAuthBridge();
+      if (token) {
+        const res = await fetchMe();
+        setCurrentUser(res.dbUser);
+        loadJobsAndStatuses();
+        setAuthSuccess('Welcome back, ' + res.dbUser.name + '!');
+      } else {
+        setAuthError('Authentication was not completed.');
+      }
     } catch (err: any) {
-      setAuthError(err.message || 'Passkey authentication failed. Try magic link or password.');
+      setAuthError(err.message || 'Touch ID authentication failed.');
     } finally {
       setAuthLoading(false);
     }
@@ -330,17 +331,15 @@ export function App() {
             </div>
 
             {/* Passkey 1-Click Button */}
-            {passkeySupported && (
-              <button
-                type="button"
-                onClick={handlePasskeyLogin}
-                disabled={authLoading}
-                className="flex items-center justify-center gap-2 w-full rounded-control bg-accent py-2.5 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-50"
-              >
-                <span>🍏</span>
-                <span>{authLoading ? 'Verifying Touch ID…' : 'Sign in with Touch ID / Passkey'}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handlePasskeyLogin}
+              disabled={authLoading}
+              className="flex items-center justify-center gap-2 w-full rounded-control bg-accent py-2.5 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-50"
+            >
+              <span>🍏</span>
+              <span>{authLoading ? 'Verifying Touch ID…' : 'Sign in with Touch ID / Passkey'}</span>
+            </button>
 
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 flex items-center">
