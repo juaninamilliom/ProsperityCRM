@@ -1,4 +1,4 @@
-// Hybrid LinkedIn Profile Parser (JSON-LD + Voyager Hydration State + Semantic DOM Heuristics)
+// Hybrid LinkedIn Profile Parser (JSON-LD + Voyager Hydration State + Semantic Tree-Walking DOM Heuristics)
 
 export interface ParsedCandidateProfile {
   full_name: string;
@@ -39,7 +39,7 @@ export function isLinkedInProfileUrl(url: string): boolean {
 }
 
 /**
- * Self-contained extractor function that can run inside a content script
+ * Self-contained, tree-walking extractor function that can run inside a content script
  * or be passed directly to chrome.scripting.executeScript({ func: extractLinkedInProfile }).
  */
 export function extractLinkedInProfile(): ParsedCandidateProfile | null {
@@ -54,7 +54,7 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     return null;
   }
 
-  // Helper: Normalize URL
+  // Helper: Clean LinkedIn URL
   let cleanUrl = currentUrl.split('?')[0].replace(/\/+$/, '');
   try {
     const urlObj = new URL(cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`);
@@ -157,7 +157,7 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
           if (!profile.about && el.summary) {
             profile.about = el.summary.trim();
           }
-          // Title & Company from Experience records
+          // Title & Company from Position models
           if (el.title && !profile.current_title) {
             profile.current_title = el.title.trim();
           }
@@ -182,28 +182,30 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     }
   } catch {}
 
-  // ─── 3. Resilient DOM Extraction ───────────────────────────────────────────
+  // ─── 3. Semantic Tree-Walking DOM Extraction ───────────────────────────────
 
-  // Name
-  if (!profile.full_name) {
-    const nameSelectors = [
-      'h1.text-heading-xlarge',
-      'section.artdeco-card h1',
-      'div[data-view-name="profile-top-card"] h1',
-      '.pv-top-card--list h1',
-      'div.pv-text-details__left-panel h1',
-      '[data-anonymize="person-name"]',
-      'main section.artdeco-card h1',
-      'main h1',
-      'h1',
-    ];
-    for (const sel of nameSelectors) {
-      const el = document.querySelector(sel);
-      const text = el?.textContent?.trim();
-      if (text && text.length > 1 && !text.toLowerCase().includes('feed') && !text.toLowerCase().includes('linkedin')) {
-        profile.full_name = text;
-        break;
-      }
+  // A. Find Name & Locate the Top Card Element
+  let nameEl: Element | null = null;
+  const nameSelectors = [
+    'h1.text-heading-xlarge',
+    'section.artdeco-card h1',
+    'div[data-view-name="profile-top-card"] h1',
+    'div.pv-text-details__left-panel h1',
+    '.pv-top-card--list h1',
+    '[data-anonymize="person-name"]',
+    'main section h1',
+    'main h1',
+    'h1',
+    'h2.text-heading-xlarge',
+  ];
+
+  for (const sel of nameSelectors) {
+    const el = document.querySelector(sel);
+    const text = el?.textContent?.trim();
+    if (text && text.length > 1 && !text.toLowerCase().includes('feed') && !text.toLowerCase().includes('linkedin') && !text.toLowerCase().includes('search')) {
+      nameEl = el;
+      if (!profile.full_name) profile.full_name = text;
+      break;
     }
   }
 
@@ -215,33 +217,65 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     }
   }
 
-  // Headline
+  // Locate the Top-Card container
+  const topCard: HTMLElement | null =
+    (nameEl?.closest('section.artdeco-card, section, div[data-view-name="profile-top-card"], div.ph5, main') as HTMLElement) ||
+    (document.querySelector('main section, [data-view-name="profile-top-card"], section.artdeco-card') as HTMLElement) ||
+    document.body;
+
+  // B. Extract Headline: Check explicit selectors, then walk siblings/children of top card
   if (!profile.headline) {
     const headlineSelectors = [
       '.text-body-medium.break-words',
-      '.text-body-medium',
       'div.pv-text-details__left-panel .text-body-medium',
       'div[data-view-name="profile-top-card"] .text-body-medium',
       '[data-generated-suggestion-target]',
       '[data-anonymize="headline"]',
       '.pv-top-card--list-bullet .text-body-medium',
       'section.artdeco-card .text-body-medium',
-      'main section div.text-body-medium',
-      '.ph5 .text-body-medium',
-      'h1 + div',
-      'h1 ~ div',
+      '.text-body-medium',
+      'div.top-card__headline',
+      'p.text-body-medium',
     ];
+
     for (const sel of headlineSelectors) {
-      const el = document.querySelector(sel);
+      const el = topCard?.querySelector(sel) || document.querySelector(sel);
       const text = el?.textContent?.trim();
-      if (text && text.length > 2 && !text.toLowerCase().includes('connect') && !text.toLowerCase().includes('message')) {
+      if (
+        text &&
+        text.length > 2 &&
+        !text.toLowerCase().includes('connection') &&
+        !text.toLowerCase().includes('contact info') &&
+        !text.toLowerCase().includes('message') &&
+        !text.toLowerCase().includes('connect')
+      ) {
         profile.headline = text;
         break;
       }
     }
   }
 
-  // Location
+  // Tree-Walking Fallback for Headline: Check element following nameEl
+  if (!profile.headline && nameEl) {
+    const parent = nameEl.parentElement;
+    let nextNode = nameEl.nextElementSibling || parent?.nextElementSibling;
+    while (nextNode) {
+      const text = nextNode.textContent?.trim();
+      if (
+        text &&
+        text.length > 2 &&
+        !text.toLowerCase().includes('connection') &&
+        !text.toLowerCase().includes('contact info') &&
+        !text.toLowerCase().includes('message')
+      ) {
+        profile.headline = text;
+        break;
+      }
+      nextNode = nextNode.nextElementSibling;
+    }
+  }
+
+  // C. Extract Location
   if (!profile.location) {
     const locSelectors = [
       '.text-body-small.inline.t-black--light.break-words',
@@ -250,28 +284,39 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       '[data-anonymize="location"]',
       'span.text-body-small.inline',
       '.pv-top-card--list-bullet .text-body-small',
+      'span.top-card__subline-item',
+      '.text-body-small',
     ];
+
     for (const sel of locSelectors) {
-      const el = document.querySelector(sel);
+      const el = topCard?.querySelector(sel) || document.querySelector(sel);
       const text = el?.textContent?.trim().replace(/Contact info/i, '').trim();
-      if (text && text.length > 2 && !text.toLowerCase().includes('connection')) {
+      if (
+        text &&
+        text.length > 2 &&
+        !text.toLowerCase().includes('connection') &&
+        !text.toLowerCase().includes('followers') &&
+        !text.toLowerCase().includes('message')
+      ) {
         profile.location = text;
         break;
       }
     }
   }
 
-  // Avatar Image
+  // D. Extract Avatar Image
   if (!profile.avatar_url) {
-    const avatarEl = document.querySelector<HTMLImageElement>(
-      'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="profile picture"], img[alt*="photo of"], img[alt*="Profile photo"], main section.artdeco-card img.evi-image'
+    const avatarEl = topCard?.querySelector<HTMLImageElement>(
+      'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="profile picture"], img[alt*="photo of"], img[alt*="Profile photo"], img.evi-image'
+    ) || document.querySelector<HTMLImageElement>(
+      'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="photo of"]'
     );
     if (avatarEl?.src && !avatarEl.src.includes('ghost-person') && !avatarEl.src.includes('data:image/gif')) {
       profile.avatar_url = avatarEl.src;
     }
   }
 
-  // Company from Top-Card Right Panel (Widgets / Badges)
+  // E. Extract Company from Top-Card Right Panel Widgets
   if (!profile.current_company) {
     const topCompSelectors = [
       'ul.pv-text-details__right-panel button span[aria-hidden="true"]',
@@ -280,9 +325,10 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       'button[aria-label*="Current company"] span',
       'button[aria-label*="Current company"]',
       'div.pv-text-details__right-panel a span',
+      'div.pv-text-details__right-panel button',
     ];
     for (const sel of topCompSelectors) {
-      const el = document.querySelector(sel);
+      const el = topCard?.querySelector(sel) || document.querySelector(sel);
       const text = el?.textContent?.trim();
       if (text && text.length > 1 && !text.toLowerCase().includes('company')) {
         profile.current_company = text;
@@ -291,21 +337,24 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     }
   }
 
-  // Parse Experience Section for Title & Company
+  // F. Parse Experience Section for Title & Company
   if (!profile.current_title || !profile.current_company) {
     const expContainers = [
       '#experience ~ .pvs-list__outer-container > ul > li',
       'section[data-view-name*="profile-experience"] ul > li',
       'section:has(#experience) ul > li',
       'div#experience ~ ul > li',
+      'section#experience ul > li',
     ];
     for (const expSel of expContainers) {
       const firstExp = document.querySelector(expSel);
       if (firstExp) {
-        // First bold element is title
+        // Line 1: Title (usually bold)
         const titleEl = firstExp.querySelector('.t-bold span[aria-hidden="true"], span[aria-hidden="true"]');
-        // Secondary text is company name
-        const compEl = firstExp.querySelector('.t-normal span[aria-hidden="true"], .t-black--light span[aria-hidden="true"], span.t-14.t-normal');
+        // Line 2: Company
+        const compEl = firstExp.querySelector(
+          '.t-normal span[aria-hidden="true"], .t-black--light span[aria-hidden="true"], span.t-14.t-normal span, span.t-14.t-normal'
+        );
 
         if (titleEl && !profile.current_title) {
           profile.current_title = titleEl.textContent?.trim() || '';
@@ -314,12 +363,12 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
           const compText = compEl.textContent?.trim() || '';
           profile.current_company = compText.split('·')[0].split('•')[0].trim();
         }
-        if (profile.current_title || profile.current_company) break;
+        if (profile.current_title && profile.current_company) break;
       }
     }
   }
 
-  // Infer Title and Company from Headline
+  // G. Infer Title and Company from Headline
   if (profile.headline) {
     const headline = profile.headline;
     // Common patterns: "Role at Company", "Role @ Company", "Role | Company", "Role - Company", "Role • Company", "Role, Company"
@@ -333,6 +382,10 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       if (!profile.current_company) {
         profile.current_company = parts[1].split(/[-–|•·,]/)[0].trim();
       }
+    } else if (headline.includes(',')) {
+      const commaParts = headline.split(',');
+      if (!profile.current_title) profile.current_title = commaParts[0].trim();
+      if (!profile.current_company && commaParts.length > 1) profile.current_company = commaParts[1].trim();
     } else {
       if (!profile.current_title) {
         profile.current_title = headline;
@@ -342,7 +395,7 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
 
   // ─── 4. Contact Info Extraction (Email & Phone) ───────────────────────────
   try {
-    // Check mailto and tel links
+    // 1. Check explicit mailto / tel links
     const mailtoLink = document.querySelector<HTMLAnchorElement>('a[href^="mailto:"]');
     if (mailtoLink && !profile.email) {
       profile.email = mailtoLink.href.replace(/^mailto:/i, '').split('?')[0].trim();
@@ -353,11 +406,11 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       profile.phone = telLink.href.replace(/^tel:/i, '').trim();
     }
 
-    // Check open contact info modal or contact info section
+    // 2. Check open Contact Info modal or About summary
     const contactSection = document.querySelector(
-      '.pv-contact-info__contact-type, section.pv-contact-info__contact-type, .artdeco-modal__content, div[data-view-name*="contact-info"]'
+      '.pv-contact-info__contact-type, section.pv-contact-info__contact-type, .artdeco-modal__content, div[data-view-name*="contact-info"], #about, section:has(#about)'
     );
-    const searchScope = (contactSection || document.querySelector('main') || document.body) as HTMLElement | null;
+    const searchScope = (contactSection || topCard || document.body) as HTMLElement;
     const scopeText = searchScope?.innerText || searchScope?.textContent || '';
 
     if (!profile.email) {
@@ -383,7 +436,14 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       );
       skillElements.forEach((el) => {
         const text = el.textContent?.trim();
-        if (text && !profile.skills.includes(text) && text.length > 1 && text.length < 40 && !text.includes('+') && !text.toLowerCase().includes('endorse')) {
+        if (
+          text &&
+          !profile.skills.includes(text) &&
+          text.length > 1 &&
+          text.length < 40 &&
+          !text.includes('+') &&
+          !text.toLowerCase().includes('endorse')
+        ) {
           profile.skills.push(text);
         }
       });

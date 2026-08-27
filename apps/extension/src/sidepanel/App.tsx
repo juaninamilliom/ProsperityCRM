@@ -119,19 +119,21 @@ export function App() {
 
       setExtracting(true);
       try {
-        // Try content script message first
         chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PROFILE' }, async (response) => {
-          if (!chrome.runtime.lastError && response?.profile && response.profile.full_name) {
-            setProfile(response.profile);
-            if (response.profile.linkedin_url) {
-              const match = await checkLinkedInMatch(response.profile.linkedin_url);
+          const msgProfile = response?.profile as ParsedCandidateProfile | undefined;
+          
+          // If content script returned a full profile with title or company or headline, use it
+          if (!chrome.runtime.lastError && msgProfile?.full_name && (msgProfile.current_title || msgProfile.current_company || msgProfile.headline)) {
+            setProfile(msgProfile);
+            if (msgProfile.linkedin_url) {
+              const match = await checkLinkedInMatch(msgProfile.linkedin_url);
               setDuplicateInfo(match);
             }
             setExtracting(false);
             return;
           }
 
-          // Fallback: Direct executeScript on active tab
+          // Fallback / Refresh: Execute the latest extractLinkedInProfile directly in the tab
           try {
             const results = await chrome.scripting.executeScript({
               target: { tabId: tab.id! },
@@ -145,12 +147,18 @@ export function App() {
                 const match = await checkLinkedInMatch(parsed.linkedin_url);
                 setDuplicateInfo(match);
               }
+            } else if (msgProfile && msgProfile.full_name) {
+              setProfile(msgProfile);
             } else {
               setProfile(null);
             }
           } catch (e) {
             console.error('Extraction executeScript failed:', e);
-            setProfile(null);
+            if (msgProfile && msgProfile.full_name) {
+              setProfile(msgProfile);
+            } else {
+              setProfile(null);
+            }
           } finally {
             setExtracting(false);
           }
