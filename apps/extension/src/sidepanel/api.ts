@@ -1,4 +1,10 @@
-// Prosperity CRM API Client for Chrome Extension
+// Prosperity CRM API Client & Authentication Engine for Chrome Extension
+import {
+  browserSupportsWebAuthn,
+  platformAuthenticatorIsAvailable,
+  startAuthentication,
+  type PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser';
 
 export interface StoredConfig {
   apiUrl: string;
@@ -56,6 +62,43 @@ export async function saveStoredConfig(config: Partial<StoredConfig>): Promise<v
   });
 }
 
+export async function clearAuthSession(): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.local.remove('token', () => resolve());
+  });
+}
+
+/** Automatically detects active web CRM login session from open tabs */
+export async function autoDetectWebSession(): Promise<string | null> {
+  try {
+    const tabs = await chrome.tabs.query({
+      url: [
+        'https://prosperity-crm-web.vercel.app/*',
+        'http://localhost:*/*',
+      ],
+    });
+
+    for (const tab of tabs) {
+      if (!tab.id) continue;
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          return localStorage.getItem('token') || localStorage.getItem('auth_token');
+        },
+      });
+
+      const detectedToken = results?.[0]?.result;
+      if (detectedToken && typeof detectedToken === 'string') {
+        await saveStoredConfig({ token: detectedToken });
+        return detectedToken;
+      }
+    }
+  } catch (err) {
+    console.debug('Auto-detect web session not available:', err);
+  }
+  return null;
+}
+
 export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const { apiUrl, token } = await getStoredConfig();
   const cleanApiUrl = apiUrl.replace(/\/+$/, '');
@@ -82,9 +125,73 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
   return response.json();
 }
 
+// ─── Authentication Methods ──────────────────────────────────────────────────
+
+export async function isPasskeySupported(): Promise<boolean> {
+  if (!browserSupportsWebAuthn()) return false;
+  try {
+    return await platformAuthenticatorIsAvailable();
+  } catch {
+    return false;
+  }
+}
+
+export async function loginWithPasskey(email?: string): Promise<{ token: string; user: User }> {
+  // 1. Get challenge options
+  const { options, challengeId } = await apiRequest<{
+    options: PublicKeyCredentialRequestOptionsJSON;
+    challengeId: string;
+  }>('/auth/passkey/login-options', {
+    method: 'POST',
+    body: JSON.stringify({ email: email?.trim() || undefined }),
+  });
+
+  // 2. Prompt Touch ID / Face ID / Device Biometrics
+  const credential = await startAuthentication({ optionsJSON: options });
+
+  // 3. Verify signature
+  const res = await apiRequest<{ token: string; user: User }>('/auth/passkey/login-verify', {
+    method: 'POST',
+    body: JSON.stringify({
+      response: credential,
+      challengeId,
+    }),
+  });
+
+  await saveStoredConfig({ token: res.token });
+  return res;
+}
+
+export async function requestMagicLink(email: string): Promise<{ message: string; devUrl?: string }> {
+  return apiRequest('/auth/magic-link/request', {
+    method: 'POST',
+    body: JSON.stringify({ email: email.trim() }),
+  });
+}
+
+export async function verifyMagicLink(token: string): Promise<{ token: string; user: User }> {
+  const res = await apiRequest<{ token: string; user: User }>('/auth/magic-link/verify', {
+    method: 'POST',
+    body: JSON.stringify({ token: token.trim() }),
+  });
+  await saveStoredConfig({ token: res.token });
+  return res;
+}
+
+export async function loginWithPassword(email: string, password: string): Promise<{ token: string; user: User }> {
+  const res = await apiRequest<{ token: string; user: User }>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email: email.trim(), password }),
+  });
+  await saveStoredConfig({ token: res.token });
+  return res;
+}
+
 export async function fetchMe(): Promise<{ tokenUser?: any; dbUser: User }> {
   return apiRequest('/users/me');
 }
+
+// ─── CRM Data Methods ────────────────────────────────────────────────────────
 
 export async function fetchJobs(): Promise<JobRequisition[]> {
   return apiRequest('/jobs');
@@ -96,14 +203,21 @@ export async function fetchStatuses(): Promise<StatusConfig[]> {
 
 export async function checkLinkedInMatch(linkedinUrl: string): Promise<CandidateDuplicateResult> {
   try {
-    const people = await apiRequest<any[]>(`/people?search=${encodeURIComponent(linkedinUrl)}`);
-    if (people && people.length > 0) {
-      return {
-        isDuplicate: true,
-        person: people[0],
-      };
+    const res = await apiRequest<{ match: boolean; person?: any }>(
+      `/people/lookup-linkedin?url=${encodeURIComponent(linkedinUrl)}`
+    );
+    if (res?.match && res?.person) {
+      return { isDuplicate: true, person: res.person };
     }
   } catch {}
+
+  try {
+    const people = await apiRequest<any[]>(`/people?search=${encodeURIComponent(linkedinUrl)}`);
+    if (people && people.length > 0) {
+      return { isDuplicate: true, person: people[0] };
+    }
+  } catch {}
+
   return { isDuplicate: false };
 }
 
@@ -121,7 +235,6 @@ export async function importCandidateToCRM(payload: {
   job_id?: string;
   status_id?: string;
 }) {
-  // 1. Create person
   const person = await apiRequest<any>('/people', {
     method: 'POST',
     body: JSON.stringify({
@@ -138,10 +251,8 @@ export async function importCandidateToCRM(payload: {
     }),
   });
 
-  // 2. If a Job is selected, create pipeline entry
   if (payload.job_id && person?.person?.person_id) {
     const personId = person.person.person_id;
-    // Find company from job or create placeholder
     await apiRequest('/pipeline-entries', {
       method: 'POST',
       body: JSON.stringify({
