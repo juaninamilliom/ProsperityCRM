@@ -102,7 +102,6 @@ export async function listAllUsers() {
       name: users.name,
       role: users.role,
       sso_id: users.sso_id,
-      password: users.password,
       is_active: users.is_active,
       organization_id: users.organization_id,
       created_at: users.created_at,

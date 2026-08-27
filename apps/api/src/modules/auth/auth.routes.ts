@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { loginSchema, signupSchema } from './auth.schema.js';
 import { createLocalToken } from './token.js';
 import { getUserByEmail } from '../user/user.service.js';
+import { toPublicUser } from '../user/public-user.js';
 import { redeemInviteForLocalSignup } from '../invite/invite.service.js';
 import { InviteError } from '../invite/invite.rules.js';
 
@@ -28,7 +29,7 @@ authRouter.post('/signup', async (req, res) => {
       password: parsed.data.password,
     });
     const token = await createLocalToken(user);
-    return res.status(201).json({ token, user });
+    return res.status(201).json({ token, user: toPublicUser(user) });
   } catch (error) {
     if (error instanceof InviteError) {
       return res.status(400).json({ message: error.message, reason: error.reason });
@@ -53,5 +54,5 @@ authRouter.post('/login', async (req, res) => {
   }
 
   const token = await createLocalToken(user);
-  res.json({ token, user });
+  res.json({ token, user: toPublicUser(user) });
 });

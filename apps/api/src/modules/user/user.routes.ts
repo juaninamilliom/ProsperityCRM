@@ -4,6 +4,7 @@ import { requireRole } from '../../middleware/auth.js';
 import { createUserSchema, ssoSignupSchema, updateRoleSchema } from './user.schema.js';
 import { createLocalUser, getUserByEmail, getUserById, getUserBySsoId, listUsersByOrg, updateUserRoleAndOrg, upsertUser } from './user.service.js';
 import { redeemInviteCode } from '../invite/invite.service.js';
+import { toPublicUser } from './public-user.js';
 
 
 export const userRouter = Router();
@@ -13,7 +14,7 @@ userRouter.get('/', async (req: AuthenticatedRequest, res) => {
     return res.status(403).json({ message: 'Forbidden' });
   }
   const users = await listUsersByOrg(req.dbUser.organization_id);
-  res.json(users);
+  res.json(users.map(toPublicUser));
 });
 
 userRouter.post('/', requireRole('OrgAdmin'), async (req: AuthenticatedRequest, res) => {
@@ -39,7 +40,7 @@ userRouter.post('/', requireRole('OrgAdmin'), async (req: AuthenticatedRequest, 
     role: parsed.data.role,
   });
 
-  res.status(201).json(user);
+  res.status(201).json(toPublicUser(user));
 });
 
 
@@ -47,7 +48,7 @@ userRouter.get('/me', async (req: AuthenticatedRequest, res) => {
   if (req.dbUser) {
     return res.json({
       tokenUser: req.user ?? { sub: req.dbUser.user_id, email: req.dbUser.email, name: req.dbUser.name },
-      dbUser: req.dbUser,
+      dbUser: toPublicUser(req.dbUser),
     });
   }
 
@@ -58,7 +59,7 @@ userRouter.get('/me', async (req: AuthenticatedRequest, res) => {
   const dbUser = await getUserBySsoId(req.user.sub);
   res.json({
     tokenUser: req.user,
-    dbUser,
+    dbUser: dbUser ? toPublicUser(dbUser) : dbUser,
   });
 });
 
@@ -77,7 +78,7 @@ userRouter.post('/sso', async (req, res) => {
       organization_id: existing.organization_id,
       role: existing.role,
     });
-    return res.json(updated);
+    return res.json(toPublicUser(updated));
   }
 
   if (!parsed.data.passcode) {
@@ -93,7 +94,7 @@ userRouter.post('/sso', async (req, res) => {
         sso_id: parsed.data.sso_id,
       },
     });
-    return res.status(201).json(user);
+    return res.status(201).json(toPublicUser(user));
   } catch (error) {
     return res.status(400).json({ message: (error as Error).message });
   }
@@ -120,5 +121,5 @@ userRouter.patch('/:id/role', requireRole('OrgAdmin'), async (req: Authenticated
     role: parsed.data.role,
   });
 
-  res.json(updated);
+  res.json(updated ? toPublicUser(updated) : updated);
 });

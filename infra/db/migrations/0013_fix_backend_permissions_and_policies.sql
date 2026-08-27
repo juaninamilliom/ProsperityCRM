@@ -1,6 +1,10 @@
--- Ensure full table access and RLS policies for backend database connections
+-- Ensure full table access and RLS policies for backend database connections.
 -- This satisfies Supabase RLS security advisors while granting full access
--- to postgres, service_role, authenticated, and current database user.
+-- to postgres, service_role and the current database user.
+--
+-- Deliberately NOT granted: anon and authenticated. Supabase serves any table
+-- those roles can read over its REST API to anyone holding the project's
+-- public key. The backend connects as postgres and needs neither.
 
 DO $$
 BEGIN
@@ -24,14 +28,6 @@ BEGIN
     GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
     GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
     GRANT ALL ON ALL ROUTINES IN SCHEMA public TO service_role;
-  END IF;
-
-  -- Grant to authenticated if it exists (Supabase Pooler)
-  IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
-    GRANT USAGE ON SCHEMA public TO authenticated;
-    GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
-    GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-    GRANT ALL ON ALL ROUTINES IN SCHEMA public TO authenticated;
   END IF;
 END $$;
 

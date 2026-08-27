@@ -2,6 +2,7 @@ import 'express-async-errors';
 import cors from 'cors';
 import express from 'express';
 import { config } from './config.js';
+import { isAllowedOrigin } from './cors.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { authMiddleware } from './middleware/auth.js';
 import { entryRouter } from './modules/entry/entry.routes.js';
@@ -25,29 +26,7 @@ export function createApp() {
   app.use(express.json());
   app.use(
     cors({
-      origin: (origin, callback) => {
-        if (!origin) {
-          return callback(null, true);
-        }
-
-        // Allow localhost and local development ports
-        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
-          return callback(null, true);
-        }
-
-        // Allow any Vercel deployment preview or production domain (*.vercel.app)
-        if (origin.endsWith('.vercel.app') || /^https:\/\/[a-zA-Z0-9_-]+\.vercel\.app$/.test(origin)) {
-          return callback(null, true);
-        }
-
-        // Allow configured origins
-        const allowedOrigins = config.corsOrigins.map((o) => o.trim().replace(/\/+$/, ''));
-        if (allowedOrigins.length === 0 || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-
-        return callback(null, false);
-      },
+      origin: (origin, callback) => callback(null, isAllowedOrigin(origin, config.corsOrigins)),
       credentials: true,
     })
   );
