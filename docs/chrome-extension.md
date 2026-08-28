@@ -37,10 +37,11 @@ The panel is styled with the web app's own tokens and Tailwind theme, imported f
 
 | Message | Direction | Response |
 |---|---|---|
-| `PING` | panel → tab | `{ ok }` — used to decide whether `content.js` must be injected |
+| `PING` | panel → tab | `{ ok, version }` — `content.js` is injected when there is no answer or the version is not the panel's (`PROTOCOL_VERSION` in `content/protocol.ts`; bump it when a response shape changes) |
 | `EXTRACT_PROFILE` | panel → tab | `{ success, profile, trace }` |
 | `FETCH_CONTACT_INFO` | panel → tab (async) | `{ success, contact: { email, phone, websites }, source, trace }` |
 | `LINKEDIN_PAGE_CHANGED` | tab → panel | fired on SPA navigation |
+| `PROFILE_UPDATED` | tab → panel | pushed (debounced) whenever the extraction result changes as LinkedIn renders the cards; the panel keeps the better of the two unless the recruiter has edited |
 | `LINKEDIN_PAGE_UPDATED` | service worker → panel | fired on tab update / switch |
 
 The panel re-reads a tab up to three times 700 ms apart because LinkedIn hydrates the top card before the experience section. Navigation events for the *same* profile (including the `/overlay/contact-info/` route) do not trigger a re-read once the profile is complete or the recruiter has edited a field.

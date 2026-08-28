@@ -1,4 +1,5 @@
 import type { ContactInfo, ParsedCandidateProfile } from '../content/linkedin-parser';
+import { PROTOCOL_VERSION } from '../content/protocol';
 
 export interface ExtractResponse {
   success: boolean;
@@ -25,13 +26,14 @@ function sendToTab<T>(tabId: number, message: unknown): Promise<T> {
   });
 }
 
-/** A tab opened before the extension was installed (or reloaded) has no
- *  content script. Inject the bundled one rather than serialising the parser
- *  into executeScript, which would strip its helper functions. */
+/** A tab opened before the extension was installed has no content script,
+ *  and a tab opened before the extension was *reloaded* has last build's -
+ *  which answers PING but with an older protocol version and an older
+ *  profile shape. Either way, inject the bundled current script. */
 async function ensureContentScript(tabId: number): Promise<void> {
   try {
-    await sendToTab(tabId, { type: 'PING' });
-    return;
+    const pong = await sendToTab<{ ok?: boolean; version?: number }>(tabId, { type: 'PING' });
+    if (pong?.version === PROTOCOL_VERSION) return;
   } catch (error) {
     if (!NO_RECEIVER.test(String(error))) throw error;
   }
@@ -48,7 +50,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /** Ranks a read. A role taken from the Experience stack outranks any number
  *  of other fields, so a later read that finally has it always replaces a
  *  headline-derived placeholder. */
-function completeness(profile: ParsedCandidateProfile | null): number {
+export function completeness(profile: ParsedCandidateProfile | null): number {
   if (!profile) return 0;
   const fields = [profile.full_name, profile.headline, profile.current_title, profile.current_company, profile.location].filter(Boolean).length;
   return fields + (profile.role_source === 'experience' ? 10 : 0);

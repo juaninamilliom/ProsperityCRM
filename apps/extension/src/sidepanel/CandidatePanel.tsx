@@ -79,7 +79,7 @@ export function CandidatePanel(props: CandidatePanelProps) {
             <span>The top role on this profile has ended - check title and company.</span>
           </Notice>
         )}
-        {profile.role_source !== null && profile.role_source !== 'experience' && (
+        {(profile.role_source === 'headline' || profile.role_source === 'voyager' || profile.role_source === 'json-ld') && (
           <Notice tone="warn">
             <Icon name="alert" size={14} className="mt-0.5 shrink-0" />
             <span>
