@@ -1,4 +1,4 @@
-// Hybrid LinkedIn Profile Parser (Experience-First Architecture + Clean DOM Tree-Walking)
+// Multi-Tiered LinkedIn Candidate Parser with Structured Console Debug Logging
 
 export interface ParsedCandidateProfile {
   full_name: string;
@@ -40,7 +40,12 @@ export function isLinkedInProfileUrl(url: string): boolean {
 
 /**
  * Extracts candidate information from the active LinkedIn tab.
- * Prioritizes the structured Experience section for current job title and company.
+ * Priority Cascade:
+ * 1. Top Card Primary Details (Name, Headline, Location, Current Company Badge)
+ * 2. Structured Experience Section (Most Recent Active Role)
+ * 3. Headline Decomposition (e.g. "Founder of DeepLearning.AI")
+ * 4. JSON-LD Schema.org Fallback (if DOM was unrendered)
+ * 5. Voyager Position Blobs Fallback
  */
 export function extractLinkedInProfile(): ParsedCandidateProfile | null {
   const currentUrl = window.location.href;
@@ -53,6 +58,9 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
   if (!isProfile) {
     return null;
   }
+
+  console.groupCollapsed('%c[Prosperity CRM Sourcing]%c Parsing LinkedIn Profile', 'color: #2563eb; font-weight: bold;', 'color: inherit;');
+  console.log('🔗 URL:', currentUrl);
 
   // Canonical LinkedIn Profile URL
   let cleanUrl = currentUrl.split('?')[0].replace(/\/+$/, '');
@@ -79,7 +87,7 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     phone: null,
   };
 
-  // ─── 1. Name Extraction ───────────────────────────────────────────────────
+  // ─── STEP 1: Name Extraction (DOM Top-Card) ──────────────────────────────
   let nameEl: Element | null = null;
   const nameSelectors = [
     'h1.text-heading-xlarge',
@@ -106,6 +114,7 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     ) {
       nameEl = el;
       profile.full_name = text;
+      console.log('👤 Name found in DOM:', profile.full_name, `(selector: ${sel})`);
       break;
     }
   }
@@ -115,27 +124,16 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     const titlePart = document.title.split(/[-–—|•]/)[0]?.trim();
     if (titlePart && !titlePart.toLowerCase().includes('linkedin') && titlePart.length > 1) {
       profile.full_name = titlePart;
+      console.log('👤 Name found from document.title:', profile.full_name);
     }
   }
 
-  // If name was from title, locate its DOM element
-  if (!nameEl && profile.full_name) {
-    const headings = Array.from(document.querySelectorAll('h1, h2, h3, strong, b'));
-    for (const h of headings) {
-      if (h.textContent?.trim() === profile.full_name) {
-        nameEl = h;
-        break;
-      }
-    }
-  }
-
-  // ─── 2. Top-Card Container ────────────────────────────────────────────────
+  // ─── STEP 2: Top-Card Container & Headline ────────────────────────────────
   const topCard: HTMLElement | null =
     (nameEl?.closest('section.artdeco-card, section, div[data-view-name="profile-top-card"], div.ph5, main') as HTMLElement) ||
     (document.querySelector('main section, [data-view-name="profile-top-card"], section.artdeco-card') as HTMLElement) ||
     (document.querySelector('main') as HTMLElement);
 
-  // ─── 3. Headline Extraction ───────────────────────────────────────────────
   const headlineSelectors = [
     '.text-body-medium.break-words',
     'div.pv-text-details__left-panel .text-body-medium',
@@ -163,32 +161,12 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       !text.toLowerCase().includes('followers')
     ) {
       profile.headline = text;
+      console.log('📢 Headline found in DOM:', profile.headline);
       break;
     }
   }
 
-  // Tree-Walking Fallback for Headline
-  if (!profile.headline && nameEl) {
-    const parentContainer = nameEl.parentElement?.parentElement || nameEl.parentElement;
-    const textEls = parentContainer?.querySelectorAll('div, p, span') || [];
-    for (const el of Array.from(textEls)) {
-      const text = el.textContent?.trim();
-      if (
-        text &&
-        text.length > 2 &&
-        text !== profile.full_name &&
-        !text.toLowerCase().includes('connection') &&
-        !text.toLowerCase().includes('contact info') &&
-        !text.toLowerCase().includes('message') &&
-        !text.toLowerCase().includes('follow')
-      ) {
-        profile.headline = text;
-        break;
-      }
-    }
-  }
-
-  // ─── 4. Location Extraction ───────────────────────────────────────────────
+  // ─── STEP 3: Location Extraction ──────────────────────────────────────────
   const locSelectors = [
     '.text-body-small.inline.t-black--light.break-words',
     'div.pv-text-details__left-panel span.text-body-small',
@@ -215,11 +193,69 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       !text.toLowerCase().includes('connect')
     ) {
       profile.location = text;
+      console.log('📍 Location found in DOM:', profile.location);
       break;
     }
   }
 
-  // ─── 5. Experience Section (PRIMARY: Most Recent Title & Company) ──────────
+  // ─── STEP 4: Top-Card Right-Panel Current Company Badge ───────────────────
+  // (LinkedIn displays the primary current company prominently in top-card right-panel)
+  const compLinks = Array.from(
+    topCard?.querySelectorAll('a[href*="/company/"], a[href*="linkedin.com/company/"]') || []
+  );
+  for (const a of compLinks) {
+    const raw = a.textContent || '';
+    const text = raw
+      .replace(/Current company:?\s*/i, '')
+      .replace(/Company:?\s*/i, '')
+      .replace(/Education:?\s*/i, '')
+      .replace(/logo/i, '')
+      .trim();
+    if (text && text.length > 1 && !text.toLowerCase().includes('linkedin') && !text.toLowerCase().includes('follow')) {
+      profile.current_company = text.split('\n')[0].trim();
+      console.log('🏢 Current Company found from top-card company link:', profile.current_company);
+      break;
+    }
+  }
+
+  if (!profile.current_company) {
+    const topCompSelectors = [
+      'ul.pv-text-details__right-panel button span[aria-hidden="true"]',
+      'ul.pv-text-details__right-panel li button div',
+      'ul.pv-text-details__right-panel li a span',
+      'ul.pv-text-details__right-panel li span',
+      'button[aria-label*="Current company"] span',
+      'button[aria-label*="Current company"]',
+      'div.pv-text-details__right-panel a span',
+      'div.pv-text-details__right-panel button',
+      'div[aria-label*="Current company"]',
+      'div.pv-text-details__right-panel',
+    ];
+
+    for (const sel of topCompSelectors) {
+      const el = topCard?.querySelector(sel) || document.querySelector(sel);
+      const raw = el?.textContent?.trim() || '';
+      const text = raw
+        .replace(/Current company:?\s*/i, '')
+        .replace(/Company:?\s*/i, '')
+        .replace(/Education:?\s*/i, '')
+        .replace(/Click to skip.*/i, '')
+        .trim();
+      if (
+        text &&
+        text.length > 1 &&
+        !text.toLowerCase().includes('followers') &&
+        !text.toLowerCase().includes('connections') &&
+        !text.toLowerCase().includes('education')
+      ) {
+        profile.current_company = text.split('\n')[0].trim();
+        console.log('🏢 Current Company found from right-panel widget:', profile.current_company);
+        break;
+      }
+    }
+  }
+
+  // ─── STEP 5: Structured Experience Section (DOM) ──────────────────────────
   try {
     const expSection = document.querySelector(
       '#experience ~ .pvs-list__outer-container, section:has(#experience), section#experience, div#experience ~ ul, div[data-view-name*="profile-experience"]'
@@ -230,82 +266,58 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
     );
 
     if (firstExpItem) {
-      // Check if this item represents multiple roles at the same company (nested grouping)
+      console.log('💼 Found Experience Section item in DOM');
       const nestedSubList = firstExpItem.querySelector('.pvs-entity__sub-components, ul.pvs-list, ul');
       if (nestedSubList) {
-        // Top line is Company Name
         const compLine = firstExpItem.querySelector(
           '.display-flex .t-bold span[aria-hidden="true"], span.t-bold span[aria-hidden="true"], span.t-bold'
         );
-        // First nested entry has the most recent Job Title
         const nestedTitle = nestedSubList.querySelector(
           '.t-bold span[aria-hidden="true"], span.t-bold span[aria-hidden="true"], span.t-bold'
         );
 
-        if (nestedTitle?.textContent?.trim()) {
+        if (!profile.current_title && nestedTitle?.textContent?.trim()) {
           profile.current_title = nestedTitle.textContent.trim();
+          console.log('💼 Title found from nested experience:', profile.current_title);
         }
-        if (compLine?.textContent?.trim()) {
+        if (!profile.current_company && compLine?.textContent?.trim()) {
           profile.current_company = compLine.textContent.trim().split('·')[0].trim();
+          console.log('🏢 Company found from nested experience:', profile.current_company);
         }
       } else {
-        // Single role at company
-        // Line 1: Job Title (bold)
         const titleEl = firstExpItem.querySelector(
           '.t-bold span[aria-hidden="true"], div.display-flex span.t-bold, span[aria-hidden="true"]'
         );
-        // Line 2: Company Name (normal weight)
         const compEl = firstExpItem.querySelector(
           '.t-normal span[aria-hidden="true"], .t-black--light span[aria-hidden="true"], span.t-14.t-normal span, span.t-14.t-normal, span.t-14'
         );
-        // Also check company logo link
         const compLogoLink = firstExpItem.querySelector<HTMLAnchorElement>('a[href*="/company/"]');
 
-        if (titleEl?.textContent?.trim()) {
+        if (!profile.current_title && titleEl?.textContent?.trim()) {
           const t = titleEl.textContent.trim();
           if (t !== profile.full_name && !t.toLowerCase().includes('present')) {
             profile.current_title = t;
+            console.log('💼 Title found from experience item:', profile.current_title);
           }
         }
 
-        if (compEl?.textContent?.trim()) {
+        if (!profile.current_company && compEl?.textContent?.trim()) {
           const c = compEl.textContent.trim().split('·')[0].split('•')[0].trim();
           if (c && !c.toLowerCase().includes('yr') && !c.toLowerCase().includes('mo') && !c.toLowerCase().includes('present')) {
             profile.current_company = c;
+            console.log('🏢 Company found from experience item text:', profile.current_company);
           }
-        } else if (compLogoLink?.textContent?.trim()) {
+        } else if (!profile.current_company && compLogoLink?.textContent?.trim()) {
           profile.current_company = compLogoLink.textContent.trim().split('·')[0].trim();
+          console.log('🏢 Company found from experience company link:', profile.current_company);
         }
       }
     }
   } catch (err) {
-    console.debug('Experience section parsing error:', err);
+    console.debug('Experience DOM parsing note:', err);
   }
 
-  // ─── 6. Top-Card Right Panel Fallback for Company ─────────────────────────
-  if (!profile.current_company) {
-    const topCompSelectors = [
-      'ul.pv-text-details__right-panel button span[aria-hidden="true"]',
-      'ul.pv-text-details__right-panel li button div',
-      'ul.pv-text-details__right-panel li span',
-      'button[aria-label*="Current company"] span',
-      'button[aria-label*="Current company"]',
-      'div.pv-text-details__right-panel a span',
-      'div.pv-text-details__right-panel button',
-      'div[aria-label*="Current company"]',
-    ];
-
-    for (const sel of topCompSelectors) {
-      const el = topCard?.querySelector(sel) || document.querySelector(sel);
-      const text = el?.textContent?.trim();
-      if (text && text.length > 1 && !text.toLowerCase().includes('company') && !text.toLowerCase().includes('education')) {
-        profile.current_company = text;
-        break;
-      }
-    }
-  }
-
-  // ─── 7. Headline Decomposition Fallback (if Experience wasn't available) ───
+  // ─── STEP 6: Headline Decomposition (e.g. "Founder of DeepLearning.AI") ──
   if (!profile.current_title || !profile.current_company) {
     if (profile.headline) {
       const headline = profile.headline.trim();
@@ -316,36 +328,146 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       if (parts.length >= 2) {
         if (!profile.current_title) {
           profile.current_title = parts[0].trim();
+          console.log('💡 Title decomposed from headline segment:', profile.current_title);
         }
         if (!profile.current_company) {
           profile.current_company = parts[1].split(/[-–|•·,;]/)[0].trim();
+          console.log('💡 Company decomposed from headline segment:', profile.current_company);
         }
       } else if (primarySegment.includes(',')) {
         const commaParts = primarySegment.split(',');
-        if (!profile.current_title) profile.current_title = commaParts[0].trim();
-        if (!profile.current_company && commaParts.length > 1) profile.current_company = commaParts[1].trim();
+        if (!profile.current_title) {
+          profile.current_title = commaParts[0].trim();
+          console.log('💡 Title from comma headline:', profile.current_title);
+        }
+        if (!profile.current_company && commaParts.length > 1) {
+          profile.current_company = commaParts[1].trim();
+          console.log('💡 Company from comma headline:', profile.current_company);
+        }
       } else {
         if (!profile.current_title) {
           profile.current_title = primarySegment;
+          console.log('💡 Title fallback from primary headline segment:', profile.current_title);
+        }
+      }
+
+      if (!profile.current_company) {
+        const match = headline.match(/(?:at|@|of|–|-)\s+([A-Za-z0-9&.,\s'-]+?)(?:;|\/|\||•|$)/i);
+        if (match && match[1]) {
+          const comp = match[1].trim().split(/[,;]/)[0].trim();
+          if (comp.length > 1 && !comp.toLowerCase().includes('helping') && !comp.toLowerCase().includes('building')) {
+            profile.current_company = comp;
+            console.log('💡 Company from secondary headline regex:', profile.current_company);
+          }
         }
       }
     }
   }
 
-  // ─── 8. Avatar Image Extraction ───────────────────────────────────────────
-  const avatarEl =
-    topCard?.querySelector<HTMLImageElement>(
-      'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="profile picture"], img[alt*="photo of"], img[alt*="Profile photo"], img.evi-image'
-    ) ||
-    document.querySelector<HTMLImageElement>(
-      'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="photo of"]'
-    );
-
-  if (avatarEl?.src && !avatarEl.src.includes('ghost-person') && !avatarEl.src.includes('data:image/gif')) {
-    profile.avatar_url = avatarEl.src;
+  // ─── STEP 7: JSON-LD Schema.org Fallback (Only if fields still missing) ───
+  if (!profile.current_title || !profile.current_company || !profile.full_name || !profile.location) {
+    try {
+      const jsonLdScripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+      for (const s of jsonLdScripts) {
+        const raw = s.textContent?.trim();
+        if (!raw) continue;
+        try {
+          const data = JSON.parse(raw);
+          const items = Array.isArray(data) ? data : data['@graph'] ? data['@graph'] : [data];
+          for (const item of items) {
+            if (item['@type'] === 'Person' || (item.name && (item.jobTitle || item.worksFor))) {
+              if (!profile.full_name && item.name) {
+                profile.full_name = typeof item.name === 'string' ? item.name.trim() : '';
+                console.log('📄 [JSON-LD Fallback] Name:', profile.full_name);
+              }
+              if (!profile.current_title && item.jobTitle) {
+                if (Array.isArray(item.jobTitle) && item.jobTitle.length > 0) {
+                  profile.current_title = String(item.jobTitle[0]).trim();
+                } else if (typeof item.jobTitle === 'string') {
+                  profile.current_title = item.jobTitle.trim();
+                }
+                console.log('📄 [JSON-LD Fallback] Title:', profile.current_title);
+              }
+              if (!profile.current_company && item.worksFor) {
+                const orgs = Array.isArray(item.worksFor) ? item.worksFor : [item.worksFor];
+                if (orgs[0]?.name && typeof orgs[0].name === 'string') {
+                  profile.current_company = orgs[0].name.trim();
+                  console.log('📄 [JSON-LD Fallback] Company:', profile.current_company);
+                }
+              }
+              if (!profile.location && item.address) {
+                if (typeof item.address === 'string') {
+                  profile.location = item.address.trim();
+                } else if (typeof item.address === 'object') {
+                  const parts = [
+                    item.address.addressLocality,
+                    item.address.addressRegion,
+                    item.address.addressCountry,
+                  ].filter(Boolean);
+                  if (parts.length > 0) profile.location = parts.join(', ');
+                }
+                console.log('📄 [JSON-LD Fallback] Location:', profile.location);
+              }
+              if (!profile.avatar_url && item.image) {
+                if (typeof item.image === 'string') profile.avatar_url = item.image;
+                else if (item.image?.contentUrl) profile.avatar_url = item.image.contentUrl;
+              }
+            }
+          }
+        } catch {}
+      }
+    } catch {}
   }
 
-  // ─── 9. About Summary & Candidate-Scoped Contact Info ────────────────────
+  // ─── STEP 8: Voyager Position Blobs Fallback ──────────────────────────────
+  if (!profile.current_title || !profile.current_company) {
+    try {
+      const codeBlocks = Array.from(document.querySelectorAll('code[id^="bpr-guid-"]'));
+      for (const code of codeBlocks) {
+        const text = code.textContent?.trim();
+        if (!text || (!text.includes('Position') && !text.includes('companyName') && !text.includes('miniCompany'))) continue;
+        try {
+          const json = JSON.parse(text);
+          const elements = json.included || (Array.isArray(json) ? json : [json]);
+          for (const el of elements) {
+            if (el.$type?.includes('Position') || (el.title && (el.companyName || el.company))) {
+              if (!profile.current_title && el.title && typeof el.title === 'string') {
+                profile.current_title = el.title.trim();
+                console.log('📦 [Voyager Fallback] Title:', profile.current_title);
+              }
+              const comp = el.companyName || el.company?.name;
+              if (!profile.current_company && comp && typeof comp === 'string') {
+                profile.current_company = comp.trim();
+                console.log('📦 [Voyager Fallback] Company:', profile.current_company);
+              }
+              if (!profile.location && el.locationName && typeof el.locationName === 'string') {
+                profile.location = el.locationName.trim();
+              }
+            }
+            if (profile.current_title && profile.current_company) break;
+          }
+        } catch {}
+        if (profile.current_title && profile.current_company) break;
+      }
+    } catch {}
+  }
+
+  // ─── STEP 9: Avatar Image Extraction ──────────────────────────────────────
+  if (!profile.avatar_url) {
+    const avatarEl =
+      topCard?.querySelector<HTMLImageElement>(
+        'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="profile picture"], img[alt*="photo of"], img[alt*="Profile photo"], img.evi-image'
+      ) ||
+      document.querySelector<HTMLImageElement>(
+        'img.pv-top-card-profile-picture__image, img.presence-entity__image, img.pv-top-card__photo, img[alt*="photo of"]'
+      );
+
+    if (avatarEl?.src && !avatarEl.src.includes('ghost-person') && !avatarEl.src.includes('data:image/gif')) {
+      profile.avatar_url = avatarEl.src;
+    }
+  }
+
+  // ─── STEP 10: About Summary & Candidate-Scoped Contact Info ───────────────
   try {
     const aboutSection = document.querySelector('#about, #about ~ *, section:has(#about), [data-view-name*="profile-about"]');
     if (aboutSection) {
@@ -353,21 +475,20 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
       if (text.length > 5) {
         profile.about = text.replace(/^About\s*/i, '').trim();
 
-        // Candidate's email ONLY inside their own About section
         const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
         if (emailMatch && !emailMatch[0].includes('linkedin.com') && !emailMatch[0].includes('example.com')) {
           profile.email = emailMatch[0].trim();
+          console.log('📧 Email found in About section:', profile.email);
         }
 
-        // Phone number inside About section
         const phoneMatch = text.match(/(?:\+?(\d{1,3}))?[-. (]*(\d{3})[-. )]*(\d{3})[-. ]*(\d{4})/);
         if (phoneMatch) {
           profile.phone = phoneMatch[0].trim();
+          console.log('📞 Phone found in About section:', profile.phone);
         }
       }
     }
 
-    // Check open Contact Info modal (if user opened the overlay)
     const modalSection = document.querySelector(
       '.pv-contact-info__contact-type, section.pv-contact-info__contact-type, .artdeco-modal__content, div[data-view-name*="contact-info"]'
     );
@@ -377,18 +498,20 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
         const modalEmail = modalText.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
         if (modalEmail && !modalEmail[0].includes('linkedin.com')) {
           profile.email = modalEmail[0].trim();
+          console.log('📧 Email found in Contact modal:', profile.email);
         }
       }
       if (!profile.phone) {
         const modalPhone = modalText.match(/(?:\+?(\d{1,3}))?[-. (]*(\d{3})[-. )]*(\d{3})[-. ]*(\d{4})/);
         if (modalPhone) {
           profile.phone = modalPhone[0].trim();
+          console.log('📞 Phone found in Contact modal:', profile.phone);
         }
       }
     }
   } catch {}
 
-  // ─── 10. Skills Extraction ────────────────────────────────────────────────
+  // ─── STEP 11: Skills Extraction ───────────────────────────────────────────
   try {
     const skillElements = document.querySelectorAll(
       '#skills ~ * a[data-field="skill_card_skill_topic"] span[aria-hidden="true"], [data-view-name*="profile-skills"] li span[aria-hidden="true"], div.pv-skill-category-entity__name span, section:has(#skills) li span[aria-hidden="true"]'
@@ -406,7 +529,13 @@ export function extractLinkedInProfile(): ParsedCandidateProfile | null {
         profile.skills.push(text);
       }
     });
+    if (profile.skills.length > 0) {
+      console.log('🎯 Skills found:', profile.skills);
+    }
   } catch {}
+
+  console.log('%c[Prosperity CRM Sourcing] ✅ Final Extracted Profile:', 'color: #16a34a; font-weight: bold;', profile);
+  console.groupEnd();
 
   return profile;
 }

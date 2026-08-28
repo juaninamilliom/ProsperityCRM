@@ -24,6 +24,63 @@ describe('LinkedIn Parser Utilities', () => {
   describe('extractLinkedInProfile DOM & Hydration Parser', () => {
     beforeEach(() => {
       document.body.innerHTML = '';
+      document.head.innerHTML = '';
+    });
+
+    it('extracts candidate details instantly from Schema.org JSON-LD in HTML head', () => {
+      document.head.innerHTML = `
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Person",
+          "name": "Andrew Ng",
+          "jobTitle": ["Managing General Partner", "Founder"],
+          "worksFor": [
+            {
+              "@type": "Organization",
+              "name": "AI Fund"
+            }
+          ],
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Palo Alto",
+            "addressRegion": "California",
+            "addressCountry": "US"
+          }
+        }
+        </script>
+      `;
+
+      const profile = extractLinkedInProfile();
+      expect(profile).not.toBeNull();
+      expect(profile?.full_name).toBe('Andrew Ng');
+      expect(profile?.current_title).toBe('Managing General Partner');
+      expect(profile?.current_company).toBe('AI Fund');
+      expect(profile?.location).toBe('Palo Alto, California, US');
+    });
+
+    it('extracts position entities from Voyager JSON code blocks', () => {
+      document.body.innerHTML = `
+        <main>
+          <h1>Satya Nadella</h1>
+          <code id="bpr-guid-12345">{
+            "included": [
+              {
+                "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+                "title": "Chairman and CEO",
+                "companyName": "Microsoft",
+                "locationName": "Redmond, Washington, United States"
+              }
+            ]
+          }</code>
+        </main>
+      `;
+
+      const profile = extractLinkedInProfile();
+      expect(profile?.full_name).toBe('Satya Nadella');
+      expect(profile?.current_title).toBe('Chairman and CEO');
+      expect(profile?.current_company).toBe('Microsoft');
+      expect(profile?.location).toBe('Redmond, Washington, United States');
     });
 
     it('extracts name, headline, title, and company from top-card and headline pattern', () => {

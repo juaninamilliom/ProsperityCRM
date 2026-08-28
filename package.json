@@ -10,7 +10,8 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "migrate": "node ./scripts/run-migrations.mjs",
-    "seed": "node ./scripts/run-seed.mjs"
+    "seed": "node ./scripts/run-seed.mjs",
+    "package:extension": "node ./scripts/package-extension.mjs"
   },
   "workspaces": [
     "apps/*",
