@@ -125,16 +125,32 @@ export function App() {
     setImportSuccess(null);
     setImportError(null);
 
+    // The CRM lookup only needs the URL, so it runs alongside the page reads;
+    // each improved read replaces the profile unless the recruiter has typed.
+    let duplicate: CandidateDuplicateResult | null = null;
+    const lookup = checkLinkedInMatch(url).then((match) => {
+      duplicate = match;
+      return match;
+    });
+    const apply = (result: { profile: ParsedCandidateProfile | null; trace: string[] }) => {
+      if (token !== inspectToken.current || !result.profile) return;
+      const profile = result.profile;
+      setPhase((current) => {
+        if (current.kind === 'ready' && current.url === url && current.dirty) return current;
+        const match = duplicate ?? { isDuplicate: false };
+        return { kind: 'ready', url, profile: mergeExisting(profile, match), trace: result.trace, duplicate: match, dirty: false };
+      });
+    };
+
     try {
-      const result = await extractWithRetry(tab.id);
+      const result = await extractWithRetry(tab.id, 10, 1000, apply);
+      await lookup.catch(() => null);
       if (token !== inspectToken.current) return;
       if (!result.profile) {
         setPhase({ kind: 'failed', url, trace: result.trace });
         return;
       }
-      const duplicate = await checkLinkedInMatch(result.profile.linkedin_url);
-      if (token !== inspectToken.current) return;
-      setPhase({ kind: 'ready', url, profile: mergeExisting(result.profile, duplicate), trace: result.trace, duplicate, dirty: false });
+      apply(result);
     } catch (error) {
       if (token !== inspectToken.current) return;
       setPhase({ kind: 'failed', url, trace: [errorMessage(error, 'Extraction failed')] });

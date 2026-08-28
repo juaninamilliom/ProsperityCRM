@@ -2,6 +2,11 @@
  * LinkedIn profile extraction.
  *
  * Runs inside the LinkedIn tab (content script) against the logged-in DOM.
+ * LinkedIn serves two profile layouts: the 2025 React layout (hashed class
+ * names, `<section componentkey>`, `data-testid="profile_…"`, name in an
+ * `<h2>`, contact details in a `<dialog>`) and the legacy Ember layout
+ * (`h1.text-heading-xlarge`, `#experience`, `pvs-*` classes, artdeco modal).
+ * Both are handled; the new layout is tried first.
  * Every source is a pure function of a Document so it can be unit-tested
  * against fixtures, and every decision is appended to a trace the side panel
  * can show - when a profile parses badly, the trace says which step chose
@@ -154,15 +159,18 @@ function looksLikeTitle(value: string): boolean {
   return words.every((w) => /^[A-Z0-9&(/-]/.test(w) || /^(of|and|&|the|for|at|de|la|y|di|du|des)$/i.test(w));
 }
 
+const ABBREVIATION = /\b(inc|ltd|corp|co|llc|gmbh|pty|plc|s\.a|b\.v)\.$/i;
+
 function cleanCompany(value: string): string {
-  return clean(value.split(/\s*[,(|]\s*|\s+[-–—]\s+/)[0]).replace(/[.]+$/, (m) => (m.length > 1 ? '' : m));
+  const company = clean(value.split(/\s*[,(|]\s*|\s+[-–—]\s+/)[0]);
+  return ABBREVIATION.test(company) ? company : company.replace(/[.…]+$/, '');
 }
 
 /** "Founder of X; Partner at Y | Ex-Z" → the first segment, split on the
  *  joiner. A slogan ("Helping teams ship faster") yields nothing rather than
  *  a made-up title. */
 export function decomposeHeadline(headline: string): { title: string; company: string } {
-  const primary = clean(headline).split(/\s*[;|•·]\s*|\s+[-–—]\s+/)[0] ?? '';
+  const primary = clean(headline).split(/\s*[;|•·]\s*|\s+[-–—]\s+|\.\s+(?=[A-Z])/)[0] ?? '';
   if (!primary) return { title: '', company: '' };
 
   const joiners = [/^(.+?)\s+(?:at|@)\s+(.+)$/i, /^(.+?)\s+of\s+(.+)$/i];
@@ -175,13 +183,189 @@ export function decomposeHeadline(headline: string): { title: string; company: s
   }
 
   if (primary.includes(',')) {
-    const [first, second] = primary.split(',').map(clean);
-    if (looksLikeTitle(first)) {
-      return { title: first, company: second && !looksLikeTitle(second) ? cleanCompany(second) : '' };
+    // "CTO, Acme" names a company; "Co-Founder, LinkedIn, Manas AI & Inflection AI"
+    // is a list of affiliations and only the role is safe to take.
+    const parts = primary.split(',').map(clean);
+    if (looksLikeTitle(parts[0])) {
+      return { title: parts[0], company: parts.length === 2 && !looksLikeTitle(parts[1]) ? cleanCompany(parts[1]) : '' };
     }
   }
 
   return looksLikeTitle(primary) ? { title: primary, company: '' } : { title: '', company: '' };
+}
+
+/* ─── 2025 layout ──────────────────────────────────────────────────────────── */
+
+export function isNewProfileUi(doc: Document): boolean {
+  return Boolean(
+    doc.querySelector(
+      '[data-testid^="profile_ExperienceTopLevelSection"], main section[componentkey], main a[href*="/in/"] h2',
+    ),
+  );
+}
+
+/** A profile card in the 2025 layout: the `<section>` (or nearest keyed
+ *  ancestor) around the `<h2>` heading that matches. */
+export function sectionByHeading(doc: Document, heading: RegExp): Element | null {
+  const h2 = Array.from(doc.querySelectorAll('main h2')).find((el) => heading.test(clean(el.textContent)));
+  if (!h2) return null;
+  let node: Element | null = h2;
+  for (let depth = 0; depth < 10 && node?.parentElement; depth += 1) {
+    node = node.parentElement;
+    if (node.tagName === 'SECTION' || node.hasAttribute('componentkey') || node.hasAttribute('data-testid')) return node;
+  }
+  return h2.parentElement;
+}
+
+interface TopCard {
+  name: string;
+  nameHow: string;
+  headline: string;
+  location: string;
+  badgeCompany: string;
+  badgeHow: string;
+  avatar: string | null;
+}
+
+const DEGREE = /^[·•]?\s*(\d(st|nd|rd|th)|·)$/i;
+const PRONOUNS = /^[A-Za-z]+\/[A-Za-z]+(\/[A-Za-z]+)?$/;
+const SOCIAL = /followers|connections|mutual|followed by/i;
+const SCHOOL = /universit|school|college|institute|academy|polytechnic|facult|lycée|hochschule/i;
+
+function newUiTopCard(doc: Document): TopCard | null {
+  const contact = doc.querySelector('main a[href*="/overlay/contact-info"]');
+  let card: Element | null = contact?.parentElement ?? null;
+  while (card && card !== doc.body && !SOCIAL.test(card.textContent ?? '')) card = card.parentElement;
+  if (!card || card === doc.body) {
+    const h2 = doc.querySelector('main a[href*="/in/"] h2, main h2');
+    card = h2?.closest('section') ?? h2?.parentElement?.parentElement?.parentElement ?? null;
+  }
+  if (!card) return null;
+
+  const nameEl = card.querySelector('h2');
+  const name = clean(nameEl?.textContent);
+
+  const badges = Array.from(card.querySelectorAll('[role="button"]'))
+    .map((el) => clean(el.querySelector('p, span')?.textContent ?? el.textContent))
+    .filter((text) => text && !SOCIAL.test(text));
+  const summary = badges.join(' · ');
+
+  const contactP = contact?.closest('p') ?? contact;
+  const plain: Element[] = [];
+  let contactIndex = -1;
+  for (const p of Array.from(card.querySelectorAll('p'))) {
+    if (p.closest('[role="button"]') || p.querySelector('p')) continue;
+    const text = clean(p.textContent);
+    if (p === contactP || p.contains(contact as Node)) {
+      contactIndex = plain.length;
+      continue;
+    }
+    if (!text || DEGREE.test(text) || PRONOUNS.test(text) || SOCIAL.test(text) || text === name) continue;
+    if (summary && (text === summary || badges.includes(text) || badges.some((b) => text.startsWith(`${b} · `)))) continue;
+    if (/^(Contact info|Message|Connect|Follow|More)$/i.test(text)) continue;
+    plain.push(p);
+  }
+  const headline = clean(plain[0]?.textContent);
+  const locationEl = contactIndex > 0 ? plain[contactIndex - 1] : plain[1];
+  const location = locationEl && locationEl !== plain[0] ? clean(locationEl.textContent) : contactIndex > 0 ? '' : '';
+
+  let badgeCompany = '';
+  let badgeHow = '';
+  if (badges.length > 0) {
+    const first = badges[0];
+    if (badges.length >= 2 || !SCHOOL.test(first)) {
+      badgeCompany = first;
+      badgeHow = 'top-card company badge';
+    }
+  }
+
+  // The photo sits in a sibling column of the text block, so widen the
+  // search a few levels - but never past <main>, where post authors appear.
+  let photoScope: Element | null = card;
+  let avatar: HTMLImageElement | null = null;
+  for (let depth = 0; depth < 3 && photoScope && photoScope.tagName !== 'MAIN'; depth += 1) {
+    avatar =
+      photoScope.querySelector<HTMLImageElement>('img[src*="profile-displayphoto"]') ??
+      Array.from(photoScope.querySelectorAll<HTMLImageElement>('img[src]')).find(
+        (img) => !/company-logo|school-logo|ghost|data:image/.test(img.getAttribute('src') ?? ''),
+      ) ??
+      null;
+    if (avatar) break;
+    photoScope = photoScope.parentElement;
+  }
+
+  return {
+    name,
+    nameHow: nameEl ? 'top-card h2' : 'not found',
+    headline,
+    location,
+    badgeCompany,
+    badgeHow,
+    avatar: avatar?.getAttribute('src') || null,
+  };
+}
+
+function companyOf(line: string): string {
+  return clean(line.split(/\s+[·•]\s+/)[0]);
+}
+
+/** One experience entry in the 2025 layout: a run of `<p>`s - title, "Company
+ *  · Employment type", date range, location - plus a description box. Grouped
+ *  roles at one employer carry several date lines, each preceded by a title. */
+function parseNewUiItem(item: Element): RoleMatch | null {
+  const lines = Array.from(item.querySelectorAll('p'))
+    .filter((p) => !p.querySelector('[data-testid="expandable-text-box"], p') && !p.closest('[data-testid="expandable-text-box"]'))
+    .map((p) => clean(p.textContent))
+    .filter((text) => text && text.length <= 120 && !/^more$/i.test(text));
+  if (lines.length === 0) return null;
+
+  const dateIndexes = lines.map((line, index) => (DATE_LINE.test(line) ? index : -1)).filter((index) => index >= 0);
+  if (dateIndexes.length <= 1) {
+    const dateLine = dateIndexes.length ? lines[dateIndexes[0]] : undefined;
+    const companyLine = lines[1] && lines[1] !== dateLine ? lines[1] : '';
+    return { title: lines[0], company: companyOf(companyLine), current: dateLine ? ONGOING.test(dateLine) : true };
+  }
+
+  const company = companyOf(lines[0]);
+  const roles = dateIndexes
+    .map((index) => ({ title: lines[index - 1] ?? '', current: ONGOING.test(lines[index]) }))
+    .filter((role) => role.title && role.title !== lines[0] && !DATE_LINE.test(role.title));
+  const pick = roles.find((role) => role.current) ?? roles[0];
+  return pick ? { title: pick.title, company, current: pick.current } : null;
+}
+
+function newUiExperienceEntries(doc: Document): RoleMatch[] {
+  const section =
+    doc.querySelector('[data-testid^="profile_ExperienceTopLevelSection"]') ?? sectionByHeading(doc, /^Experience/);
+  if (!section) return [];
+  let items = Array.from(section.querySelectorAll('[componentkey^="entity-collection-item-"]'));
+  if (items.length === 0) {
+    items = Array.from(section.querySelectorAll('a[href*="/company/"]'))
+      .map((link): Element | null => link.parentElement?.parentElement ?? null)
+      .filter((el): el is Element => el !== null)
+      .filter((el, index, all) => all.indexOf(el) === index);
+  }
+  return items.map(parseNewUiItem).filter((entry): entry is RoleMatch => entry !== null);
+}
+
+function newUiSkills(doc: Document): string[] {
+  const section = sectionByHeading(doc, /^(Top )?Skills/i);
+  if (!section) return [];
+  const skills: string[] = [];
+  for (const span of Array.from(section.querySelectorAll('p span, p'))) {
+    if (span.children.length > 0 || span.closest('a, h2, button')) continue;
+    const text = clean(span.textContent);
+    if (text.length > 1 && text.length <= 60 && !/endorsement|show all|skills/i.test(text) && !skills.includes(text)) skills.push(text);
+  }
+  return skills.slice(0, 30);
+}
+
+function newUiAbout(doc: Document): string | null {
+  const section = sectionByHeading(doc, /^About$/);
+  if (!section) return null;
+  const box = section.querySelector('[data-testid="expandable-text-box"]');
+  const text = clean(box ? box.textContent : section.textContent).replace(/^About\s*/i, '').replace(/\s*…?\s*more$/i, '');
+  return text.length > 5 ? text : null;
 }
 
 /* ─── Experience section ───────────────────────────────────────────────────── */
@@ -270,6 +454,8 @@ function parseEntry(li: Element): RoleMatch | null {
 }
 
 export function extractExperienceEntries(doc: Document): RoleMatch[] {
+  const modern = newUiExperienceEntries(doc);
+  if (modern.length > 0) return modern;
   return experienceItems(doc)
     .map(parseEntry)
     .filter((entry): entry is RoleMatch => entry !== null);
@@ -365,23 +551,68 @@ export function extractVoyagerPosition(doc: Document, slug: string): RoleMatch |
 
 /* ─── Contact info ─────────────────────────────────────────────────────────── */
 
-function canonicalWebsite(href: string): string | null {
-  const url = parseUrl(href);
-  if (!url || /(^|\.)linkedin\.com$/i.test(url.hostname)) return null;
-  return `${url.origin}${url.pathname}`;
+/** LinkedIn wraps outbound links in an interstitial (`/safety/go?url=…`,
+ *  `/redir/redirect?url=…`); unwrap it. Falls back to the link text when the
+ *  href is not a usable URL but the text is a bare domain. */
+function canonicalWebsite(href: string, text = ''): string | null {
+  let url = parseUrl(href);
+  if (url && /(^|\.)linkedin\.com$/i.test(url.hostname)) {
+    const wrapped = url.searchParams.get('url');
+    url = wrapped ? parseUrl(wrapped) : null;
+  }
+  if (url && !/(^|\.)linkedin\.com$/i.test(url.hostname)) return `${url.origin}${url.pathname}`;
+  const domain = clean(text).replace(/\s*\(.*\)$/, '');
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(domain) && !/linkedin\.com/i.test(domain)) return `https://${domain}`;
+  return null;
+}
+
+const CONTACT_LABEL = /^(e-?mail|phone|mobile|tel|websites?|site|blog|portfolio|twitter|x|birthday|connected|address|im|.*[’']s profile)$/i;
+
+function labelText(el: Element): string {
+  return clean(el.textContent).replace(/\s*\(.*\)$/, '');
 }
 
 function contactDialog(root: ParentNode): Element | null {
   const anchor = root.querySelector('#pv-contact-info');
   if (anchor) return anchor.closest('[role="dialog"], .artdeco-modal') ?? anchor.parentElement;
-  const dialogs = Array.from(root.querySelectorAll('[role="dialog"], .artdeco-modal, .pv-contact-info'));
+  const dialogs = Array.from(
+    root.querySelectorAll('dialog[open], dialog[data-testid="dialog"], [role="dialog"], .artdeco-modal, .pv-contact-info'),
+  );
   return (
     dialogs.find(
       (dialog) =>
+        /contact info/i.test(clean(dialog.querySelector('header, h1, h2')?.textContent)) ||
         dialog.querySelector('a[href^="mailto:"], a[href^="tel:"]') ||
-        Array.from(dialog.querySelectorAll('h3, h2')).some((h) => /^(email|phone|website)/i.test(clean(h.textContent))),
+        Array.from(dialog.querySelectorAll('h3, h2, p')).some((el) => CONTACT_LABEL.test(labelText(el))),
     ) ?? null
   );
+}
+
+/** Label rows: in the legacy modal each `<section>` has an `<h3>` header; in
+ *  the 2025 `<dialog>` a `<p>` label is followed by sibling `<p>` values. Both
+ *  are "a label element, then its following siblings until the next label". */
+function contactRows(dialog: Element): { label: string; values: Element[] }[] {
+  const rows: { label: string; values: Element[] }[] = [];
+  const labels = Array.from(dialog.querySelectorAll('h3, h2, p')).filter(
+    (el) => !el.closest('header') && el.children.length <= 1 && CONTACT_LABEL.test(labelText(el)),
+  );
+  for (const label of labels) {
+    const values: Element[] = [];
+    let sibling = label.nextElementSibling;
+    while (sibling && !labels.includes(sibling)) {
+      values.push(sibling);
+      sibling = sibling.nextElementSibling;
+    }
+    rows.push({ label: labelText(label).toLowerCase(), values });
+  }
+  return rows;
+}
+
+/** True once the overlay has rendered its rows (the "<name>'s profile" row
+ *  is always present), as opposed to the empty shell shown while loading. */
+export function isContactOverlayRendered(root: ParentNode): boolean {
+  const dialog = contactDialog(root);
+  return Boolean(dialog && (contactRows(dialog).length > 0 || dialog.querySelector('a[href^="mailto:"]')));
 }
 
 /** Reads the "Contact info" overlay when it is open. Returns null when it is
@@ -391,21 +622,22 @@ export function parseContactInfoModal(root: ParentNode): ContactInfo | null {
   if (!dialog) return null;
 
   const info: ContactInfo = { email: null, phone: null, websites: [] };
-  for (const section of Array.from(dialog.querySelectorAll('section'))) {
-    const header = clean(section.querySelector('h3, h2, .pv-contact-info__header')?.textContent).toLowerCase();
-    const body = clean(section.textContent).replace(new RegExp(`^${header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'), '');
-    if (/e-?mail/.test(header)) {
-      const link = section.querySelector('a[href^="mailto:"]');
+  for (const { label, values } of contactRows(dialog)) {
+    const text = clean(values.map((el) => el.textContent).join(' '));
+    if (/^e-?mail/.test(label)) {
+      const link = values.map((el) => el.querySelector('a[href^="mailto:"]') ?? (el.matches('a[href^="mailto:"]') ? el : null)).find(Boolean);
       const fromHref = link?.getAttribute('href')?.replace(/^mailto:/i, '').split('?')[0];
-      info.email = info.email ?? (fromHref ? decodeURIComponent(fromHref) : findEmail(body));
-    } else if (/phone|mobile|tel/.test(header)) {
-      const link = section.querySelector('a[href^="tel:"]');
+      info.email = info.email ?? (fromHref ? decodeURIComponent(fromHref) : findEmail(text));
+    } else if (/^(phone|mobile|tel)/.test(label)) {
+      const link = values.map((el) => el.querySelector('a[href^="tel:"]')).find(Boolean);
       const fromHref = link?.getAttribute('href')?.replace(/^tel:/i, '');
-      info.phone = info.phone ?? (fromHref ? decodeURIComponent(fromHref) : findPhone(body));
-    } else if (/website|site|blog|portfolio/.test(header)) {
-      for (const link of Array.from(section.querySelectorAll('a[href]'))) {
-        const site = canonicalWebsite(link.getAttribute('href') ?? '');
-        if (site && !info.websites.includes(site)) info.websites.push(site);
+      info.phone = info.phone ?? (fromHref ? decodeURIComponent(fromHref) : findPhone(text));
+    } else if (/^(websites?|site|blog|portfolio)/.test(label)) {
+      for (const el of values) {
+        for (const link of Array.from(el.querySelectorAll('a[href]')).concat(el.matches('a[href]') ? [el] : [])) {
+          const site = canonicalWebsite(link.getAttribute('href') ?? '', link.textContent ?? '');
+          if (site && !info.websites.includes(site)) info.websites.push(site);
+        }
       }
     }
   }
@@ -609,6 +841,8 @@ function findSection(doc: Document, anchorId: string): Element | null {
 }
 
 function readAbout(doc: Document): string | null {
+  const modern = newUiAbout(doc);
+  if (modern) return modern;
   const section = findSection(doc, 'about');
   if (!section) return null;
   const spans = Array.from(section.querySelectorAll('.inline-show-more-text span[aria-hidden="true"], span[aria-hidden="true"]'));
@@ -618,7 +852,10 @@ function readAbout(doc: Document): string | null {
 }
 
 function readSkills(doc: Document): string[] {
+  const modern = newUiSkills(doc);
+  if (modern.length > 0) return modern;
   const section = findSection(doc, 'skills');
+  if (!section) return [];
   const selectors = [
     'a[data-field="skill_card_skill_topic"] span[aria-hidden="true"]',
     '.pv-skill-category-entity__name span',
@@ -627,7 +864,7 @@ function readSkills(doc: Document): string[] {
   ];
   const skills: string[] = [];
   for (const selector of selectors) {
-    for (const el of Array.from((section ?? doc).querySelectorAll(selector))) {
+    for (const el of Array.from(section.querySelectorAll(selector))) {
       const text = clean(el.textContent);
       if (
         text.length > 1 &&
@@ -683,19 +920,35 @@ export function extractProfile(doc: Document, url: string): ExtractionResult {
     role_current: null,
   };
 
-  const { name, el: nameEl, how } = findName(doc);
-  profile.full_name = name;
-  log(name ? `Name "${name}" (${how})` : 'Name not found');
-
-  const topCard = findTopCard(doc, nameEl);
-  profile.headline = findHeadline(topCard, name);
-  log(profile.headline ? `Headline "${profile.headline}"` : 'Headline not found in top card');
-  profile.location = findLocation(topCard, name, profile.headline);
-  log(profile.location ? `Location "${profile.location}"` : 'Location not found in top card');
-
-  const badge = findCompanyBadge(topCard);
+  const modern = isNewProfileUi(doc) ? newUiTopCard(doc) : null;
+  let topCard: Element;
+  let badge: { company: string; how: string };
+  if (modern) {
+    log('Layout: 2025 profile (section/componentkey)');
+    profile.full_name = modern.name;
+    profile.headline = modern.headline;
+    profile.location = modern.location;
+    profile.avatar_url = modern.avatar;
+    badge = { company: modern.badgeCompany, how: modern.badgeHow };
+    topCard = doc.querySelector('main') ?? doc.body;
+    log(modern.name ? `Name "${modern.name}" (${modern.nameHow})` : 'Name not found in top card');
+    log(modern.headline ? `Headline "${modern.headline}"` : 'Headline not found in top card');
+    log(modern.location ? `Location "${modern.location}"` : 'Location not found in top card');
+  } else {
+    log('Layout: legacy profile');
+    const { name, el: nameEl, how } = findName(doc);
+    profile.full_name = name;
+    log(name ? `Name "${name}" (${how})` : 'Name not found');
+    topCard = findTopCard(doc, nameEl);
+    profile.headline = findHeadline(topCard, name);
+    log(profile.headline ? `Headline "${profile.headline}"` : 'Headline not found in top card');
+    profile.location = findLocation(topCard, name, profile.headline);
+    log(profile.location ? `Location "${profile.location}"` : 'Location not found in top card');
+    badge = findCompanyBadge(topCard);
+  }
   if (badge.company) log(`Company "${badge.company}" (${badge.how})`);
   else log('No "Current company" badge in top card');
+  const name = profile.full_name;
 
   const role = extractExperience(doc, badge.company);
   if (role) {
@@ -768,7 +1021,14 @@ export function extractProfile(doc: Document, url: string): ExtractionResult {
     log('Filled gaps from Schema.org JSON-LD (public page)');
   }
 
-  profile.avatar_url = profile.avatar_url ?? findAvatar(topCard, doc, name);
+  if (!profile.full_name) {
+    const title = doc.title.split(/[-–—|•]/)[0]?.trim() ?? '';
+    if (title.length > 1 && !/linkedin/i.test(title)) {
+      profile.full_name = title;
+      log(`Name "${title}" (document.title fallback)`);
+    }
+  }
+  profile.avatar_url = profile.avatar_url ?? (modern ? null : findAvatar(topCard, doc, name));
 
   profile.about = readAbout(doc);
   if (profile.about) {

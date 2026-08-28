@@ -50,14 +50,23 @@ function completeness(profile: ParsedCandidateProfile | null): number {
   return [profile.full_name, profile.headline, profile.current_title, profile.current_company, profile.location].filter(Boolean).length;
 }
 
-/** LinkedIn hydrates the top card first and the experience section a beat
- *  later; a first read often has the name but not the role. Re-read until
- *  the result stops improving. */
-export async function extractWithRetry(tabId: number, attempts = 3, delayMs = 700): Promise<ExtractResponse> {
+/** LinkedIn renders the top card first and the profile sections seconds
+ *  later (the 2025 layout lazy-loads them; ~10 s on a heavy profile). Re-read
+ *  until title and company are present or the attempts run out, reporting
+ *  each improvement so the panel can show what it has so far. */
+export async function extractWithRetry(
+  tabId: number,
+  attempts = 10,
+  delayMs = 1000,
+  onProgress?: (partial: ExtractResponse) => void,
+): Promise<ExtractResponse> {
   let best: ExtractResponse = { success: false, profile: null, trace: [] };
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const result = await extractFromTab(tabId);
-    if (completeness(result.profile) > completeness(best.profile)) best = result;
+    if (completeness(result.profile) > completeness(best.profile)) {
+      best = result;
+      onProgress?.(best);
+    }
     const done = best.profile && best.profile.current_title && best.profile.current_company;
     if (done || attempt === attempts) break;
     await wait(delayMs);
