@@ -47,16 +47,19 @@ The extension supports the same passwordless authentication options as the Prosp
      - **Location**
      - **Headline & Bio**
      - **Skills**
-     - **Contact Info** (Email & Phone if available in their About section or contact card)
      - **Canonical LinkedIn URL**
-3. **Edit / Refine Info**:
+   - If the person's most recent role has ended, the panel says so instead of presenting it as current.
+3. **Fetch Contact Info**:
+   - LinkedIn keeps email and phone behind its **Contact info** link, so they are not read automatically.
+   - Click **Fetch contact info** in the *Contact* card. The panel reads LinkedIn's contact overlay for you (it may open and close on the page for a moment) and fills in **Email**, **Phone** and any **Websites** the person shares.
+4. **Edit / Refine Info**:
    - All fields are fully editable before saving.
-4. **Select Pipeline Job & Stage**:
+5. **Select Pipeline Job & Stage**:
    - Choose an open **Job Requisition** (e.g. *"Senior Backend Engineer"*).
    - Select the initial pipeline **Stage** (e.g. *"Sourced"*, *"Screen"*, or *"Interview"*).
-5. **Add Sourcing Notes**:
-   - Write any initial observations or candidate fit notes in the **Sourcing Notes** box.
-6. **Click "Import to Prosperity"**:
+6. **Add a Sourcing Note**:
+   - Write any initial observations or candidate fit notes in the **Sourcing note** box.
+7. **Click "Import to Prosperity"** (the bar at the bottom of the panel):
    - The candidate is created in Prosperity CRM.
    - The company is automatically linked or created as a prospect.
    - An activity note is logged with your timestamp.
@@ -73,7 +76,7 @@ When you navigate to a candidate who has **already been imported**:
 2. **Pre-Populated Data**:
    - All existing details (`Current Title`, `Company`, `Location`, `Skills`, `Email`, `Phone`) are pre-populated into the extension fields.
 3. **Update Info Button**:
-   - The primary button changes to **"Update Info"**.
+   - The primary button changes to **"Update in Prosperity"**.
    - You can update their current position, add a new note, or attach them to an additional open Job Requisition.
 
 ---
@@ -81,12 +84,16 @@ When you navigate to a candidate who has **already been imported**:
 ## 💡 5. Best Practices for Recruiters
 
 - **Keep the Side Panel Open**: You can leave the side panel open while browsing candidates on LinkedIn. It will automatically detect tab switches and URL changes.
-- **Manual Refresh**: If LinkedIn hasn't finished loading when you opened the page, click the **↻ Refresh** button in the extension header.
-- **External Links**: Click the **↗** icon next to the LinkedIn URL to test the canonical link.
+- **Manual Refresh**: If LinkedIn hasn't finished loading when you opened the page, click the **↻** icon in the panel header to re-read it.
+- **Light / Dark**: The moon / sun icon in the header switches the panel's theme; it remembers your choice.
+- **Account**: Your initials in the header open the account menu with **Log out**.
+- **External Links**: **Open** next to the LinkedIn field opens the canonical profile URL in a new tab.
 
 ---
 
 ## 🛠️ 6. Troubleshooting
 
-- **"Could not extract candidate info"**: Click `↻ Refresh` in the header or ensure you are on a public `/in/<slug>` profile.
+- **"Couldn't read this profile"**: Click **Try again** (or **↻** in the header) once LinkedIn has finished loading, and make sure you are on a `/in/<slug>` profile.
+- **Wrong title or company**: Expand **Extraction details** at the bottom of the panel — it lists where each field came from — and click **Copy details** to include it in a bug report. Every field is editable before you import.
+- **No contact info**: Click **Fetch contact info**. If the panel reports the person shares no email or phone, LinkedIn has none to give — ask for it in your outreach.
 - **Session Expired**: If your token expires, click **"Sign In"** in the side panel to re-authenticate via Passkey or Magic Link.

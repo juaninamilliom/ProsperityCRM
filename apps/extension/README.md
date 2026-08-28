@@ -1,64 +1,90 @@
 # Prosperity CRM — LinkedIn Sourcing Chrome Extension
 
-A Manifest V3 Chrome Extension that docks as a **Side Panel** while browsing candidate profiles on LinkedIn. It extracts candidate details via a hybrid parsing engine, checks for existing candidates in Prosperity CRM in real time, and allows 1-click import into active Job Requisitions and Pipeline Stages.
+A Manifest V3 extension that docks as a **Side Panel** while you browse LinkedIn profiles. It reads the profile in the tab, checks whether the person is already in Prosperity, and imports or updates them — with an optional job requisition, starting stage and a sourcing note — in one click.
+
+The panel is the web app in a 360px column: it imports the web app's design tokens and Tailwind theme (`apps/web/src/styles/tokens.css`, `apps/web/tailwind.config.ts`) and bundles the same fonts, so it never drifts from the app's look.
 
 ---
 
-## Features
+## Build & load
 
-- **Chrome Side Panel (`chrome.sidePanel`)**: Stays open and sticky on the right as you navigate between candidate profiles.
-- **Hybrid Extraction Engine**:
-  - **JSON-LD Schema**: Extracts structured data from embedded Schema.org metadata.
-  - **Hydration State / Voyager Blobs**: Extracts job titles, company names, skills, and dates from embedded JSON.
-  - **Semantic DOM Heuristics**: Resilient fallback targeting standard profile headers and experience sections.
-- **Real-Time CRM Matching**: Checks for duplicate candidates using normalized LinkedIn URLs.
-- **1-Click Pipeline Sourcing**: Select an active Job Requisition and initial stage (e.g. `Sourced`, `Screening`) and save directly into the CRM.
-- **Inline Editing**: Verify or tweak extracted data (name, headline, company, title, skills) before importing.
-
----
-
-## Installation & Setup
-
-### 1. Build the Extension
 From the repository root:
+
 ```bash
-npm run build --workspace @prosperity/extension
+npm run build --workspace @prosperity/extension     # → apps/extension/dist/
 ```
-This produces the unpacked extension in `apps/extension/dist/`.
 
-### 2. Load into Chrome
-1. Open Google Chrome and navigate to `chrome://extensions`.
-2. Enable **Developer mode** (toggle in the top-right corner).
-3. Click **Load unpacked** (top-left).
-4. Select the directory:
-   `<repo-root>/apps/extension/dist`
-5. Pin the **Prosperity CRM** extension in your Chrome toolbar.
+1. Open `chrome://extensions`, turn on **Developer mode**.
+2. **Load unpacked** → select `apps/extension/dist`.
+3. Pin **Prosperity CRM — LinkedIn Sourcing** and click its icon to open the side panel.
 
-### 3. Connect to Your Workspace
-1. Click the Prosperity CRM extension icon to open the Side Panel.
-2. Click the ⚙️ (Settings) icon in the top right.
-3. Confirm the API URL (`https://prosperitycrm.onrender.com` or `http://localhost:4000`).
-4. Paste your Auth Token (copied from your web CRM session or login response).
-5. Click **Save & Verify**.
+After pulling changes, rebuild and click the extension's **reload** icon on `chrome://extensions`; LinkedIn tabs that were already open pick up the new content script the next time the panel reads them.
 
----
+`npm run package:extension` (repo root) builds and zips `dist/` into `prosperity-crm-extension.zip` for distribution.
 
-## Sourcing Workflow
+## Signing in
 
-1. Navigate to any LinkedIn candidate profile (e.g. `https://www.linkedin.com/in/username`).
-2. The Side Panel automatically parses the profile and checks if the candidate already exists in your workspace.
-3. If new:
-   - Review the candidate's name, company, title, and skills.
-   - Choose a target **Job Requisition** and **Stage**.
-   - Add any private sourcing notes.
-   - Click **Import to Prosperity CRM**.
-4. If already in CRM:
-   - A banner displays with a 1-click link to view the candidate profile directly in Prosperity CRM.
+The panel signs in the same way as the web app: Passkey / Touch ID first (opens a helper tab on the web app and closes it once signed in), a 1-click magic link second, password as a fallback. If you are already signed in to the web CRM in another tab, the panel picks that session up automatically. The token is kept in `chrome.storage.local`; **Log out** is in the account menu (your initials, top right).
 
----
+## What gets extracted, and from where
+
+Extraction runs in the LinkedIn tab (`src/content/linkedin-parser.ts`) and records a step-by-step **trace**, shown in the panel under *Extraction details* — copy it into a bug report when a profile parses badly.
+
+| Field | Source, in priority order |
+|---|---|
+| Name, headline, location, photo | Top card |
+| Current title & company | **Experience section** (most recent *ongoing* role; grouped roles at one employer are handled), matched against the top-card *Current company* badge → the badge itself → Voyager entities embedded in the page, scoped to this profile → `"Title at Company"` headline decomposition → Schema.org JSON-LD (public pages only) |
+| Skills | Skills section |
+| Email, phone, websites | The **Contact info** overlay — see below |
+
+If the most recent role has an end date, the panel says so rather than presenting it as current.
+
+### Contact info
+
+LinkedIn does not put email or phone in the profile DOM; they live behind the **Contact info** link. **Fetch contact info** in the panel tries, cheapest first:
+
+1. read the overlay if it is already open;
+2. fetch the overlay route (`/in/<slug>/overlay/contact-info/`) and read the contact payload LinkedIn embeds in that page;
+3. click the link, read the rendered overlay, dismiss it.
+
+Only data for the profile in the URL is accepted — the payload of a previously viewed profile is never reused.
 
 ## Development
 
-- Start Vite in watch mode: `npm run dev --workspace @prosperity/extension`
-- Run unit tests: `npm test --workspace @prosperity/extension`
-- Check types: `npm run typecheck --workspace @prosperity/extension`
+```bash
+npm run dev --workspace @prosperity/extension          # Vite dev server for the panel UI
+npm test --workspace @prosperity/extension             # parser tests (jsdom fixtures of LinkedIn's DOM)
+npm run typecheck --workspace @prosperity/extension
+```
+
+**Preview any panel state without Chrome APIs** — open the built or dev-served `sidepanel.html` with `?preview=<state>` where state is `login`, `empty`, `loading`, `failed`, `candidate` or `duplicate`; add `&theme=dark` for dark mode. This is how the design is checked in a plain browser tab or a headless one.
+
+### Layout
+
+```
+apps/extension/
+├── public/
+│   ├── manifest.json            # MV3 permissions, side panel, content script
+│   ├── fonts/                   # Instrument Sans / Serif (bundled; the panel must render offline)
+│   └── icons/
+├── src/
+│   ├── background/service-worker.ts   # opens the panel on icon click; relays tab events
+│   ├── content/
+│   │   ├── content.ts           # EXTRACT_PROFILE / FETCH_CONTACT_INFO handlers, navigation notices
+│   │   ├── linkedin-parser.ts   # pure extraction functions with trace
+│   │   └── linkedin-parser.test.ts
+│   └── sidepanel/
+│       ├── App.tsx              # session, tab following, extraction orchestration, import
+│       ├── AuthScreen.tsx       # sign-in (mirrors the web AuthPage)
+│       ├── CandidatePanel.tsx   # candidate, contact and pipeline cards
+│       ├── Shell.tsx            # header, empty/loading/failed states, trace panel
+│       ├── extraction.ts        # tab messaging, content-script injection, retry
+│       ├── ui.tsx               # the web app's ui primitives + icons
+│       ├── theme.ts             # light/dark, persisted in chrome.storage
+│       ├── preview.tsx          # ?preview= fixtures
+│       ├── api.ts               # API client
+│       └── index.css            # imports the web tokens; @font-face; base
+├── sidepanel.html
+├── tailwind.config.ts           # theme imported from apps/web
+└── vite.config.ts               # panel build + IIFE bundles for content/service worker
+```
