@@ -18,7 +18,7 @@ npm run build --workspace @prosperity/extension     # → apps/extension/dist/
 2. **Load unpacked** → select `apps/extension/dist`.
 3. Pin **Prosperity CRM — LinkedIn Sourcing** and click its icon to open the side panel.
 
-After pulling changes, rebuild and click the extension's **reload** icon on `chrome://extensions`; LinkedIn tabs that were already open pick up the new content script the next time the panel reads them.
+After pulling changes, rebuild and click the extension's **reload** icon on `chrome://extensions`. LinkedIn tabs that were already open keep last build's content script until the panel next reads them: the panel checks the script's protocol version on every read and injects the current one when it differs, so no tab refresh is needed.
 
 `npm run package:extension` (repo root) builds and zips `dist/` into `prosperity-crm-extension.zip` for distribution.
 

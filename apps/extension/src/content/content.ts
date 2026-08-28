@@ -1,12 +1,15 @@
 import {
   extractProfile,
   isContactOverlayRendered,
+  isLinkedInProfileUrl,
   isNewProfileUi,
   parseContactInfoFromHtml,
   parseContactInfoModal,
   profileSlugFromUrl,
   type ContactInfo,
+  type ParsedCandidateProfile,
 } from './linkedin-parser';
+import { PROTOCOL_VERSION, type ProfileUpdatedMessage } from './protocol';
 
 export type ContactFetchResult = {
   success: boolean;
@@ -17,7 +20,7 @@ export type ContactFetchResult = {
 
 declare global {
   interface Window {
-    __prosperityContentLoaded?: boolean;
+    __prosperityContentVersion?: number;
   }
 }
 
@@ -72,7 +75,7 @@ async function closeOverlay() {
  * Contact details live behind the "Contact info" link, not in the profile
  * DOM. Three layers, cheapest first:
  *   1. the overlay is already open - read it
- *   2. fetch the overlay route and read the contact payload embedded in it
+ *   2. (legacy layout) fetch the overlay route and read its embedded payload
  *   3. click the link, read the rendered overlay, dismiss it
  */
 async function fetchContactInfo(): Promise<ContactFetchResult> {
@@ -91,20 +94,21 @@ async function fetchContactInfo(): Promise<ContactFetchResult> {
   const overlayUrl = `${window.location.origin}/in/${encodeURIComponent(slug)}/overlay/contact-info/`;
   if (isNewProfileUi(document)) {
     trace.push('2025 layout: skipping the overlay fetch (no embedded payload); opening the overlay');
-  } else try {
-    const response = await fetch(overlayUrl, { credentials: 'include', headers: { accept: 'text/html' } });
-    trace.push(`Fetched ${overlayUrl} → HTTP ${response.status}`);
-    if (response.ok) {
-      const info = parseContactInfoFromHtml(await response.text(), slug);
-      if (info) {
-        trace.push('Contact payload found in the overlay page');
-        return { success: true, contact: info, source: 'overlay-fetch', trace };
+  } else
+    try {
+      const response = await fetch(overlayUrl, { credentials: 'include', headers: { accept: 'text/html' } });
+      trace.push(`Fetched ${overlayUrl} → HTTP ${response.status}`);
+      if (response.ok) {
+        const info = parseContactInfoFromHtml(await response.text(), slug);
+        if (info) {
+          trace.push('Contact payload found in the overlay page');
+          return { success: true, contact: info, source: 'overlay-fetch', trace };
+        }
+        trace.push('Overlay page carried no contact payload; opening the overlay instead');
       }
-      trace.push('Overlay page carried no contact payload; opening the overlay instead');
+    } catch (error) {
+      trace.push(`Overlay fetch failed: ${String(error)}`);
     }
-  } catch (error) {
-    trace.push(`Overlay fetch failed: ${String(error)}`);
-  }
 
   const link = document.querySelector<HTMLElement>('#top-card-text-details-contact-info, a[href*="/overlay/contact-info"]');
   if (!link) {
@@ -122,18 +126,40 @@ async function fetchContactInfo(): Promise<ContactFetchResult> {
   return { success: true, contact: rendered, source: 'modal', trace };
 }
 
+/** What the panel cares about; a change here is worth pushing. */
+function signature(profile: ParsedCandidateProfile | null): string {
+  if (!profile) return '';
+  return [profile.full_name, profile.current_title, profile.current_company, profile.role_source, profile.location, profile.skills.length].join('|');
+}
+
 function init() {
+  let alive = true;
+
+  const send = (message: unknown) => {
+    if (!alive) return;
+    try {
+      if (!chrome.runtime?.id) throw new Error('context invalidated');
+      chrome.runtime.sendMessage(message).catch(() => {});
+    } catch {
+      // Extension reloaded in chrome://extensions - this script is orphaned.
+      alive = false;
+      observer.disconnect();
+      window.removeEventListener('popstate', onUrlChange);
+    }
+  };
+
   try {
     if (!chrome.runtime?.id) return;
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message?.type === 'PING') {
-        sendResponse({ ok: true });
+        sendResponse({ ok: true, version: PROTOCOL_VERSION });
         return false;
       }
       if (message?.type === 'EXTRACT_PROFILE') {
         const result = extractProfile(document, window.location.href);
+        lastPushed = signature(result.profile);
         logTrace(`Extracted ${result.profile?.full_name ?? 'nothing'} from ${window.location.pathname}`, result.trace);
-        sendResponse({ success: Boolean(result.profile), profile: result.profile, trace: result.trace });
+        sendResponse({ success: Boolean(result.profile), profile: result.profile, trace: result.trace, version: PROTOCOL_VERSION });
         return false;
       }
       if (message?.type === 'FETCH_CONTACT_INFO') {
@@ -153,30 +179,44 @@ function init() {
     // Extension context invalidated (reloaded in chrome://extensions)
   }
 
-  // Tell the side panel when the SPA navigates to another profile.
+  // LinkedIn renders the profile cards lazily, seconds after the top card,
+  // and the Experience rows only when their column decides to. Rather than
+  // make the panel poll, watch the DOM and push whenever the extraction
+  // result changes - the panel takes the better one.
   let lastUrl = window.location.href;
-  const observer = new MutationObserver(() => notifyUrlChange());
+  let lastPushed = '';
+  let pushTimer: number | undefined;
 
-  function disconnect() {
-    observer.disconnect();
-    window.removeEventListener('popstate', notifyUrlChange);
+  function pushIfChanged() {
+    pushTimer = undefined;
+    if (!isLinkedInProfileUrl(window.location.href)) return;
+    const result = extractProfile(document, window.location.href);
+    const next = signature(result.profile);
+    if (!result.profile || next === lastPushed) return;
+    lastPushed = next;
+    const message: ProfileUpdatedMessage = {
+      type: 'PROFILE_UPDATED',
+      url: window.location.href,
+      version: PROTOCOL_VERSION,
+      profile: result.profile,
+      trace: result.trace,
+    };
+    send(message);
   }
 
-  function notifyUrlChange() {
-    if (!chrome.runtime?.id) {
-      disconnect();
-      return;
-    }
+  function onUrlChange() {
     if (window.location.href === lastUrl) return;
     lastUrl = window.location.href;
-    try {
-      chrome.runtime.sendMessage({ type: 'LINKEDIN_PAGE_CHANGED', url: lastUrl }).catch(() => {});
-    } catch {
-      disconnect();
-    }
+    lastPushed = '';
+    send({ type: 'LINKEDIN_PAGE_CHANGED', url: lastUrl });
   }
 
-  window.addEventListener('popstate', notifyUrlChange);
+  const observer = new MutationObserver(() => {
+    onUrlChange();
+    if (pushTimer === undefined) pushTimer = window.setTimeout(pushIfChanged, 700);
+  });
+
+  window.addEventListener('popstate', onUrlChange);
   if (document.body) {
     observer.observe(document.body, { childList: true, subtree: true });
   } else {
@@ -184,9 +224,11 @@ function init() {
   }
 }
 
-// The panel re-injects this file when a tab predates the extension install;
-// guard so a second injection does not double the listeners.
-if (!window.__prosperityContentLoaded) {
-  window.__prosperityContentLoaded = true;
+// Runs once per protocol version per page. After an extension reload the old
+// script is orphaned (its chrome.runtime is dead) but its globals survive in
+// the isolated world, so a plain "already loaded" flag would block the fresh
+// script the panel injects; keying the flag by version lets it through.
+if (window.__prosperityContentVersion !== PROTOCOL_VERSION) {
+  window.__prosperityContentVersion = PROTOCOL_VERSION;
   init();
 }

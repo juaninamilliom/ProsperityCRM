@@ -21,7 +21,8 @@ import {
 import { isLinkedInProfileUrl, normalizeLinkedInUrl, type ParsedCandidateProfile } from '../content/linkedin-parser';
 import { AuthScreen } from './AuthScreen';
 import { CandidatePanel, type ContactState } from './CandidatePanel';
-import { activeTab, extractWithRetry, fetchContactFromTab, hasExperienceRole } from './extraction';
+import { activeTab, completeness, extractWithRetry, fetchContactFromTab, hasExperienceRole } from './extraction';
+import type { ProfileUpdatedMessage } from '../content/protocol';
 import { EmptyState, FailureState, LoadingState, Shell } from './Shell';
 import { useTheme } from './theme';
 import { Button } from './ui';
@@ -175,10 +176,20 @@ export function App() {
     inspectActiveTab();
   }, [inspectActiveTab, loadJobsAndStatuses]);
 
-  // Follow the recruiter across tabs and SPA navigations.
+  // Follow the recruiter across tabs and SPA navigations, and take the
+  // content script's own pushes as LinkedIn finishes rendering the cards.
   useEffect(() => {
     const onMessage = (message: { type?: string }) => {
       if (message?.type === 'LINKEDIN_PAGE_CHANGED' || message?.type === 'LINKEDIN_PAGE_UPDATED') inspectActiveTab();
+      if (message?.type === 'PROFILE_UPDATED') {
+        const update = message as ProfileUpdatedMessage;
+        const url = normalizeLinkedInUrl(update.url);
+        setPhase((current) => {
+          if (current.kind !== 'ready' || current.url !== url || current.dirty) return current;
+          if (completeness(update.profile) <= completeness(current.profile)) return current;
+          return { ...current, profile: mergeExisting(update.profile, current.duplicate), trace: update.trace };
+        });
+      }
     };
     const onActivated = () => inspectActiveTab();
     const onUpdated = (_tabId: number, change: chrome.tabs.TabChangeInfo) => {
