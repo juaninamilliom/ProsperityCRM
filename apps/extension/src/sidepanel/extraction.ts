@@ -45,18 +45,26 @@ export async function extractFromTab(tabId: number): Promise<ExtractResponse> {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Ranks a read. A role taken from the Experience stack outranks any number
+ *  of other fields, so a later read that finally has it always replaces a
+ *  headline-derived placeholder. */
 function completeness(profile: ParsedCandidateProfile | null): number {
   if (!profile) return 0;
-  return [profile.full_name, profile.headline, profile.current_title, profile.current_company, profile.location].filter(Boolean).length;
+  const fields = [profile.full_name, profile.headline, profile.current_title, profile.current_company, profile.location].filter(Boolean).length;
+  return fields + (profile.role_source === 'experience' ? 10 : 0);
+}
+
+export function hasExperienceRole(profile: ParsedCandidateProfile | null): boolean {
+  return profile?.role_source === 'experience';
 }
 
 /** LinkedIn renders the top card first and the profile sections seconds
  *  later (the 2025 layout lazy-loads them; ~10 s on a heavy profile). Re-read
- *  until title and company are present or the attempts run out, reporting
- *  each improvement so the panel can show what it has so far. */
+ *  until the role has come from the Experience stack or the attempts run
+ *  out, reporting each improvement so the panel can show what it has so far. */
 export async function extractWithRetry(
   tabId: number,
-  attempts = 10,
+  attempts = 12,
   delayMs = 1000,
   onProgress?: (partial: ExtractResponse) => void,
 ): Promise<ExtractResponse> {
@@ -67,8 +75,7 @@ export async function extractWithRetry(
       best = result;
       onProgress?.(best);
     }
-    const done = best.profile && best.profile.current_title && best.profile.current_company;
-    if (done || attempt === attempts) break;
+    if (hasExperienceRole(best.profile) || attempt === attempts) break;
     await wait(delayMs);
   }
   return best;

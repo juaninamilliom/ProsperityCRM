@@ -53,15 +53,15 @@ Two layouts are supported. The **2025 layout** (verified live 2026-08-27): name 
 
 Title and company, in priority order:
 
-1. **Experience section** — the most recent *ongoing* role. Single roles and grouped roles (several positions at one employer) are told apart by where the date range sits; a `pvs-entity__sub-components` block alone is not a sign of grouping (single roles have one for the description and skills line). When a top-card *Current company* badge exists, the ongoing role at that company wins.
-2. **Top-card badge** — parsed from `button[aria-label="Current company: …"]`. The *Education* badge in the same list is never used as a company.
+1. **Experience section** — the **top entry of the stack**, always: LinkedIn lists ongoing roles first, most recent first, so if the top entry has ended everything below it has too (the profile is flagged). Single roles and grouped roles (several positions at one employer) are told apart by where the date ranges sit; a `pvs-entity__sub-components` block alone is not a sign of grouping. The headline and the top-card badge are the member's own summary and never override it. `role_source` records where the title came from; the panel keeps re-reading until it is `'experience'` and labels anything else a placeholder.
+2. **Top-card badge** — company only, while Experience has not rendered. Legacy: `button[aria-label="Current company: …"]`; 2025: the first `[role="button"]` badge unless it is a lone school. The *Education* badge is never used as a company.
 3. **Voyager entities** in the page's `bpr-guid` payload blobs, scoped to the profile in the URL (blobs from the first-loaded profile outlive SPA navigation).
 4. **Headline decomposition** — `"Title at Company"`, `"Title @ Company"`, `"Founder of Company"`; slogans yield nothing rather than a made-up title.
 5. **Schema.org JSON-LD** — only present on logged-out public pages.
 
 Contact info is not in the profile DOM. `FETCH_CONTACT_INFO` reads the open overlay; on the legacy layout it then tries fetching `/in/<slug>/overlay/contact-info/` and reading the contact payload from its embedded `datalet-bpr-guid` index (only the entry whose request names this slug); finally it clicks the *Contact info* link, waits for the overlay's rows, reads them (unwrapping `/safety/go?url=` link interstitials) and dismisses it. The 2025 layout skips the fetch step — its overlay route carries no payload.
 
-The 2025 layout lazy-loads the profile cards; the panel re-reads up to ten times a second apart and applies each improvement until title and company are present or the recruiter edits a field.
+The 2025 layout lazy-loads the profile cards; the panel re-reads up to twelve times a second apart and applies each improvement until the role has come from the Experience stack or the recruiter edits a field.
 
 Tests (`linkedin-parser.test.ts`) run against jsdom fixtures of both layouts. The 2025 fixtures were built from the live DOM: top card with badges/pronouns/no-contact variants, single and grouped experience entries with description boxes, the Skills card next to an activity feed, About, and the contact dialog with website/email/phone rows.
 

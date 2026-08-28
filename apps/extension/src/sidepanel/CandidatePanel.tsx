@@ -76,7 +76,16 @@ export function CandidatePanel(props: CandidatePanelProps) {
         {profile.role_current === false && (
           <Notice tone="off">
             <Icon name="alert" size={14} className="mt-0.5 shrink-0" />
-            <span>The most recent role on this profile has ended - check title and company.</span>
+            <span>The top role on this profile has ended - check title and company.</span>
+          </Notice>
+        )}
+        {profile.role_source !== null && profile.role_source !== 'experience' && (
+          <Notice tone="warn">
+            <Icon name="alert" size={14} className="mt-0.5 shrink-0" />
+            <span>
+              Title and company are guessed from the headline - the Experience section had not rendered. Re-read the page
+              (↻ above) once it has.
+            </span>
           </Notice>
         )}
 

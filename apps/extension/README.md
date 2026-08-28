@@ -35,13 +35,13 @@ LinkedIn serves **two profile layouts** and the parser handles both. The 2025 Re
 | Field | Source, in priority order |
 |---|---|
 | Name, headline, location, photo | Top card (`h2` + `p` run in the 2025 layout; `h1`/`.text-body-*` in the legacy one) |
-| Current title & company | **Experience section** (most recent *ongoing* role; grouped roles at one employer are handled), matched against the top-card company badge → the badge itself → Voyager entities embedded in the page (legacy only), scoped to this profile → `"Title at Company"` headline decomposition → Schema.org JSON-LD (public pages only) |
+| Current title & company | The **top entry of the Experience stack** — nothing else, once it has rendered (grouped roles at one employer resolve to their top role; an ended top entry is flagged). Until it renders: the top-card badge for the company and a `"Title at Company"` headline guess for the title, marked as a placeholder in the panel and replaced as soon as Experience appears. Voyager entities (legacy layout) and Schema.org JSON-LD (public pages) fill in the same way. |
 | Skills | The Skills card only — never the activity feed |
 | Email, phone, websites | The **Contact info** overlay — see below |
 
-If the most recent role has an end date, the panel says so rather than presenting it as current.
+If the top role has an end date, the panel says so rather than presenting it as current.
 
-The 2025 layout renders the profile cards lazily, several seconds after the top card; the panel re-reads the tab once a second for up to ten seconds and shows each improvement as it lands.
+The 2025 layout renders the profile cards lazily, several seconds after the top card; the panel re-reads the tab once a second for up to twelve seconds, shows each improvement as it lands, and does not stop until the role has come from the Experience stack.
 
 ### Contact info
 

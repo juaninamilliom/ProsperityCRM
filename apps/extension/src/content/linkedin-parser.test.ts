@@ -238,12 +238,12 @@ describe('extractExperience', () => {
     expect(extractExperience(document)).toEqual({ title: 'Senior Staff Software Engineer', company: 'Google', current: true });
   });
 
-  it('prefers an ongoing role over an ended one listed first', () => {
+  it('takes the top entry of the stack even when it has ended, and flags it', () => {
     document.body.innerHTML = experienceSection(
       singleRole({ title: 'Advisor', company: 'Old Startup', dates: 'Jan 2022 - Jun 2024 · 2 yrs 6 mos' }) +
         singleRole({ title: 'VP Engineering', company: 'Meridian', dates: 'Feb 2019 - Present · 6 yrs 7 mos' }),
     );
-    expect(extractExperience(document)).toEqual({ title: 'VP Engineering', company: 'Meridian', current: true });
+    expect(extractExperience(document)).toEqual({ title: 'Advisor', company: 'Old Startup', current: false });
   });
 
   it('falls back to the most recent role and flags it when nothing is ongoing', () => {
@@ -696,14 +696,23 @@ describe('2025 layout: experience, skills, about', () => {
     expect(extractExperience(document)).toEqual({ title: 'Co-Founder, Board Member', company: 'Inflection AI', current: true });
   });
 
-  it('prefers the ongoing role at the badge company over an earlier ongoing one', () => {
+  it('takes the top entry of the stack even when the badge names another company', () => {
     document.body.innerHTML = `<main>${newTopCard({ badges: ['AI Fund', 'Stanford University'] })}${newExperience(
       newItem(['Founder', 'DeepLearning.AI', 'Jun 2017 - Present · 9 yrs']) +
         newItem(['Managing General Partner', 'AI Fund · Full-time', 'Jan 2018 - Present · 8 yrs']),
     )}</main>`;
+    const { profile, trace } = extractProfile(document, window.location.href);
+    expect(profile?.current_title).toBe('Founder');
+    expect(profile?.current_company).toBe('DeepLearning.AI');
+    expect(profile?.role_source).toBe('experience');
+    expect(trace.some((line) => /badge says "AI Fund"/.test(line))).toBe(true);
+  });
+
+  it('marks a headline-derived title as a placeholder while Experience has not rendered', () => {
+    document.body.innerHTML = `<main>${newTopCard({ headline: 'VP Engineering at Meridian', badges: ['Meridian'] })}</main>`;
     const { profile } = extractProfile(document, window.location.href);
-    expect(profile?.current_title).toBe('Managing General Partner');
-    expect(profile?.current_company).toBe('AI Fund');
+    expect(profile?.current_title).toBe('VP Engineering');
+    expect(profile?.role_source).toBe('headline');
   });
 
   it('handles grouped roles at one employer', () => {

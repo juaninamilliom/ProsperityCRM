@@ -34,9 +34,14 @@ export interface ParsedCandidateProfile {
   email: string | null;
   phone: string | null;
   websites: string[];
-  /** null = unknown; false = the best role found has an end date. */
+  /** null = unknown; false = the top experience entry has an end date. */
   role_current: boolean | null;
+  /** Where current_title came from. Only 'experience' is trustworthy; the
+   *  panel keeps re-reading a lazily rendered page until it gets that. */
+  role_source: RoleSource | null;
 }
+
+export type RoleSource = 'experience' | 'voyager' | 'headline' | 'json-ld';
 
 export interface ContactInfo {
   email: string | null;
@@ -461,17 +466,12 @@ export function extractExperienceEntries(doc: Document): RoleMatch[] {
     .filter((entry): entry is RoleMatch => entry !== null);
 }
 
-/** The role to call "current": one at the preferred company if it is ongoing,
- *  else the first ongoing role, else the most recent one (flagged). */
-export function extractExperience(doc: Document, preferredCompany?: string): RoleMatch | null {
-  const entries = extractExperienceEntries(doc);
-  if (entries.length === 0) return null;
-  const wanted = clean(preferredCompany ?? '').toLowerCase();
-  if (wanted) {
-    const match = entries.find((entry) => entry.current && entry.company.toLowerCase() === wanted);
-    if (match) return match;
-  }
-  return entries.find((entry) => entry.current) ?? entries[0];
+/** The top entry of the Experience stack is the current role - LinkedIn lists
+ *  ongoing roles first, most recent first, so if the top one has ended, so has
+ *  everything under it and the caller flags it. The headline and the top-card
+ *  badge are the member's own summary and are deliberately not consulted. */
+export function extractExperience(doc: Document): RoleMatch | null {
+  return extractExperienceEntries(doc)[0] ?? null;
 }
 
 /* ─── Voyager entities embedded in the page ────────────────────────────────── */
@@ -918,6 +918,7 @@ export function extractProfile(doc: Document, url: string): ExtractionResult {
     phone: null,
     websites: [],
     role_current: null,
+    role_source: null,
   };
 
   const modern = isNewProfileUi(doc) ? newUiTopCard(doc) : null;
@@ -950,27 +951,31 @@ export function extractProfile(doc: Document, url: string): ExtractionResult {
   else log('No "Current company" badge in top card');
   const name = profile.full_name;
 
-  const role = extractExperience(doc, badge.company);
+  const role = extractExperience(doc);
   if (role) {
     profile.current_title = role.title;
     profile.current_company = role.company || badge.company;
     profile.role_current = role.current;
+    profile.role_source = 'experience';
     log(
-      `Experience: "${role.title}" at "${role.company}"${role.current ? '' : ' (ended - no ongoing role listed)'}${
+      `Experience (top entry): "${role.title}" at "${role.company}"${role.current ? '' : ' - ended'}${
         badge.company && role.company && role.company.toLowerCase() !== badge.company.toLowerCase()
-          ? ` - differs from badge "${badge.company}"; using experience`
+          ? ` (badge says "${badge.company}"; the experience stack wins)`
           : ''
       }`,
     );
   } else {
     profile.current_company = badge.company;
-    log('Experience section not found or empty');
+    log('Experience section not rendered yet or empty - title will be re-read');
   }
 
   if (!profile.current_title || !profile.current_company) {
     const position = slug ? extractVoyagerPosition(doc, slug) : null;
     if (position) {
-      if (!profile.current_title) profile.current_title = position.title;
+      if (!profile.current_title) {
+        profile.current_title = position.title;
+        profile.role_source = 'voyager';
+      }
       if (!profile.current_company) profile.current_company = position.company;
       if (profile.role_current === null) profile.role_current = position.current;
       log(`Voyager payload: "${position.title}" at "${position.company}"`);
@@ -983,7 +988,8 @@ export function extractProfile(doc: Document, url: string): ExtractionResult {
     const parts = decomposeHeadline(profile.headline);
     if (!profile.current_title && parts.title) {
       profile.current_title = parts.title;
-      log(`Title "${parts.title}" from headline`);
+      profile.role_source = 'headline';
+      log(`Title "${parts.title}" from headline (placeholder until the Experience section renders)`);
     }
     if (!profile.current_company && parts.company) {
       profile.current_company = parts.company;
@@ -997,7 +1003,10 @@ export function extractProfile(doc: Document, url: string): ExtractionResult {
     if (!profile.full_name && typeof ld.name === 'string') profile.full_name = clean(ld.name);
     if (!profile.current_title) {
       const jobTitle = Array.isArray(ld.jobTitle) ? ld.jobTitle[0] : ld.jobTitle;
-      if (typeof jobTitle === 'string') profile.current_title = clean(jobTitle);
+      if (typeof jobTitle === 'string') {
+        profile.current_title = clean(jobTitle);
+        profile.role_source = 'json-ld';
+      }
     }
     if (!profile.current_company) {
       const orgs = Array.isArray(ld.worksFor) ? ld.worksFor : [ld.worksFor];
