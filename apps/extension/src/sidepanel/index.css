@@ -1,67 +1,80 @@
+/* Colour tokens are the web app's, imported so the panel can never drift
+   from it. Fonts are bundled: an extension page must render offline and
+   without a flash of system-font text. */
+@import '../../../web/src/styles/tokens.css';
+
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/instrument-serif-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/instrument-serif-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg: oklch(0.985 0.004 90);
-  --surface: #ffffff;
-  --surface-2: oklch(0.972 0.005 90);
-  --surface-3: oklch(0.955 0.005 90);
-  --border: oklch(0.925 0.005 90);
-  --border-soft: oklch(0.958 0.004 90);
+@layer base {
+  :root {
+    font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+    background-color: var(--bg);
+    color: var(--ink);
+  }
 
-  --ink: oklch(0.26 0.017 268);
-  --ink-2: oklch(0.52 0.016 268);
-  --ink-3: oklch(0.64 0.014 268);
+  /* Same rule as the web app: body text is 13px but the root keeps the
+     browser default so Tailwind's rem-based spacing scale is unchanged. */
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-size: 13px;
+    line-height: 1.45;
+    background-color: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
 
-  --accent: oklch(0.52 0.13 276);
-  --accent-soft: color-mix(in oklab, var(--accent) 9%, white);
-  --accent-ink: color-mix(in oklab, var(--accent) 78%, black);
-  --sel-bg: color-mix(in oklab, var(--accent) 5%, white);
-  --sel-ring: color-mix(in oklab, var(--accent) 22%, white);
-
-  --shadow: 0 1px 2px rgba(20, 22, 32, 0.04);
-  --shadow-pop: 0 1px 2px rgba(20, 22, 32, 0.07);
-
-  --stage-sourced: oklch(0.63 0.07 255);
-  --stage-screening: oklch(0.63 0.07 210);
-  --stage-interviewing: oklch(0.63 0.07 165);
-  --stage-offer: oklch(0.63 0.07 75);
-  --stage-placed: oklch(0.63 0.07 140);
-  --stage-rejected: oklch(0.63 0.07 20);
-
-  --ok-bg: oklch(0.96 0.03 145);
-  --ok-fg: oklch(0.42 0.09 145);
-  --ok-dot: oklch(0.63 0.09 145);
-  --warn-bg: oklch(0.965 0.03 80);
-  --warn-fg: oklch(0.45 0.08 65);
-  --warn-dot: oklch(0.68 0.09 75);
+  /* No global input/button styling; controls opt in via the ui primitives. */
 }
 
-:root.dark {
-  --bg: oklch(0.185 0.012 268);
-  --surface: oklch(0.232 0.014 268);
-  --surface-2: oklch(0.212 0.013 268);
-  --surface-3: oklch(0.268 0.014 268);
-  --border: oklch(0.305 0.014 268);
-  --border-soft: oklch(0.262 0.013 268);
+@layer components {
+  .focus-ring {
+    @apply outline-none;
+  }
 
-  --ink: oklch(0.945 0.006 268);
-  --ink-2: oklch(0.735 0.013 268);
-  --ink-3: oklch(0.6 0.013 268);
-
-  --accent: oklch(0.68 0.14 276);
-  --accent-soft: color-mix(in oklab, var(--accent) 26%, oklch(0.232 0.014 268));
-  --accent-ink: color-mix(in oklab, var(--accent) 40%, white);
-  --sel-bg: color-mix(in oklab, var(--accent) 16%, oklch(0.232 0.014 268));
-  --sel-ring: color-mix(in oklab, var(--accent) 34%, oklch(0.185 0.012 268));
-
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
-  --shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  .focus-ring:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--sel-ring);
+  }
 }
