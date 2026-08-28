@@ -30,24 +30,28 @@ The panel signs in the same way as the web app: Passkey / Touch ID first (opens 
 
 Extraction runs in the LinkedIn tab (`src/content/linkedin-parser.ts`) and records a step-by-step **trace**, shown in the panel under *Extraction details* — copy it into a bug report when a profile parses badly.
 
+LinkedIn serves **two profile layouts** and the parser handles both. The 2025 React layout (what most accounts see now — verified live on 2026-08-27) has hashed class names, `<section componentkey>` cards, the name in an `<h2>`, every text line in a `<p>`, and contact details in a `<dialog>`. The legacy Ember layout has `h1.text-heading-xlarge`, `#experience`, `pvs-*` classes and an artdeco modal. The trace's second line says which one was found.
+
 | Field | Source, in priority order |
 |---|---|
-| Name, headline, location, photo | Top card |
-| Current title & company | **Experience section** (most recent *ongoing* role; grouped roles at one employer are handled), matched against the top-card *Current company* badge → the badge itself → Voyager entities embedded in the page, scoped to this profile → `"Title at Company"` headline decomposition → Schema.org JSON-LD (public pages only) |
-| Skills | Skills section |
+| Name, headline, location, photo | Top card (`h2` + `p` run in the 2025 layout; `h1`/`.text-body-*` in the legacy one) |
+| Current title & company | The **top entry of the Experience stack** — nothing else, once it has rendered (grouped roles at one employer resolve to their top role; an ended top entry is flagged). Until it renders: the top-card badge for the company and a `"Title at Company"` headline guess for the title, marked as a placeholder in the panel and replaced as soon as Experience appears. Voyager entities (legacy layout) and Schema.org JSON-LD (public pages) fill in the same way. |
+| Skills | The Skills card only — never the activity feed |
 | Email, phone, websites | The **Contact info** overlay — see below |
 
-If the most recent role has an end date, the panel says so rather than presenting it as current.
+If the top role has an end date, the panel says so rather than presenting it as current.
+
+The 2025 layout renders the profile cards lazily, several seconds after the top card; the panel re-reads the tab once a second for up to twelve seconds, shows each improvement as it lands, and does not stop until the role has come from the Experience stack.
 
 ### Contact info
 
 LinkedIn does not put email or phone in the profile DOM; they live behind the **Contact info** link. **Fetch contact info** in the panel tries, cheapest first:
 
 1. read the overlay if it is already open;
-2. fetch the overlay route (`/in/<slug>/overlay/contact-info/`) and read the contact payload LinkedIn embeds in that page;
-3. click the link, read the rendered overlay, dismiss it.
+2. *(legacy layout only)* fetch the overlay route and read the contact payload embedded in that page — the 2025 layout serves a 1 MB shell with no payload, so this step is skipped there;
+3. click the link, wait for the overlay's rows, read them, dismiss it.
 
-Only data for the profile in the URL is accepted — the payload of a previously viewed profile is never reused.
+Outbound links are unwrapped from LinkedIn's `/safety/go?url=…` interstitial. Only data for the profile in the URL is accepted — the payload of a previously viewed profile is never reused.
 
 ## Development
 

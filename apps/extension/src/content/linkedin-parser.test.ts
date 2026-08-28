@@ -238,12 +238,12 @@ describe('extractExperience', () => {
     expect(extractExperience(document)).toEqual({ title: 'Senior Staff Software Engineer', company: 'Google', current: true });
   });
 
-  it('prefers an ongoing role over an ended one listed first', () => {
+  it('takes the top entry of the stack even when it has ended, and flags it', () => {
     document.body.innerHTML = experienceSection(
       singleRole({ title: 'Advisor', company: 'Old Startup', dates: 'Jan 2022 - Jun 2024 · 2 yrs 6 mos' }) +
         singleRole({ title: 'VP Engineering', company: 'Meridian', dates: 'Feb 2019 - Present · 6 yrs 7 mos' }),
     );
-    expect(extractExperience(document)).toEqual({ title: 'VP Engineering', company: 'Meridian', current: true });
+    expect(extractExperience(document)).toEqual({ title: 'Advisor', company: 'Old Startup', current: false });
   });
 
   it('falls back to the most recent role and flags it when nothing is ongoing', () => {
@@ -497,5 +497,293 @@ describe('extractLinkedInProfile (legacy entrypoint and public-page fallbacks)',
     setUrl('https://www.linkedin.com/feed/');
     document.body.innerHTML = '<main><h1>Feed</h1></main>';
     expect(extractLinkedInProfile()).toBeNull();
+  });
+});
+
+/* ─── 2025 layout ─────────────────────────────────────────────────────────────
+   Observed live on 2026-08-27: hashed class names on everything, `<section
+   componentkey>` cards, the name in an `<h2>`, `<p>` runs for every text
+   line, `[role="button"]` badges for company and school, experience entries
+   as `[componentkey^="entity-collection-item-"]`, contact details in a
+   `<dialog data-testid="dialog">`. */
+
+import { isContactOverlayRendered, isNewProfileUi } from './linkedin-parser';
+
+function newTopCard(opts: {
+  name?: string;
+  headline?: string;
+  location?: string;
+  badges?: string[];
+  pronouns?: string;
+  contact?: boolean;
+}) {
+  const {
+    name = 'Andrew Ng',
+    headline = 'DeepLearning.AI, AI Fund and AI Aspire',
+    location = 'Palo Alto, California, United States',
+    badges = ['DeepLearning.AI', 'University of California, Berkeley'],
+    pronouns,
+    contact = true,
+  } = opts;
+  return `
+    <section componentkey="com.linkedin.sdui.profile.card.refACoAAAqBL5gBXJ8MGhQh-qHYyxAOW-DYlHM3VLgTopCard">
+      <div class="_88068379">
+        <div><a href="https://www.linkedin.com/in/andrewyng/"><img class="_5c2021b5" alt="" src="https://media.licdn.com/dms/image/v2/C5603AQF8paxRmnuJxg/profile-displayphoto-shrink_400_400/0?e=1&v=beta&t=abc"></a></div>
+        <div class="d9a4036f">
+          <div><a href="https://www.linkedin.com/in/andrewyng/"><div><div><h2 class="_31136337">${name}</h2></div></div></a>${pronouns ? `<p>${pronouns}</p>` : ''}<p class="hidden">· 1st</p><p>· 2nd</p></div>
+          <p class="_4841b8c1">${headline}</p>
+          ${badges.length ? `<p class="visually-hidden">${badges.join(' · ')}</p>` : ''}
+          <div><p>${location}</p>${contact ? `<p>·</p><p><a href="https://www.linkedin.com/in/andrewyng/overlay/contact-info/">Contact info</a></p>` : ''}</div>
+          <div>${badges.map((b) => `<div role="button" tabindex="0"><img src="https://media.licdn.com/dms/image/v2/C560BAQEHKffoI8RwIQ/company-logo_100_100/0?e=1"><p><span>${b}</span></p></div>`).join('')}</div>
+          <p>2,606,334 followers</p>
+          <p>Erik, Jonathan and 1 other mutual connection</p>
+        </div>
+      </div>
+    </section>`;
+}
+
+function newItem(lines: string[], withDescription = true) {
+  const [title, company, dates, loc] = lines;
+  return `
+    <div componentkey="entity-collection-item-${Math.random().toString(16).slice(2, 8)}">
+      <hr role="presentation">
+      <div><div><div><div>
+        <a tabindex="0" href="https://www.linkedin.com/company/18246783/"><figure><svg></svg><img src="https://media.licdn.com/x/company-logo_100_100/0?e=1"></figure></a>
+        <div>
+          <a tabindex="0" href="https://www.linkedin.com/company/18246783/"><div><div><div><p>${title}</p><p>${company}</p></div></div>${dates ? `<p>${dates}</p>` : ''}${loc ? `<p>${loc}</p>` : ''}</div></a>
+          ${withDescription ? `<div><p><span tabindex="-1" data-testid="expandable-text-box">${company} provides technical training on Generative AI, Machine Learning, and other topics. Jan 2020 - Dec 2021 we grew.<br><br>Our courses reach millions.</span><span> <button data-testid="expandable-text-button">more</button></span></p></div>` : ''}
+        </div>
+      </div></div></div></div>
+    </div>`;
+}
+
+function newGroupedItem(company: string, roles: string[][]) {
+  return `
+    <div componentkey="entity-collection-item-grp">
+      <div><div><div><div>
+        <a href="https://www.linkedin.com/company/1441/"><figure><img src="https://media.licdn.com/x/company-logo_100_100/0"></figure></a>
+        <div><div><p>${company}</p><p>Full-time · 8 yrs 3 mos</p><p>Mountain View, California, United States</p></div>
+          <div>${roles.map(([title, dates]) => `<div><a href="https://www.linkedin.com/in/x/details/experience/urn:li:fsd_profilePosition:(ACoAAA,1)/"><div><p>${title}</p><p>${dates}</p></div></a></div>`).join('')}</div>
+        </div>
+      </div></div></div></div>
+    </div>`;
+}
+
+function newExperience(items: string) {
+  return `
+    <section componentkey="com.linkedin.sdui.profile.card.refACoAAAqBL5gBXJ8MGhQh-qHYyxAOW-DYlHM3VLgExperience">
+      <div><div><h2>Experience</h2></div>
+        <div data-testid="profile_ExperienceTopLevelSection_andrewyng" data-component-type="LazyColumn">${items}</div>
+        <a href="https://www.linkedin.com/in/andrewyng/details/experience/"><span>Show all 6 experiences</span></a>
+      </div>
+    </section>`;
+}
+
+function newSkills(skills: string[]) {
+  return `
+    <section componentkey="…Skills">
+      <div><div><h2>Skills (${skills.length})</h2></div>
+        <div>${skills
+          .map(
+            (s, i) => `${i ? '<hr>' : ''}<div><div><p><span>${s}</span></p><p><a href="https://www.linkedin.com/in/reidhoffman/details/skills/urn:li:fsd_skill:(ACoAAA,${i})/">2 endorsements</a></p></div></div>`,
+          )
+          .join('')}</div>
+        <hr><a href="https://www.linkedin.com/in/reidhoffman/details/skills/"><span>Show all</span></a>
+      </div>
+    </section>`;
+}
+
+function newActivity() {
+  return `
+    <section componentkey="33cd2a88"><div><h2>Activity</h2>
+      <ul><li><span aria-hidden="true">GitHub - andrewyng/openworker</span></li><li><span aria-hidden="true">Michal Majerczak and 7,625 others</span></li><li><span aria-hidden="true">254 comments</span></li><li><span aria-hidden="true">529 reposts</span></li></ul>
+    </div></section>`;
+}
+
+function newAbout(text: string) {
+  return `<section componentkey="…About"><div><div><div><h2>About</h2></div><div><p><span tabindex="-1" data-testid="expandable-text-box">${text}</span></p></div></div></div></section>`;
+}
+
+function newContactDialog(rows: { label: string; html: string }[]) {
+  return `
+    <dialog data-testid="dialog" aria-labelledby="dialog-header" open="">
+      <button type="button" aria-label="Dismiss"><span></span></button>
+      <div><header id="dialog-header"><h2>Contact info</h2></header>
+        <div data-testid="dialog-content"><div data-sdui-screen="com.linkedin.sdui.flagshipnav.profile.ProfileContactDetailsOverlay"><div><div id="…ContactInfoDetailSection"><div><div data-testid="lazy-column" data-component-type="LazyColumn">
+          ${rows.map((r) => `<div><div><svg></svg></div><div><p>${r.label}</p>${r.html}</div></div>`).join('')}
+        </div></div></div></div></div></div>
+      </div>
+    </dialog>`;
+}
+
+describe('2025 layout: top card', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    setUrl('https://www.linkedin.com/in/andrewyng/');
+  });
+
+  it('is detected', () => {
+    document.body.innerHTML = `<main>${newTopCard({})}</main>`;
+    expect(isNewProfileUi(document)).toBe(true);
+  });
+
+  it('reads name, headline, location, company badge and photo', () => {
+    document.body.innerHTML = `<main>${newTopCard({})}${newActivity()}</main>`;
+    const { profile, trace } = extractProfile(document, window.location.href);
+    expect(profile).toMatchObject({
+      full_name: 'Andrew Ng',
+      headline: 'DeepLearning.AI, AI Fund and AI Aspire',
+      location: 'Palo Alto, California, United States',
+      current_company: 'DeepLearning.AI',
+      avatar_url: 'https://media.licdn.com/dms/image/v2/C5603AQF8paxRmnuJxg/profile-displayphoto-shrink_400_400/0?e=1&v=beta&t=abc',
+    });
+    expect(profile?.skills).toEqual([]);
+    expect(trace[1]).toMatch(/2025 profile/);
+  });
+
+  it('handles pronouns, no badges and a headline that names the role', () => {
+    document.body.innerHTML = `<main>${newTopCard({
+      name: 'Reid Hoffman',
+      pronouns: 'He/Him',
+      headline: 'Co-Founder, LinkedIn, Manas AI & Inflection AI. Founding Team at PayPal.',
+      location: 'United States',
+      badges: [],
+    })}</main>`;
+    const { profile } = extractProfile(document, window.location.href);
+    expect(profile?.full_name).toBe('Reid Hoffman');
+    expect(profile?.headline).toBe('Co-Founder, LinkedIn, Manas AI & Inflection AI. Founding Team at PayPal.');
+    expect(profile?.location).toBe('United States');
+    expect(profile?.current_title).toBe('Co-Founder');
+    expect(profile?.current_company).toBe('');
+  });
+
+  it('does not take a lone school badge as the company', () => {
+    document.body.innerHTML = `<main>${newTopCard({ badges: ['Stanford University'], headline: 'PhD Candidate' })}</main>`;
+    const { profile } = extractProfile(document, window.location.href);
+    expect(profile?.current_company).toBe('');
+    expect(profile?.current_title).toBe('PhD Candidate');
+  });
+
+  it('still finds the location when the profile has no Contact info link', () => {
+    document.body.innerHTML = `<main>${newTopCard({ contact: false, location: 'Berlin, Germany' })}</main>`;
+    const { profile } = extractProfile(document, window.location.href);
+    expect(profile?.location).toBe('Berlin, Germany');
+  });
+});
+
+describe('2025 layout: experience, skills, about', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    setUrl('https://www.linkedin.com/in/andrewyng/');
+  });
+
+  it('reads the current role from the experience entries, ignoring descriptions', () => {
+    document.body.innerHTML = `<main>${newTopCard({})}${newExperience(
+      newItem(['Founder', 'DeepLearning.AI', 'Jun 2017 - Present · 9 yrs 3 mos', 'Palo Alto, California, United States']) +
+        newItem(['Managing General Partner', 'AI Fund · Full-time', 'Jan 2018 - Present · 8 yrs 8 mos']),
+    )}</main>`;
+    const { profile } = extractProfile(document, window.location.href);
+    expect(profile?.current_title).toBe('Founder');
+    expect(profile?.current_company).toBe('DeepLearning.AI');
+    expect(profile?.role_current).toBe(true);
+  });
+
+  it('strips the employment type from the company line', () => {
+    document.body.innerHTML = `<main>${newTopCard({ badges: [] })}${newExperience(
+      newItem(['Co-Founder, Board Member', 'Inflection AI · Part-time', 'Mar 2022 - Present · 4 yrs 6 mos', 'Palo Alto, California, United States']),
+    )}</main>`;
+    expect(extractExperience(document)).toEqual({ title: 'Co-Founder, Board Member', company: 'Inflection AI', current: true });
+  });
+
+  it('takes the top entry of the stack even when the badge names another company', () => {
+    document.body.innerHTML = `<main>${newTopCard({ badges: ['AI Fund', 'Stanford University'] })}${newExperience(
+      newItem(['Founder', 'DeepLearning.AI', 'Jun 2017 - Present · 9 yrs']) +
+        newItem(['Managing General Partner', 'AI Fund · Full-time', 'Jan 2018 - Present · 8 yrs']),
+    )}</main>`;
+    const { profile, trace } = extractProfile(document, window.location.href);
+    expect(profile?.current_title).toBe('Founder');
+    expect(profile?.current_company).toBe('DeepLearning.AI');
+    expect(profile?.role_source).toBe('experience');
+    expect(trace.some((line) => /badge says "AI Fund"/.test(line))).toBe(true);
+  });
+
+  it('marks a headline-derived title as a placeholder while Experience has not rendered', () => {
+    document.body.innerHTML = `<main>${newTopCard({ headline: 'VP Engineering at Meridian', badges: ['Meridian'] })}</main>`;
+    const { profile } = extractProfile(document, window.location.href);
+    expect(profile?.current_title).toBe('VP Engineering');
+    expect(profile?.role_source).toBe('headline');
+  });
+
+  it('handles grouped roles at one employer', () => {
+    document.body.innerHTML = `<main>${newTopCard({ badges: ['Google', 'Stanford University'] })}${newExperience(
+      newGroupedItem('Google', [
+        ['Senior Staff Software Engineer', 'Jan 2020 - Present · 5 yrs 8 mos'],
+        ['Staff Software Engineer', 'Mar 2017 - Jan 2020 · 2 yrs 11 mos'],
+      ]),
+    )}</main>`;
+    expect(extractExperience(document)).toEqual({ title: 'Senior Staff Software Engineer', company: 'Google', current: true });
+  });
+
+  it('flags a profile whose latest role has ended', () => {
+    document.body.innerHTML = `<main>${newTopCard({ badges: [] })}${newExperience(
+      newItem(['Data Scientist', 'Acme · Full-time', 'Jan 2020 - Dec 2024 · 5 yrs']),
+    )}</main>`;
+    const { profile } = extractProfile(document, window.location.href);
+    expect(profile?.current_title).toBe('Data Scientist');
+    expect(profile?.role_current).toBe(false);
+  });
+
+  it('reads skills from the Skills card only - never from the activity feed', () => {
+    document.body.innerHTML = `<main>${newTopCard({})}${newActivity()}${newSkills(['CEOs', 'Founding', 'Venture Capital'])}</main>`;
+    const { profile } = extractProfile(document, window.location.href);
+    expect(profile?.skills).toEqual(['CEOs', 'Founding', 'Venture Capital']);
+  });
+
+  it('reads the About text', () => {
+    document.body.innerHTML = `<main>${newTopCard({})}${newAbout('I build things. Reach me at andrew@deeplearning.ai.')}</main>`;
+    const { profile } = extractProfile(document, window.location.href);
+    expect(profile?.about).toBe('I build things. Reach me at andrew@deeplearning.ai.');
+    expect(profile?.email).toBe('andrew@deeplearning.ai');
+  });
+});
+
+describe('2025 layout: contact dialog', () => {
+  it('reads email, phone and websites from the label rows', () => {
+    document.body.innerHTML = `<main>${newTopCard({})}</main>${newContactDialog([
+      { label: 'Andrew’s profile', html: '<p><a href="https://www.linkedin.com/in/andrewyng/">linkedin.com/in/andrewyng</a></p>' },
+      { label: 'Website', html: '<p><a href="https://cs.stanford.edu/~ang/?trk=public">cs.stanford.edu</a> <span>(Personal)</span></p><p><a href="https://www.coursera.org/">coursera.org</a> <span>(Company)</span></p>' },
+      { label: 'Email', html: '<p><a href="mailto:andrew@deeplearning.ai">andrew@deeplearning.ai</a></p>' },
+      { label: 'Phone', html: '<p>+1 415 555 0199 <span>(Mobile)</span></p>' },
+      { label: 'Birthday', html: '<p>April 18</p>' },
+    ])}`;
+    expect(isContactOverlayRendered(document)).toBe(true);
+    expect(parseContactInfoModal(document)).toEqual({
+      email: 'andrew@deeplearning.ai',
+      phone: '+1 415 555 0199',
+      websites: ['https://cs.stanford.edu/~ang/', 'https://www.coursera.org/'],
+    });
+  });
+
+  it('unwraps LinkedIn\'s outbound-link interstitial around websites', () => {
+    document.body.innerHTML = newContactDialog([
+      { label: 'Reid’s profile', html: '<p><a href="https://www.linkedin.com/in/reidhoffman/">linkedin.com/in/reidhoffman</a></p>' },
+      { label: 'Website', html: '<p><a href="https://www.linkedin.com/safety/go?url=https%3A%2F%2Fsuperagency.ai%2F&trk=contact-info">superagency.ai</a> <span>(Other)</span></p><p><a href="https://www.linkedin.com/redir/redirect?url=http%3A%2F%2Fmastersofscale.com&urlhash=x">mastersofscale.com</a> <span>(Personal)</span></p>' },
+    ]);
+    expect(parseContactInfoModal(document)?.websites).toEqual(['https://superagency.ai/', 'http://mastersofscale.com/']);
+  });
+
+  it('reports websites only when that is all the person shares', () => {
+    document.body.innerHTML = newContactDialog([
+      { label: 'Andrew’s profile', html: '<p><a href="https://www.linkedin.com/in/andrewyng/">linkedin.com/in/andrewyng</a></p>' },
+      { label: 'Website', html: '<p><a href="https://cs.stanford.edu/~ang/">cs.stanford.edu</a> <span>(Personal)</span></p>' },
+    ]);
+    expect(isContactOverlayRendered(document)).toBe(true);
+    expect(parseContactInfoModal(document)).toEqual({ email: null, phone: null, websites: ['https://cs.stanford.edu/~ang/'] });
+  });
+
+  it('is not "rendered" while the dialog shell has no rows yet', () => {
+    document.body.innerHTML = `<dialog data-testid="dialog" open=""><button aria-label="Dismiss"></button><div><header id="dialog-header"><h2>Contact info</h2></header><div data-testid="dialog-content"></div></div></dialog>`;
+    expect(isContactOverlayRendered(document)).toBe(false);
   });
 });

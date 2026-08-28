@@ -1,5 +1,7 @@
 import {
   extractProfile,
+  isContactOverlayRendered,
+  isNewProfileUi,
   parseContactInfoFromHtml,
   parseContactInfoModal,
   profileSlugFromUrl,
@@ -42,22 +44,27 @@ async function waitFor<T>(probe: () => T | null, timeoutMs: number, everyMs = 15
   return null;
 }
 
-/** The overlay renders its sections in one go once the API call returns; a
- *  dialog with sections but no contact rows means the person shares nothing. */
+/** The overlay renders its rows in one go once the API call returns; rows
+ *  without an email or phone mean the person shares nothing. */
 function renderedContactInfo(): ContactInfo | null {
-  const info = parseContactInfoModal(document);
-  if (!info) return null;
-  if (info.email || info.phone || info.websites.length > 0) return info;
-  const dialog = document.querySelector('#pv-contact-info')?.closest('[role="dialog"], .artdeco-modal');
-  return dialog && dialog.querySelectorAll('section').length > 0 ? info : null;
+  if (!isContactOverlayRendered(document)) return null;
+  return parseContactInfoModal(document);
 }
 
 async function closeOverlay() {
   const dismiss = document.querySelector<HTMLElement>(
-    '.artdeco-modal button[aria-label="Dismiss"], .artdeco-modal__dismiss, [role="dialog"] button[aria-label="Dismiss"]',
+    'dialog[open] button[aria-label="Dismiss"], dialog[data-testid="dialog"] button[aria-label="Dismiss"], .artdeco-modal button[aria-label="Dismiss"], .artdeco-modal__dismiss, [role="dialog"] button[aria-label="Dismiss"]',
   );
   dismiss?.click();
-  await wait(300);
+  await wait(400);
+  const stillOpen = document.querySelector<HTMLDialogElement>('dialog[open]');
+  if (stillOpen) {
+    try {
+      stillOpen.close();
+    } catch {
+      // not a native dialog
+    }
+  }
   if (/\/overlay\//.test(window.location.pathname)) window.history.back();
 }
 
@@ -79,8 +86,12 @@ async function fetchContactInfo(): Promise<ContactFetchResult> {
     return { success: true, contact: open, source: 'modal', trace };
   }
 
+  // The 2025 layout serves the overlay route as a 1 MB shell with no embedded
+  // contact payload, so the fetch is only worth it on the legacy layout.
   const overlayUrl = `${window.location.origin}/in/${encodeURIComponent(slug)}/overlay/contact-info/`;
-  try {
+  if (isNewProfileUi(document)) {
+    trace.push('2025 layout: skipping the overlay fetch (no embedded payload); opening the overlay');
+  } else try {
     const response = await fetch(overlayUrl, { credentials: 'include', headers: { accept: 'text/html' } });
     trace.push(`Fetched ${overlayUrl} → HTTP ${response.status}`);
     if (response.ok) {

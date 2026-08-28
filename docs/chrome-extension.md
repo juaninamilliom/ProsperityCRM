@@ -47,19 +47,23 @@ The panel re-reads a tab up to three times 700 ms apart because LinkedIn hydrate
 
 ## 4. Extraction engine
 
-`extractProfile(document, url)` returns `{ profile, trace }`. The trace lists every decision ("Company "Meridian" (top-card badge)", "Experience: …") and is shown in the panel so a bad parse can be reported precisely.
+`extractProfile(document, url)` returns `{ profile, trace }`. The trace lists every decision ("Layout: 2025 profile", "Company "Meridian" (top-card badge)", "Experience: …") and is shown in the panel so a bad parse can be reported precisely.
+
+Two layouts are supported. The **2025 layout** (verified live 2026-08-27): name in `main h2`, top-card text lines as sibling `<p>`s (degree, headline, a hidden "Company · School" summary, location, *Contact info* link), company/school badges as `[role="button"]`, experience entries as `[componentkey^="entity-collection-item-"]` under `[data-testid^="profile_ExperienceTopLevelSection"]` with `<p>Title</p><p>Company · Type</p><p>dates</p><p>location</p>`, a `<section>` per card found by its `<h2>` (About, Skills, Education), and the contact overlay as `<dialog data-testid="dialog">` with `<p>` label rows. The **legacy layout** keeps the earlier `h1`/`#experience`/`pvs-*` selectors.
 
 Title and company, in priority order:
 
-1. **Experience section** — the most recent *ongoing* role. Single roles and grouped roles (several positions at one employer) are told apart by where the date range sits; a `pvs-entity__sub-components` block alone is not a sign of grouping (single roles have one for the description and skills line). When a top-card *Current company* badge exists, the ongoing role at that company wins.
-2. **Top-card badge** — parsed from `button[aria-label="Current company: …"]`. The *Education* badge in the same list is never used as a company.
+1. **Experience section** — the **top entry of the stack**, always: LinkedIn lists ongoing roles first, most recent first, so if the top entry has ended everything below it has too (the profile is flagged). Single roles and grouped roles (several positions at one employer) are told apart by where the date ranges sit; a `pvs-entity__sub-components` block alone is not a sign of grouping. The headline and the top-card badge are the member's own summary and never override it. `role_source` records where the title came from; the panel keeps re-reading until it is `'experience'` and labels anything else a placeholder.
+2. **Top-card badge** — company only, while Experience has not rendered. Legacy: `button[aria-label="Current company: …"]`; 2025: the first `[role="button"]` badge unless it is a lone school. The *Education* badge is never used as a company.
 3. **Voyager entities** in the page's `bpr-guid` payload blobs, scoped to the profile in the URL (blobs from the first-loaded profile outlive SPA navigation).
 4. **Headline decomposition** — `"Title at Company"`, `"Title @ Company"`, `"Founder of Company"`; slogans yield nothing rather than a made-up title.
 5. **Schema.org JSON-LD** — only present on logged-out public pages.
 
-Contact info is not in the profile DOM. `FETCH_CONTACT_INFO` reads the open overlay, else fetches `/in/<slug>/overlay/contact-info/` and reads the contact payload from its embedded `datalet-bpr-guid` index (only the entry whose request names this slug), else clicks the *Contact info* link, reads the rendered overlay and dismisses it.
+Contact info is not in the profile DOM. `FETCH_CONTACT_INFO` reads the open overlay; on the legacy layout it then tries fetching `/in/<slug>/overlay/contact-info/` and reading the contact payload from its embedded `datalet-bpr-guid` index (only the entry whose request names this slug); finally it clicks the *Contact info* link, waits for the overlay's rows, reads them (unwrapping `/safety/go?url=` link interstitials) and dismisses it. The 2025 layout skips the fetch step — its overlay route carries no payload.
 
-Tests (`linkedin-parser.test.ts`) run against jsdom fixtures that mirror LinkedIn's logged-in markup: hashed layout classes, `aria-hidden` / `visually-hidden` text pairs, aria-label badges, grouped experience entries and the contact overlay.
+The 2025 layout lazy-loads the profile cards; the panel re-reads up to twelve times a second apart and applies each improvement until the role has come from the Experience stack or the recruiter edits a field.
+
+Tests (`linkedin-parser.test.ts`) run against jsdom fixtures of both layouts. The 2025 fixtures were built from the live DOM: top card with badges/pronouns/no-contact variants, single and grouped experience entries with description boxes, the Skills card next to an activity feed, About, and the contact dialog with website/email/phone rows.
 
 ## 5. API endpoints used
 

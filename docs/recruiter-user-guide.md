@@ -40,6 +40,7 @@ The extension supports the same passwordless authentication options as the Prosp
 1. **Navigate to Any LinkedIn Profile**:
    - Browse to any candidate profile on `linkedin.com/in/<username>`.
 2. **Automatic Profile Extraction**:
+   - The name appears at once; title, company and skills follow a few seconds later as LinkedIn finishes rendering the page (the panel keeps re-reading for up to ten seconds).
    - The side panel automatically extracts the candidate's:
      - **Full Name**
      - **Current Job Title** (from their most recent Experience)

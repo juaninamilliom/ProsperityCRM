@@ -28,6 +28,7 @@ const PROFILE: ParsedCandidateProfile = {
   phone: null,
   websites: [],
   role_current: true,
+  role_source: 'experience',
 };
 
 const JOBS = [
