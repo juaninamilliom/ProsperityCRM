@@ -1,0 +1,7 @@
+# Project-specific mandatory-review patterns for the harness risk gate.
+# Rename to risk-patterns.txt to activate. Format: label<TAB>extended-regex
+# Multi-repo projects: place one risk-patterns.txt per component repo - risk-gate.sh
+# resolves it at the component repo's own git toplevel, not the overall project root.
+# Example (payments project):
+# provider-switching	ProviderType|getProviderId|switchProvider
+# billing	subscription|invoice|proration
