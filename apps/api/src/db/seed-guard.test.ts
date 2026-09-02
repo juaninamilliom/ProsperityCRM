@@ -14,7 +14,7 @@ import { describe, expect, it, beforeAll } from 'vitest';
 type Verdict = {
   allowed: boolean;
   host: string | null;
-  reason: 'no_url' | 'unparseable' | 'remote_host' | null;
+  reason: 'no_url' | 'unparseable' | 'remote_host' | 'ambiguous_host' | null;
 };
 
 let seedTargetVerdict: (databaseUrl?: string, allowHost?: string) => Verdict;
@@ -98,5 +98,116 @@ describe('seedTargetVerdict', () => {
 
   it('refuses a parseable URL that carries no host', () => {
     expect(seedTargetVerdict('postgres:///var/run/postgresql').allowed).toBe(false);
+  });
+
+  /** node-postgres does not resolve the host the way the URL parser does: a
+   *  `host` query parameter WINS over the URL authority. So
+   *  `postgres://u:p@localhost/db?host=prod.example.com` reads as localhost
+   *  here and connects to prod.example.com there. A guard that disagrees with
+   *  its client is worse than no guard - it prints an affirmative "seeding
+   *  localhost" at the moment the operator decides whether to hit enter.
+   *
+   *  Rather than reimplement libpq's precedence, refuse the shape outright. */
+  describe('when the connection string can mean two different hosts', () => {
+    it('never reports localhost for a string that connects somewhere else', () => {
+      // The original defect: the guard read the URL authority, pg read the
+      // parameter, and run-seed printed "Seeding localhost" before truncating
+      // production.
+      const verdict = seedTargetVerdict(
+        'postgres://u:pw@localhost:5432/db?host=dpg-prod.oregon-postgres.render.com',
+      );
+      expect(verdict.allowed).toBe(false);
+      expect(verdict.host).not.toBe('localhost');
+    });
+
+    it('reads the parameter as the real host, so the override names something that works', () => {
+      // Refusing outright was too blunt: the parameter is also the standard
+      // way to name a Unix socket directory, which is how Postgres.app and
+      // Homebrew Postgres are reached on macOS.
+      expect(seedTargetVerdict('postgres://u:pw@localhost:5432/db?host=prod.example.com')).toEqual({
+        allowed: false,
+        host: 'prod.example.com',
+        reason: 'remote_host',
+      });
+      expect(
+        seedTargetVerdict('postgres://u:pw@localhost:5432/db?host=prod.example.com', 'prod.example.com')
+          .allowed,
+      ).toBe(true);
+    });
+
+    it('allows a unix socket directory, which is always local', () => {
+      expect(seedTargetVerdict('postgresql:///prosperity?host=/tmp').allowed).toBe(true);
+      expect(seedTargetVerdict('postgresql:///prosperity?host=/var/run/postgresql').allowed).toBe(true);
+    });
+
+    it('reads the LAST host parameter, because that is the one pg uses', () => {
+      // URLSearchParams.get returns the first; pg-connection-string iterates
+      // and overwrites, so the last wins. Reading the first let a string that
+      // connects to production report an allowed socket directory.
+      const verdict = seedTargetVerdict(
+        'postgres://u:pw@localhost:5432/db?host=/var/run/postgresql&host=prod.example.com',
+      );
+      expect(verdict.allowed).toBe(false);
+      expect(verdict.host).toBe('prod.example.com');
+    });
+
+    it('treats a relative path as a hostname, because pg only sockets on a leading slash', () => {
+      expect(seedTargetVerdict('postgres://u:pw@localhost:5432/db?host=./sockets').allowed).toBe(false);
+      expect(seedTargetVerdict('postgres://u:pw@localhost:5432/db?host=.prod.example.com').allowed).toBe(
+        false,
+      );
+    });
+
+    it('lets a trailing empty host send it back to the URL authority, as the client does', () => {
+      // pg overwrites on EVERY occurrence and only then tests truthiness, so a
+      // trailing empty value makes config.host falsy and pg falls back to the
+      // authority. Filtering the empty value away instead kept the earlier
+      // one - and reported an allowed localhost for a string aimed at prod.
+      expect(
+        seedTargetVerdict(
+          'postgres://u:pw@dpg-prod.oregon-postgres.render.com:5432/db?host=localhost&host=',
+        ),
+      ).toEqual({ allowed: false, host: 'dpg-prod.oregon-postgres.render.com', reason: 'remote_host' });
+
+      expect(
+        seedTargetVerdict(
+          'postgres://u:pw@dpg-prod.oregon-postgres.render.com:5432/db?host=/var/run/postgresql&host=',
+        ).allowed,
+      ).toBe(false);
+    });
+
+    it('still honours the last non-empty value when one follows an empty one', () => {
+      expect(seedTargetVerdict('postgres://u:pw@localhost/db?host=&host=prod.example.com').host).toBe(
+        'prod.example.com',
+      );
+    });
+
+    it('treats an empty host parameter as absent, as the client does', () => {
+      expect(seedTargetVerdict('postgres://u:pw@localhost:5432/db?host=')).toEqual({
+        allowed: true,
+        host: 'localhost',
+        reason: null,
+      });
+    });
+
+    it('allows a parameter that names a local host', () => {
+      expect(seedTargetVerdict('postgres://u:pw@example.com:5432/db?host=localhost').allowed).toBe(true);
+    });
+
+    it('refuses hostaddr the same way', () => {
+      expect(seedTargetVerdict('postgres://u:pw@localhost:5432/db?hostaddr=10.0.0.5').reason).toBe(
+        'ambiguous_host',
+      );
+    });
+
+    it('refuses when the override names the URL authority rather than the real host', () => {
+      expect(
+        seedTargetVerdict('postgres://u:pw@localhost:5432/db?host=prod.example.com', 'localhost').allowed,
+      ).toBe(false);
+    });
+
+    it('still allows an ordinary local string with unrelated parameters', () => {
+      expect(seedTargetVerdict('postgres://u:pw@localhost:5432/db?sslmode=disable').allowed).toBe(true);
+    });
   });
 });

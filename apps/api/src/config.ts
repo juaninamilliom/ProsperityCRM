@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnv } from 'dotenv';
+import { resolveAppBaseUrl } from './modules/auth/origin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootEnvPath = process.env.DOTENV_CONFIG_PATH ?? path.resolve(__dirname, '../../../.env');
@@ -31,7 +32,7 @@ export const config = {
    *  fresh checkout works before APP_BASE_URL is set; a deployment must set
    *  one of the two, because this is what makes the link independent of the
    *  caller's Origin header. */
-  appBaseUrl: process.env.APP_BASE_URL ?? corsOrigins[0] ?? 'http://localhost:5173',
+  appBaseUrl: resolveAppBaseUrl(process.env.APP_BASE_URL, corsOrigins),
   rootAdminToken: process.env.ROOT_ADMIN_TOKEN ?? '',
   localAuthSecret: process.env.LOCAL_AUTH_SECRET ?? '',
 };
