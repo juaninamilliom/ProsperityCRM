@@ -1,11 +1,9 @@
 import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/auth.js';
-import { createUserSchema, ssoSignupSchema, updateRoleSchema } from './user.schema.js';
-import { createLocalUser, getUserByEmail, getUserById, getUserBySsoId, listUsersByOrg, updateUserRoleAndOrg, upsertUser } from './user.service.js';
-import { redeemInviteCode } from '../invite/invite.service.js';
+import { createUserSchema, updateRoleSchema } from './user.schema.js';
+import { createLocalUser, getUserByEmail, getUserById, getUserBySsoId, listUsersByOrg, updateUserRoleAndOrg } from './user.service.js';
 import { toPublicUser } from './public-user.js';
-
 
 export const userRouter = Router();
 
@@ -63,42 +61,16 @@ userRouter.get('/me', async (req: AuthenticatedRequest, res) => {
   });
 });
 
-userRouter.post('/sso', async (req, res) => {
-  const parsed = ssoSignupSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json(parsed.error.flatten());
-  }
-
-  const existing = await getUserBySsoId(parsed.data.sso_id);
-  if (existing) {
-    const updated = await upsertUser({
-      email: parsed.data.email,
-      name: parsed.data.name,
-      sso_id: parsed.data.sso_id,
-      organization_id: existing.organization_id,
-      role: existing.role,
-    });
-    return res.json(toPublicUser(updated));
-  }
-
-  if (!parsed.data.passcode) {
-    return res.status(400).json({ message: 'Passcode required for first-time sign-in' });
-  }
-
-  try {
-    const { user } = await redeemInviteCode({
-      code: parsed.data.passcode,
-      userPayload: {
-        email: parsed.data.email,
-        name: parsed.data.name,
-        sso_id: parsed.data.sso_id,
-      },
-    });
-    return res.status(201).json(toPublicUser(user));
-  } catch (error) {
-    return res.status(400).json({ message: (error as Error).message });
-  }
-});
+/* There is deliberately no POST /users/sso.
+ *
+ * It let any authenticated employee rewrite another user's email by sso_id and
+ * then take that account over through the magic-link flow, and its first-time
+ * branch was unreachable anyway: the router is mounted after authMiddleware,
+ * so a brand-new SSO user is rejected before ever reaching it.
+ *
+ * When SSO is genuinely wired up it needs a route mounted BEFORE the auth
+ * middleware, alongside the other unauthenticated auth routes. Rebuilding it
+ * there is cleaner than carrying a broken one here. */
 
 userRouter.patch('/:id/role', requireRole('OrgAdmin'), async (req: AuthenticatedRequest, res) => {
   if (!req.dbUser) {

@@ -1,31 +1,6 @@
 import { asc, desc, eq } from 'drizzle-orm';
 import { db, organizations, users } from '../../db/drizzle.js';
 import type { User } from '../../types.js';
-import type { UpsertUserInput } from './user.schema.js';
-
-export async function upsertUser(input: UpsertUserInput): Promise<User> {
-  const [row] = await db
-    .insert(users)
-    .values({
-      email: input.email,
-      name: input.name,
-      role: input.role,
-      sso_id: input.sso_id,
-      organization_id: input.organization_id,
-    })
-    .onConflictDoUpdate({
-      target: users.sso_id,
-      set: {
-        email: input.email,
-        name: input.name,
-        role: input.role,
-        organization_id: input.organization_id,
-      },
-    })
-    .returning();
-
-  return row as unknown as User;
-}
 
 export async function getUserBySsoId(ssoId: string) {
   const [row] = await db.select().from(users).where(eq(users.sso_id, ssoId));
