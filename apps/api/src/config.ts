@@ -20,11 +20,18 @@ REQUIRED_VARS.forEach((key) => {
   }
 });
 
+const corsOrigins = (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean);
+
 export const config = {
   port: Number(process.env.API_PORT ?? process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
   oauthJwksUrl: process.env.OAUTH_JWKS_URL ?? '',
-  corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean),
+  corsOrigins,
+  /** Where sign-in links point. Falls back to the first allowed origin so a
+   *  fresh checkout works before APP_BASE_URL is set; a deployment must set
+   *  one of the two, because this is what makes the link independent of the
+   *  caller's Origin header. */
+  appBaseUrl: process.env.APP_BASE_URL ?? corsOrigins[0] ?? 'http://localhost:5173',
   rootAdminToken: process.env.ROOT_ADMIN_TOKEN ?? '',
   localAuthSecret: process.env.LOCAL_AUTH_SECRET ?? '',
 };
