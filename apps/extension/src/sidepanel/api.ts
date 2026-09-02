@@ -39,6 +39,19 @@ export interface CandidateDuplicateResult {
   };
 }
 
+/** The person shape both duplicate lookups return. Named so the lookups stop
+ *  being `any` - narrowing them further is E5's job, not lint's. */
+type DuplicatePerson = NonNullable<CandidateDuplicateResult['person']>;
+
+/** What POST /people and PATCH /people/:id return: the bare person row, since
+ *  createPerson and updatePerson both `.returning()` one. Nothing under
+ *  /people wraps it - the `person` spelling is legacy defensiveness on the
+ *  client, not a live response shape. */
+interface PersonResponse {
+  person?: { person_id?: string };
+  person_id?: string;
+}
+
 export async function getAuthToken(): Promise<string> {
   return new Promise((resolve) => {
     chrome.storage.local.get(['token'], (result) => {
@@ -192,7 +205,13 @@ export async function loginWithPassword(email: string, password: string): Promis
   return res;
 }
 
-export async function fetchMe(): Promise<{ tokenUser?: any; dbUser: User }> {
+/** `tokenUser` is the decoded token payload - `{ sub, email?, name? }`, per
+ *  AuthenticatedRequest in apps/api/src/middleware/auth.ts. It carries no
+ *  user_id, in either branch of GET /users/me. */
+export async function fetchMe(): Promise<{
+  tokenUser?: { sub: string; email?: string; name?: string };
+  dbUser: User;
+}> {
   return apiRequest('/users/me');
 }
 
@@ -208,20 +227,26 @@ export async function fetchStatuses(): Promise<StatusConfig[]> {
 
 export async function checkLinkedInMatch(linkedinUrl: string): Promise<CandidateDuplicateResult> {
   try {
-    const res = await apiRequest<{ match: boolean; person?: any }>(
+    const res = await apiRequest<{ match: boolean; person?: DuplicatePerson }>(
       `/people/lookup-linkedin?url=${encodeURIComponent(linkedinUrl)}`
     );
     if (res?.match && res?.person) {
       return { isDuplicate: true, person: res.person };
     }
-  } catch {}
+  } catch {
+    // The dedicated lookup is best-effort; fall through to the search below.
+  }
 
   try {
-    const people = await apiRequest<any[]>(`/people?search=${encodeURIComponent(linkedinUrl)}`);
+    const people = await apiRequest<DuplicatePerson[]>(
+      `/people?search=${encodeURIComponent(linkedinUrl)}`,
+    );
     if (people && people.length > 0) {
       return { isDuplicate: true, person: people[0] };
     }
-  } catch {}
+  } catch {
+    // Both lookups failed; report no duplicate rather than blocking the import.
+  }
 
   return { isDuplicate: false };
 }
@@ -243,7 +268,7 @@ export async function importCandidateToCRM(payload: {
   existing_person_id?: string;
 }) {
   let personId = payload.existing_person_id;
-  let personData: any = null;
+  let personData: PersonResponse | null = null;
 
   if (personId) {
     // 1. Existing candidate: update details if changed
@@ -267,7 +292,7 @@ export async function importCandidateToCRM(payload: {
   } else {
     // 2. New candidate: create person (or gracefully resolve duplicate)
     try {
-      const res = await apiRequest<any>('/people', {
+      const res = await apiRequest<PersonResponse>('/people', {
         method: 'POST',
         body: JSON.stringify({
           full_name: payload.full_name,
@@ -286,7 +311,7 @@ export async function importCandidateToCRM(payload: {
       });
       personData = res;
       personId = res?.person?.person_id || res?.person_id;
-    } catch (err: any) {
+    } catch (err) {
       // If candidate already exists in database, resolve their ID
       const match = await checkLinkedInMatch(payload.linkedin_url);
       if (match.person?.person_id) {
@@ -315,7 +340,10 @@ export async function importCandidateToCRM(payload: {
   // 4. If assigned to a job requisition, create pipeline entry
   if (personId && payload.job_id && payload.status_id) {
     const me = await fetchMe().catch(() => null);
-    const recruiterId = me?.dbUser?.user_id || me?.tokenUser?.user_id;
+    // No fallback to tokenUser: it has no user_id, and its `sub` is the SSO
+    // subject, which equals a user_id only under local auth. recruiter_id is a
+    // foreign key to users(user_id) - the same trap entry.routes.ts:72 names.
+    const recruiterId = me?.dbUser?.user_id;
 
     if (payload.company_id && recruiterId) {
       await apiRequest('/pipeline-entries', {

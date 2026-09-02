@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -27,7 +26,9 @@ export function getWebAuthnConfig(originHeader?: string) {
   try {
     const url = new URL(origin);
     hostname = url.hostname;
-  } catch {}
+  } catch {
+    // Not a parseable URL; hostname keeps the default set above.
+  }
 
   const rpID = process.env.RP_ID || hostname;
   const rpName = 'Prosperity CRM';

@@ -85,7 +85,7 @@ Render and the web app to Vercel.
 
 | Component | Path | Dev command | Type check | Test command | Trustworthy suite? |
 |---|---|---|---|---|---|
-| api | `apps/api/` | `npm run dev --workspace @prosperity/api` | `npx tsc --noEmit` | `npm test --workspace @prosperity/api` | yes for what it covers - 13 files / 75 tests, deterministic, no DB. Coverage is narrow: schemas, rules, CORS, error handler, migration guards. **No test exercises the auth middleware, `requireRole`, the root-admin guard, or any route handler.** |
+| api | `apps/api/` | `npm run dev --workspace @prosperity/api` | `npx tsc --noEmit` | `npm test --workspace @prosperity/api` | yes for what it covers - 16 files / 177 tests, deterministic, no DB. Coverage is narrow: schemas, rules, CORS, error handler, and the seed and migration guards. **No test exercises the auth middleware, `requireRole`, the root-admin guard, or any route handler** - `person.routes.ts` can be edited with nothing executing it. |
 | web | `apps/web/` | `npm run dev --workspace @prosperity/web` | `npx tsc --noEmit` | `npm test --workspace @prosperity/web` | yes - 32 files / 147 tests, jsdom, fast and green. Includes token parity and spacing guards. |
 | extension | `apps/extension/` | `npm run dev --workspace @prosperity/extension` | `npx tsc --noEmit` | `npm test --workspace @prosperity/extension` | yes - 1 file / 48 tests, jsdom fixtures captured from real LinkedIn DOM. A selector change without a fixture change is unverified. |
 
@@ -110,8 +110,13 @@ hostname; the guard is `scripts/seed-guard.mjs`.
   See `.agents/rules/git-workflow.md`.
 - Branch prefixes in use: `feat/`, `fix/`, `redesign/NN-`, `spec/`
 - Single repo; all git commands run at the repo root
-- There is no CI. No `.github/` workflows exist, so the local suites and type
-  checks are the only gate before merge.
+- CI runs typecheck, test and lint on every PR and on pushes to `main`
+  (`.github/workflows/ci.yml`). It is **not yet a required check** - `main` has
+  no branch protection, so CI reports but does not block, and the "protected
+  branches" line above is an intention rather than a setting. Add a ruleset
+  requiring `verify` once it has run green a few times.
+- Formatting is **not** gated. Prettier is documented below but is not a
+  dependency anywhere and there is no `format:check`, so nothing enforces it.
 
 ## Worktree Setup
 
