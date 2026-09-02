@@ -97,7 +97,9 @@ Not workspaces despite the glob: `infra/db/` (SQL only) and `tests/` (README
 only). `packages/` does not exist.
 
 `npm run migrate` and `npm run seed` run from the repo root. The seed
-truncates the funnel tables and must never be pointed at real data.
+truncates the funnel tables and must never be pointed at real data. It
+refuses any host that is not local unless `SEED_ALLOW_HOST` names that exact
+hostname; the guard is `scripts/seed-guard.mjs`.
 
 ## Git Structure
 
