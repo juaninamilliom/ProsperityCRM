@@ -1,37 +1,39 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { varsInBlock } from './token-rules';
+
+/** Colour is declared here and nowhere else, so the light and dark blocks must
+ *  carry the identical set of names. The brace-matching that finds those
+ *  blocks is exercised against a nested at-rule in token-rules.test.ts - the
+ *  earlier version stopped at the first closing brace, which would have made
+ *  this comparison pass against two truncated lists. */
 
 const css = readFileSync(resolve(__dirname, 'tokens.css'), 'utf-8');
-
-function varsInBlock(selector: string): string[] {
-  const start = css.indexOf(selector);
-  if (start === -1) throw new Error(`missing block: ${selector}`);
-  const open = css.indexOf('{', start);
-  const close = css.indexOf('}', open);
-  return [...css.slice(open, close).matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]).sort();
-}
+const light = () => varsInBlock(css, ':root {');
+const dark = () => varsInBlock(css, ':root.dark');
 
 describe('design tokens', () => {
   it('defines light and dark with an identical variable set', () => {
-    expect(varsInBlock(':root.dark')).toEqual(varsInBlock(':root {'));
+    expect(dark()).toEqual(light());
+  });
+
+  it('defines enough variables that an empty parse cannot pass as parity', () => {
+    expect(light().length).toBeGreaterThan(30);
   });
 
   it('defines every stage colour', () => {
-    const light = varsInBlock(':root {');
     for (const stage of ['sourced', 'screening', 'interviewing', 'offer', 'placed', 'rejected']) {
-      expect(light).toContain(`--stage-${stage}`);
+      expect(light()).toContain(`--stage-${stage}`);
     }
   });
 
   it('defines every BD stage hue in both themes', () => {
-    const light = varsInBlock(':root {');
-    const dark = varsInBlock(':root.dark');
     for (const stage of [
       'prospect', 'contacted', 'meeting', 'proposal', 'negotiation', 'signed', 'lost',
     ]) {
-      expect(light).toContain(`--bd-${stage}`);
-      expect(dark).toContain(`--bd-${stage}`);
+      expect(light()).toContain(`--bd-${stage}`);
+      expect(dark()).toContain(`--bd-${stage}`);
     }
   });
 
