@@ -43,3 +43,7 @@ services:
       #   https://prosperity-crm.vercel.app
       - key: CORS_ORIGINS
         sync: false
+      # Where sign-in links point. Defaults to the first CORS_ORIGINS entry;
+      # set it explicitly if the app is served from a different host.
+      - key: APP_BASE_URL
+        sync: false

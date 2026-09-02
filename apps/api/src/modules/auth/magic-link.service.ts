@@ -1,10 +1,12 @@
 import crypto from 'node:crypto';
 import { and, eq, gt, isNull } from 'drizzle-orm';
+import { config } from '../../config.js';
 import { db } from '../../db/drizzle.js';
 import { magicLinks } from '../../db/schema.js';
 import { getUserByEmail } from '../user/user.service.js';
 import { toPublicUser } from '../user/public-user.js';
 import { redeemInviteForLocalSignup } from '../invite/invite.service.js';
+import { resolveTrustedOrigin } from './origin.js';
 import { createLocalToken } from './token.js';
 import { sendMagicLinkEmail } from './email.service.js';
 
@@ -37,7 +39,7 @@ export async function requestMagicLink({
   const rawToken = crypto.randomBytes(32).toString('hex');
   const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-  const origin = (originHeader || 'http://localhost:5173').replace(/\/+$/, '');
+  const origin = resolveTrustedOrigin(originHeader, config.corsOrigins, config.appBaseUrl);
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
   await db.insert(magicLinks).values({
@@ -55,7 +57,10 @@ export async function requestMagicLink({
   return {
     success: true,
     message: `Sign-in link sent to ${cleanEmail}! Please check your inbox.`,
-    devUrl: process.env.NODE_ENV !== 'production' ? magicUrl : undefined,
+    // Opt in explicitly. This was gated on NODE_ENV !== 'production', and
+    // render.yaml never sets NODE_ENV, so an unconfigured deployment handed
+    // the raw sign-in token to any unauthenticated caller.
+    devUrl: process.env.MAGIC_LINK_DEV_URL === 'true' ? magicUrl : undefined,
   };
 }
 
