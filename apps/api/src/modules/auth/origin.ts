@@ -31,3 +31,25 @@ export function resolveTrustedOrigin(
   const allowed = allowedOrigins.map(normalize).filter(Boolean);
   return allowed.includes(header) ? header : fallback;
 }
+
+/** Where sign-in links point when the caller's origin is not trusted.
+ *
+ *  Falls through on anything that normalises to nothing, not just on null and
+ *  undefined: `APP_BASE_URL=` in a .env yields '', and `APP_BASE_URL=/` yields
+ *  '' once the trailing slash is stripped. Either would make every emailed
+ *  link the relative "/login?magic_token=..." - unclickable, with the token
+ *  already spent, and nothing fetches it so nothing notices. */
+export function resolveAppBaseUrl(
+  appBaseUrl: string | undefined,
+  allowedOrigins: string[],
+): string {
+  // Normalise BEFORE testing truthiness: '/' is truthy and normalises to '',
+  // which is the relative link this function exists to prevent.
+  const configured = normalize(appBaseUrl ?? '');
+  if (configured) return configured;
+
+  const firstAllowed = allowedOrigins.map(normalize).find(Boolean);
+  if (firstAllowed) return firstAllowed;
+
+  return 'http://localhost:5173';
+}

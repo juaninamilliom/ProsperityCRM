@@ -15,6 +15,16 @@ function refusal(verdict) {
       return 'DATABASE_URL must be set.';
     case 'unparseable':
       return 'DATABASE_URL is not a connection string this guard can read a host from. Refusing to seed.';
+    case 'ambiguous_host':
+      return [
+        'DATABASE_URL carries a hostaddr parameter.',
+        '',
+        'Only the native bindings read that, so this guard cannot tell you which',
+        'database it is about to wipe. Refusing to seed.',
+        '',
+        'Put the host in the URL authority instead:',
+        '  postgres://user:pw@localhost:5432/prosperity_crm',
+      ].join('\n');
     default:
       return [
         `Refusing to seed ${verdict.host}.`,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveTrustedOrigin } from './origin.js';
+import { resolveAppBaseUrl, resolveTrustedOrigin } from './origin.js';
 
 /** The magic-link URL used to be built from the caller's own Origin header on
  *  a route that sits above the auth middleware. Anyone could make the real
@@ -68,5 +68,47 @@ describe('resolveTrustedOrigin', () => {
 
   it('ignores an empty header rather than matching an empty allowlist entry', () => {
     expect(resolveTrustedOrigin('', [''], BASE)).toBe(BASE);
+  });
+});
+
+/** `??` only falls through on null and undefined, so `APP_BASE_URL=` in a .env
+ *  yields '' and every sign-in link becomes the relative "/login?magic_token=…"
+ *  — unclickable, with the token already spent. This repo already ships an
+ *  empty assignment in .env.example, so the shape is live, not theoretical. */
+describe('resolveAppBaseUrl', () => {
+  it('uses APP_BASE_URL when it is set', () => {
+    expect(resolveAppBaseUrl('https://app.example', ['https://cors.example'])).toBe('https://app.example');
+  });
+
+  it('falls through an empty APP_BASE_URL to the first allowed origin', () => {
+    expect(resolveAppBaseUrl('', ['https://cors.example'])).toBe('https://cors.example');
+  });
+
+  it('falls through a whitespace-only APP_BASE_URL', () => {
+    expect(resolveAppBaseUrl('   ', ['https://cors.example'])).toBe('https://cors.example');
+  });
+
+  it('falls through an undefined APP_BASE_URL', () => {
+    expect(resolveAppBaseUrl(undefined, ['https://cors.example'])).toBe('https://cors.example');
+  });
+
+  it('falls all the way to localhost when nothing is configured', () => {
+    expect(resolveAppBaseUrl(undefined, [])).toBe('http://localhost:5173');
+  });
+
+  it('skips an empty first entry in the allowed origins', () => {
+    expect(resolveAppBaseUrl(undefined, ['', 'https://cors.example'])).toBe('https://cors.example');
+  });
+
+  it('falls through a base that is only slashes, which normalises to nothing', () => {
+    // The truthiness check ran before normalize(), so '/' survived it and then
+    // became '' — the relative link this function exists to prevent.
+    expect(resolveAppBaseUrl('/', ['https://cors.example'])).toBe('https://cors.example');
+    expect(resolveAppBaseUrl('///', ['https://cors.example'])).toBe('https://cors.example');
+    expect(resolveAppBaseUrl(undefined, ['/'])).toBe('http://localhost:5173');
+  });
+
+  it('strips a trailing slash, so the login path is not appended to one', () => {
+    expect(resolveAppBaseUrl('https://app.example/', [])).toBe('https://app.example');
   });
 });
