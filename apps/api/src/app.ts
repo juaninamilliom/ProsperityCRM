@@ -6,6 +6,7 @@ import { isAllowedOrigin } from './cors.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { authMiddleware } from './middleware/auth.js';
 import { createRateLimiter } from './middleware/rate-limit.js';
+import { securityHeaders } from './middleware/security-headers.js';
 import { entryRouter } from './modules/entry/entry.routes.js';
 import { companyRouter } from './modules/company/company.routes.js';
 import { personRouter } from './modules/person/person.routes.js';
@@ -24,6 +25,7 @@ import { skillRouter } from './modules/skill/skill.routes.js';
 export function createApp() {
   const app = express();
 
+  app.use(securityHeaders);
   app.use(express.json());
   app.use(
     cors({
