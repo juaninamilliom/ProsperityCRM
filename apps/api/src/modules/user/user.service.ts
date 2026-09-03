@@ -2,19 +2,22 @@ import { asc, desc, eq } from 'drizzle-orm';
 import { db, organizations, users } from '../../db/drizzle.js';
 import type { User } from '../../types.js';
 
-export async function getUserBySsoId(ssoId: string) {
+export async function getUserBySsoId(ssoId: string): Promise<User | undefined> {
   const [row] = await db.select().from(users).where(eq(users.sso_id, ssoId));
-  return (row as unknown as User) ?? undefined;
+  return (row as unknown as User | undefined) ?? undefined;
 }
 
-export async function getUserById(userId: string) {
+export async function getUserById(userId: string): Promise<User | undefined> {
   const [row] = await db.select().from(users).where(eq(users.user_id, userId));
-  return (row as unknown as User) ?? undefined;
+  // The cast used to swallow the undefined: TypeScript inferred Promise<User>
+  // while the body could return nothing, so the middleware's `!user` check
+  // looked redundant to the type system. It is not - a deleted user reaches it.
+  return (row as unknown as User | undefined) ?? undefined;
 }
 
-export async function getUserByEmail(email: string) {
+export async function getUserByEmail(email: string): Promise<User | undefined> {
   const [row] = await db.select().from(users).where(eq(users.email, email));
-  return (row as unknown as User) ?? undefined;
+  return (row as unknown as User | undefined) ?? undefined;
 }
 
 export async function updateUserRoleAndOrg({
@@ -25,7 +28,7 @@ export async function updateUserRoleAndOrg({
   userId: string;
   organizationId: string;
   role: 'OrgAdmin' | 'OrgEmployee';
-}) {
+}): Promise<User | undefined> {
   const [row] = await db
     .update(users)
     .set({
@@ -35,7 +38,7 @@ export async function updateUserRoleAndOrg({
     .where(eq(users.user_id, userId))
     .returning();
 
-  return (row as unknown as User) ?? undefined;
+  return (row as unknown as User | undefined) ?? undefined;
 }
 
 export async function listUsersByOrg(organizationId: string) {
