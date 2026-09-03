@@ -1,0 +1,58 @@
+# CI for Prosperity CRM.
+#
+# NOT YET A REQUIRED CHECK. `main` has no branch protection and no rulesets, so
+# this reports but does not block. Once it has run green a few times, add a
+# ruleset on main requiring `verify` and a pull request - until then CLAUDE.md's
+# "Protected branches: main" describes an intention, not a setting.
+#
+# Why it matters: scripts/run-migrations.mjs runs on every Render deploy from
+# main, so a migration reaching main is already in production. The credential
+# and PostgREST-grant guards in apps/api/src/db exist to stop that, and until
+# this workflow they only ran when somebody remembered to run them.
+#
+# No build step: CLAUDE.md forbids building during development, typecheck gives
+# the same type coverage, and nothing here needs dist/.
+#
+# TURBO_FORCE is belt-and-braces. Nothing restores .turbo today, so every run is
+# already cold; this keeps it cold if someone adds an actions/cache step later.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TURBO_FORCE: 'true'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Each step reports even when an earlier one failed, so one run surfaces
+      # every class of error instead of one per push.
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        if: '!cancelled()'
+        run: npm test
+
+      - name: Lint
+        if: '!cancelled()'
+        run: npm run lint

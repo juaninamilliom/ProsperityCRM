@@ -43,14 +43,24 @@ personRouter.post('/', async (req: AuthenticatedRequest, res) => {
 
   try {
     res.status(201).json(await service.createPerson(req.dbUser.organization_id, parsed.data));
-  } catch (error: any) {
+  } catch (error) {
+    // Behaviour-preserving narrowing of what used to be `any`. The six-way
+    // sniff itself is not defensible - company.routes.ts checks `code` alone -
+    // but replacing it belongs with the shared isUniqueViolation helper, not
+    // in a commit whose job is to make lint pass.
+    const pgError = error as {
+      code?: string;
+      cause?: { code?: string };
+      message?: string;
+      detail?: string;
+    };
     const isUniqueViolation =
-      error?.code === UNIQUE_VIOLATION ||
-      error?.cause?.code === UNIQUE_VIOLATION ||
-      error?.code === '23505' ||
-      error?.message?.includes('unique constraint') ||
-      error?.message?.includes('duplicate key') ||
-      error?.detail?.includes('already exists');
+      pgError?.code === UNIQUE_VIOLATION ||
+      pgError?.cause?.code === UNIQUE_VIOLATION ||
+      pgError?.code === '23505' ||
+      pgError?.message?.includes('unique constraint') ||
+      pgError?.message?.includes('duplicate key') ||
+      pgError?.detail?.includes('already exists');
 
     if (!isUniqueViolation) throw error;
     const existing = await service.findDuplicatePerson(

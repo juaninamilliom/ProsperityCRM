@@ -1,15 +1,5 @@
 // Prosperity CRM Extension Background Service Worker (Manifest V3)
 
-function isLinkedInUrl(url?: string): boolean {
-  if (!url) return false;
-  return (
-    url.includes('linkedin.com/in/') ||
-    url.includes('linkedin.com/sales/lead/') ||
-    url.includes('linkedin.com/sales/people/') ||
-    url.includes('linkedin.com/talent/profile/')
-  );
-}
-
 // 1. Enable Side Panel to open automatically on action toolbar icon click
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
