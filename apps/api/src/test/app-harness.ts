@@ -42,9 +42,20 @@ export async function buildApp(): Promise<Express> {
 }
 
 /** Call from `afterAll`. Vitest reuses worker threads across files, so the
- *  unconditional write above can otherwise survive into a later file. */
+ *  unconditional write above can otherwise survive into a later file.
+ *
+ *  Restores only the keys pinEnvironment touches. Replacing process.env
+ *  wholesale looked tidier and was worse: it wiped variables another file had
+ *  set for itself, and that file then failed only when the suite ran as a
+ *  whole - the hardest kind of failure to read. */
+const PINNED = ['LOCAL_AUTH_SECRET', 'ROOT_ADMIN_TOKEN', 'DATABASE_URL', 'OAUTH_JWKS_URL'] as const;
+
 export function restoreEnvironment(): void {
-  process.env = { ...ORIGINAL_ENV };
+  for (const key of PINNED) {
+    const original = ORIGINAL_ENV[key];
+    if (original === undefined) delete process.env[key];
+    else process.env[key] = original;
+  }
 }
 
 /** Derived, never duplicated: `pinEnvironment` assigns conditionally, so a

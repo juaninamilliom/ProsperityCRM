@@ -33,6 +33,13 @@ export const config = {
    *  one of the two, because this is what makes the link independent of the
    *  caller's Origin header. */
   appBaseUrl: resolveAppBaseUrl(process.env.APP_BASE_URL, corsOrigins),
+  /** How many trusted proxies sit in front. Unset disables rate limiting,
+   *  deliberately: keying a limiter on a proxy chain you have not measured
+   *  either protects nobody or locks out everybody. Measure the raw
+   *  X-Forwarded-For on one real request before setting this. */
+  trustedProxyHops: process.env.TRUSTED_PROXY_HOPS
+    ? Number(process.env.TRUSTED_PROXY_HOPS)
+    : null,
   rootAdminToken: process.env.ROOT_ADMIN_TOKEN ?? '',
   localAuthSecret: process.env.LOCAL_AUTH_SECRET ?? '',
 };

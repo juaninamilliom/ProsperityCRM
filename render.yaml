@@ -47,3 +47,8 @@ services:
       # set it explicitly if the app is served from a different host.
       - key: APP_BASE_URL
         sync: false
+      # Number of trusted proxies in front. Rate limiting stays OFF until this
+      # is set. Measure the raw X-Forwarded-For on one real request first -
+      # guessing it either protects nobody or locks everybody out.
+      - key: TRUSTED_PROXY_HOPS
+        sync: false
