@@ -27,12 +27,25 @@ import {
   verifyPasskeyRegistration,
 } from './passkey.service.js';
 import { requestMagicLink, verifyMagicLink } from './magic-link.service.js';
+import { config } from '../../config.js';
+import { createRateLimiter } from '../../middleware/rate-limit.js';
+
+/** Only the routes that test a credential. The passkey MANAGEMENT routes below
+ *  already require a bearer token and are ordinary in-app operations, so they
+ *  must not share this budget - GET /auth/passkeys is polled by the app shell
+ *  on every tab focus, and an office behind one address would exhaust a
+ *  prefix-wide bucket on background traffic before anybody typed a password. */
+const credentialLimiter = createRateLimiter({
+  windowMs: 15 * 60_000,
+  max: 30,
+  trustedProxyHops: config.trustedProxyHops,
+});
 
 export const authRouter = Router();
 
 // ─── Traditional Auth ────────────────────────────────────────────────────────
 
-authRouter.post('/signup', async (req, res) => {
+authRouter.post('/signup', credentialLimiter, async (req, res) => {
   const parsed = signupSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(parsed.error.flatten());
@@ -60,7 +73,7 @@ authRouter.post('/signup', async (req, res) => {
   }
 });
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', credentialLimiter, async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(parsed.error.flatten());
@@ -81,7 +94,7 @@ authRouter.post('/login', async (req, res) => {
 
 // ─── Magic Link Auth ─────────────────────────────────────────────────────────
 
-authRouter.post('/magic-link/request', async (req, res) => {
+authRouter.post('/magic-link/request', credentialLimiter, async (req, res) => {
   const parsed = magicLinkRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(parsed.error.flatten());
@@ -101,7 +114,7 @@ authRouter.post('/magic-link/request', async (req, res) => {
   }
 });
 
-authRouter.post('/magic-link/verify', async (req, res) => {
+authRouter.post('/magic-link/verify', credentialLimiter, async (req, res) => {
   const parsed = magicLinkVerifySchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(parsed.error.flatten());
@@ -117,7 +130,7 @@ authRouter.post('/magic-link/verify', async (req, res) => {
 
 // ─── Passkey (WebAuthn / Biometric) Auth ──────────────────────────────────────
 
-authRouter.post('/passkey/login-options', async (req, res) => {
+authRouter.post('/passkey/login-options', credentialLimiter, async (req, res) => {
   const parsed = passkeyLoginOptionsSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(parsed.error.flatten());
@@ -128,7 +141,7 @@ authRouter.post('/passkey/login-options', async (req, res) => {
   res.json(result);
 });
 
-authRouter.post('/passkey/login-verify', async (req, res) => {
+authRouter.post('/passkey/login-verify', credentialLimiter, async (req, res) => {
   const parsed = passkeyLoginVerifySchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(parsed.error.flatten());

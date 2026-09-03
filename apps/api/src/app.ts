@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { isAllowedOrigin } from './cors.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { authMiddleware } from './middleware/auth.js';
+import { createRateLimiter } from './middleware/rate-limit.js';
 import { entryRouter } from './modules/entry/entry.routes.js';
 import { companyRouter } from './modules/company/company.routes.js';
 import { personRouter } from './modules/person/person.routes.js';
@@ -35,7 +36,23 @@ export function createApp() {
     res.json({ ok: true, timestamp: new Date().toISOString() });
   });
 
-  app.use('/admin', adminRouter);
+  // Attached at the router mount, never as a bare app.use between these three
+  // lines: their order is the only authentication gate this API has. See
+  // app.test.ts.
+  //
+  // /admin is one header secret away from promoting any user to admin in any
+  // organization, and nothing legitimate calls it in bulk.
+  //
+  // /auth is NOT throttled here. Four of its routes carry their own
+  // authMiddleware and are ordinary in-app operations - GET /auth/passkeys is
+  // polled by the app shell on every tab focus - so a prefix-wide bucket would
+  // let normal work lock an office out of logging in. The credential routes
+  // carry their own limiter inside auth.routes.ts.
+  app.use(
+    '/admin',
+    createRateLimiter({ windowMs: 15 * 60_000, max: 10, trustedProxyHops: config.trustedProxyHops }),
+    adminRouter,
+  );
   app.use('/auth', authRouter);
   app.use(authMiddleware);
   app.use('/users', userRouter);

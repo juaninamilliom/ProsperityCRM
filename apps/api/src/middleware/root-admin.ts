@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { config } from '../config.js';
+import { timingSafeEqualString } from './secret-compare.js';
 
 export function requireRootAdmin(req: Request, res: Response, next: NextFunction) {
   const adminHeader =
@@ -19,7 +20,7 @@ export function requireRootAdmin(req: Request, res: Response, next: NextFunction
     return res.status(500).json({ message: 'Root admin token not configured' });
   }
 
-  if (token !== expectedToken) {
+  if (!timingSafeEqualString(token ?? '', expectedToken)) {
     return res.status(403).json({ message: 'Forbidden' });
   }
 
