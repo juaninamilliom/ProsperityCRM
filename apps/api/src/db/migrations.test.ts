@@ -49,6 +49,8 @@ const FROZEN: Record<string, string> = {
     '5e5a71d2f5e86d914a714552a02106b7b1506be0ddc359bd408c6425f83e343f',
   '0015_index_delete_path_foreign_keys.sql':
     'a41053c1050a9ca20f69026050fea85ae6f0f4154f7bb774a903cd65ee04e680',
+  '0016_drop_redundant_indexes.sql':
+    '614e2668b89cc60775fc941b1d24bfe7ba137be86b1a64a004399c0175c3f24c',
 };
 
 const sha256 = (text: string) => crypto.createHash('sha256').update(text).digest('hex');
