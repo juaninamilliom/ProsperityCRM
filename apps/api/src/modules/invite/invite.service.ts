@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { desc, eq, sql } from 'drizzle-orm';
 import type { Role } from '../../common/types.js';
 import { db, orgInviteCodes, users } from '../../db/drizzle.js';
+import type { Tx } from '../../db/drizzle.js';
 import type { User } from '../../types.js';
 import { assertInviteUsable, nextInviteState } from './invite.rules.js';
 
@@ -126,18 +127,29 @@ export async function redeemInviteCode({
   });
 }
 
-export async function redeemInviteForLocalSignup({
-  code,
-  email,
-  name,
-  password,
-}: {
-  code: string;
-  email: string;
-  name: string;
-  password: string;
-}) {
-  return db.transaction(async (tx) => {
+export async function redeemInviteForLocalSignup(
+  {
+    code,
+    email,
+    name,
+    password,
+  }: {
+    code: string;
+    email: string;
+    name: string;
+    password: string;
+  },
+  /** Given a transaction, redeem inside it rather than opening another. The
+   *  magic-link flow needs that: it must claim the link and redeem the code
+   *  together, or a failed redemption leaves a link that is spent and a user
+   *  who can never use it. */
+  existingTx?: Tx,
+) {
+  /** The lock, the usability check, the insert and the counter advance stay in
+   *  this order inside one transaction. That ordering is what stops two people
+   *  racing the last use of a code; widening the transaction around it is fine,
+   *  reordering or splitting it is not. */
+  const redeem = async (tx: Tx) => {
     const [invite] = await tx
       .select()
       .from(orgInviteCodes)
@@ -168,7 +180,9 @@ export async function redeemInviteForLocalSignup({
       .where(eq(orgInviteCodes.code_id, invite.code_id));
 
     return { user: user as unknown as User, invite: invite as unknown as InviteRecord };
-  });
+  };
+
+  return existingTx ? redeem(existingTx) : db.transaction(redeem);
 }
 
 export async function getInviteCodesForOrg(organizationId: string): Promise<InviteRecord[]> {
