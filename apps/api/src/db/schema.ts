@@ -150,11 +150,11 @@ export const jobDealSplits = pgTable('job_deal_splits', {
     .references(() => jobRequisitions.job_id, { onDelete: 'cascade' })
     .notNull(),
   teammate_name: text('teammate_name').notNull(),
-  teammate_status: text('teammate_status').default('active').notNull(),
+  teammate_status: text('teammate_status').default('active'),
   split_percent: numeric('split_percent').notNull(),
-  role: text('role').default('lead').notNull(),
-  total_deal: numeric('total_deal').notNull(),
-  weighted_deal: numeric('weighted_deal').notNull(),
+  role: text('role'),
+  total_deal: numeric('total_deal'),
+  weighted_deal: numeric('weighted_deal'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -240,7 +240,7 @@ export const orgInviteCodes = pgTable('org_invite_codes', {
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   revoked_at: timestamp('revoked_at', { withTimezone: true }),
   revoked_by: uuid('revoked_by').references(() => users.user_id),
-  metadata: jsonb('metadata').default({}).notNull(),
+  metadata: jsonb('metadata').default({}),
 });
 
 // Relations
