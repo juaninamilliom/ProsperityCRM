@@ -67,48 +67,65 @@ export async function requestMagicLink({
 export async function verifyMagicLink(rawToken: string, nameFallback?: string) {
   const tokenHash = crypto.createHash('sha256').update(rawToken.trim()).digest('hex');
 
-  const [linkRecord] = await db
-    .select()
-    .from(magicLinks)
-    .where(
-      and(
-        eq(magicLinks.token_hash, tokenHash),
-        isNull(magicLinks.used_at),
-        gt(magicLinks.expires_at, new Date())
+  /** Claiming the link and redeeming the invite happen together, or not at all.
+   *
+   *  Before, the link was marked used and THEN the code was redeemed, so a bad
+   *  or exhausted code left a link that was already spent: the user was told
+   *  the link was invalid, requesting a new one hit the same wall, and nothing
+   *  ever mentioned the invite. Rolling back leaves the link unused, which is
+   *  the honest state - nothing was consumed. */
+  return db.transaction(async (tx) => {
+    /** One conditional update, not a select and then an update. That pair was a
+     *  race two concurrent verifications could both win: both passed the
+     *  select, both wrote used_at, both received a token. Here the row is
+     *  claimed by the same statement that tests it, so exactly one caller can
+     *  match it. */
+    const [claimed] = await tx
+      .update(magicLinks)
+      .set({ used_at: new Date() })
+      .where(
+        and(
+          eq(magicLinks.token_hash, tokenHash),
+          isNull(magicLinks.used_at),
+          gt(magicLinks.expires_at, new Date())
+        )
       )
-    );
+      .returning();
 
-  if (!linkRecord) {
-    throw new Error('This sign-in link is invalid or has expired. Please request a new one.');
-  }
-
-  // Mark as used immediately to prevent replay
-  await db
-    .update(magicLinks)
-    .set({ used_at: new Date() })
-    .where(eq(magicLinks.link_id, linkRecord.link_id));
-
-  let user = await getUserByEmail(linkRecord.email);
-
-  if (!user) {
-    if (!linkRecord.invite_code) {
-      throw new Error('User not found. Please sign up with an invite code first.');
+    if (!claimed) {
+      throw new Error('This sign-in link is invalid or has expired. Please request a new one.');
     }
 
-    // Auto-provision user with invite code
-    const result = await redeemInviteForLocalSignup({
-      code: linkRecord.invite_code,
-      email: linkRecord.email,
-      name: nameFallback || linkRecord.email.split('@')[0],
-      password: crypto.randomBytes(16).toString('hex'),
-    });
-    user = result.user;
-  }
+    /** On `tx`, not on the module-level `db`. A read on `db` here would ask the
+     *  pool for a second connection while this transaction holds the first;
+     *  measured against the real pool, ten concurrent verifications acquired 0
+     *  of 10 and waited forever, taking every route down with them. */
+    let user = await getUserByEmail(claimed.email, tx);
 
-  if (!user.is_active) {
-    throw new Error('This account has been deactivated.');
-  }
+    if (!user) {
+      if (!claimed.invite_code) {
+        throw new Error('User not found. Please sign up with an invite code first.');
+      }
 
-  const token = await createLocalToken(user);
-  return { token, user: toPublicUser(user) };
+      // Inside the same transaction: if the code is revoked or exhausted this
+      // throws, the claim above rolls back, and the link is still usable.
+      const result = await redeemInviteForLocalSignup(
+        {
+          code: claimed.invite_code,
+          email: claimed.email,
+          name: nameFallback || claimed.email.split('@')[0],
+          password: crypto.randomBytes(16).toString('hex'),
+        },
+        tx
+      );
+      user = result.user;
+    }
+
+    if (!user.is_active) {
+      throw new Error('This account has been deactivated.');
+    }
+
+    const token = await createLocalToken(user);
+    return { token, user: toPublicUser(user) };
+  });
 }

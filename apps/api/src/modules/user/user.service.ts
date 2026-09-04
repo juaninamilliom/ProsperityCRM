@@ -1,5 +1,6 @@
 import { asc, desc, eq } from 'drizzle-orm';
 import { db, organizations, users } from '../../db/drizzle.js';
+import type { DbOrTx } from '../../db/drizzle.js';
 import type { User } from '../../types.js';
 
 export async function getUserBySsoId(ssoId: string): Promise<User | undefined> {
@@ -15,8 +16,15 @@ export async function getUserById(userId: string): Promise<User | undefined> {
   return (row as unknown as User | undefined) ?? undefined;
 }
 
-export async function getUserByEmail(email: string): Promise<User | undefined> {
-  const [row] = await db.select().from(users).where(eq(users.email, email));
+/** `runner` lets a caller that already holds a transaction read on THAT handle.
+ *  Reading on the module-level `db` from inside a transaction asks the pool for
+ *  a second connection while the first is held, which deadlocks - see the note
+ *  on `Tx` in db/drizzle.ts. */
+export async function getUserByEmail(
+  email: string,
+  runner: DbOrTx = db
+): Promise<User | undefined> {
+  const [row] = await runner.select().from(users).where(eq(users.email, email));
   return (row as unknown as User | undefined) ?? undefined;
 }
 
