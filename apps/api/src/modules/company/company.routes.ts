@@ -2,13 +2,9 @@ import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
 import { companyQuerySchema, createCompanySchema, updateCompanySchema } from './company.schema.js';
 import * as service from './company.service.js';
+import { pgErrorOf, SQLSTATE } from '../../common/pg-errors.js';
 
 export const companyRouter = Router();
-
-/** Postgres unique_violation. Surfaced as 409 plus the existing row so the
- *  caller can offer "you already have this - open it?" rather than an error.
- *  This is exactly the affordance the capture inbox will need. */
-const UNIQUE_VIOLATION = '23505';
 
 companyRouter.get('/', async (req, res) => {
   const parsed = companyQuerySchema.safeParse(req.query);
@@ -38,7 +34,14 @@ companyRouter.post('/', async (req: AuthenticatedRequest, res) => {
   try {
     res.status(201).json(await service.createCompany(req.dbUser.organization_id, parsed.data));
   } catch (error) {
-    if ((error as { code?: string }).code !== UNIQUE_VIOLATION) throw error;
+    /** A unique violation is surfaced as a 409 plus the existing row, so the
+     *  caller can offer "you already have this - open it?". This is exactly
+     *  the affordance the capture inbox will need.
+     *
+     *  Reading `.code` here matched nothing: drizzle wraps the driver error
+     *  and puts the SQLSTATE on `.cause`, so this branch re-threw every
+     *  duplicate into the 500 handler and the web's 409 branch was dead too. */
+    if (pgErrorOf(error)?.code !== SQLSTATE.UNIQUE_VIOLATION) throw error;
     const existing = await service.findDuplicateCompany(
       req.dbUser.organization_id,
       parsed.data.name,

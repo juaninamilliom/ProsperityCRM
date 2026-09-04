@@ -2,10 +2,9 @@ import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
 import { createPersonSchema, personQuerySchema, updatePersonSchema } from './person.schema.js';
 import * as service from './person.service.js';
+import { pgErrorOf, SQLSTATE } from '../../common/pg-errors.js';
 
 export const personRouter = Router();
-
-const UNIQUE_VIOLATION = '23505';
 
 personRouter.get('/', async (req, res) => {
   const parsed = personQuerySchema.safeParse(req.query);
@@ -44,25 +43,14 @@ personRouter.post('/', async (req: AuthenticatedRequest, res) => {
   try {
     res.status(201).json(await service.createPerson(req.dbUser.organization_id, parsed.data));
   } catch (error) {
-    // Behaviour-preserving narrowing of what used to be `any`. The six-way
-    // sniff itself is not defensible - company.routes.ts checks `code` alone -
-    // but replacing it belongs with the shared isUniqueViolation helper, not
-    // in a commit whose job is to make lint pass.
-    const pgError = error as {
-      code?: string;
-      cause?: { code?: string };
-      message?: string;
-      detail?: string;
-    };
-    const isUniqueViolation =
-      pgError?.code === UNIQUE_VIOLATION ||
-      pgError?.cause?.code === UNIQUE_VIOLATION ||
-      pgError?.code === '23505' ||
-      pgError?.message?.includes('unique constraint') ||
-      pgError?.message?.includes('duplicate key') ||
-      pgError?.detail?.includes('already exists');
-
-    if (!isUniqueViolation) throw error;
+    /** This route worked, but the old comment here had it backwards: it
+     *  called the six-way sniff indefensible and pointed at company.routes.ts
+     *  checking `code` alone as the better pattern. In fact `.cause.code` was
+     *  the only clause that ever fired, and `code` alone is the broken one -
+     *  which is why the company route's 409 never ran. The two message
+     *  sniffs were also reading driver text that now contains bound
+     *  parameters. */
+    if (pgErrorOf(error)?.code !== SQLSTATE.UNIQUE_VIOLATION) throw error;
     const existing = await service.findDuplicatePerson(
       req.dbUser.organization_id,
       parsed.data.linkedin_url,
