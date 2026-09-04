@@ -19,6 +19,7 @@ import { RelationshipChip } from '../components/RelationshipChip';
 import { Button, Card, Chip, SectionLabel, BdStageDot } from '../components/ui';
 import { formatMoney } from '../utils/money';
 import { initials, tintFor, touchLabel } from '../utils/presentation';
+import { formatDateOnly } from '../utils/dateOnly';
 
 const ROLE_LABEL: Record<string, string> = {
   champion: 'Champion',
@@ -258,7 +259,7 @@ export function CompanyDetailPage() {
                       {deal.closed_at
                         ? `Signed ${new Date(deal.closed_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`
                         : deal.expected_close
-                          ? `Expected ${new Date(deal.expected_close).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                          ? `Expected ${formatDateOnly(deal.expected_close, { day: 'numeric', month: 'short', year: 'numeric' })}`
                           : 'No close date'}
                       {deal.fee_percent != null && ` · ${deal.fee_percent}% fee`}
                     </span>
