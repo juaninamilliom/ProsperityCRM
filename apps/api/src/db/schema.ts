@@ -220,7 +220,7 @@ export const activities = pgTable('activities', {
 export const organizationSkills = pgTable('organization_skills', {
   skill_id: uuid('skill_id').defaultRandom().primaryKey(),
   organization_id: uuid('organization_id')
-    .references(() => organizations.organization_id)
+    .references(() => organizations.organization_id, { onDelete: 'cascade' })
     .notNull(),
   name: text('name').notNull(),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -229,7 +229,7 @@ export const organizationSkills = pgTable('organization_skills', {
 export const orgInviteCodes = pgTable('org_invite_codes', {
   code_id: uuid('code_id').defaultRandom().primaryKey(),
   organization_id: uuid('organization_id')
-    .references(() => organizations.organization_id)
+    .references(() => organizations.organization_id, { onDelete: 'cascade' })
     .notNull(),
   code: text('code').notNull().unique(),
   role: text('role').notNull(),
