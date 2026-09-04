@@ -388,3 +388,79 @@ not on this path.
 Shipping only this leaves 22 High findings open. The three that most deserve to be next
 are **P2's silent cascade**, **S2 in both halves**, and **W3**, where a cold Render dyno
 deletes a valid token and kills extension auto-login.
+
+---
+
+## 8. Found while executing
+
+Not from the original audit. Each was discovered during a remediation PR, verified,
+and deliberately left out of that PR to keep the diff reviewable.
+
+### F1 — The api suite is not deterministic (contradicts CLAUDE.md)
+
+**Found during phase 17.** `apps/api/src/middleware/rate-limit.test.ts` fails
+intermittently. Measured: 0 failures in 40 full-suite runs, but **1 failure in 41
+runs of that file alone**. The failure is a `socket hang up` on one of the 31
+sequential supertest requests in "refuses a credential route past the limit", so the
+counter reaches 30 and the 31st assertion sees 400 instead of 429.
+
+The cause is the shape of the test, not the limiter: `request(app)` stands up a new
+ephemeral server per call, 31 times in a loop. A review agent independently hit this
+and misattributed it to the passkeys test as 404-vs-401, which is a different
+symptom of the same instability.
+
+Why it matters beyond one red run: CLAUDE.md's component table calls this suite
+"deterministic", and every mutation-testing result in this plan is measured against
+it. A flaky instrument silently weakens those measurements.
+
+**Fix:** stand the server up once for the file (`app.listen(0)` in `beforeAll`, one
+supertest agent against it, closed in `afterAll`) rather than 31 times. Then correct
+the CLAUDE.md claim. Owner: TST. Depends on: nothing.
+
+### F2 — A duplicate email in the magic-link path returns a raw Postgres error
+
+**Found during phase 17.** Two concurrent verifications of two different links for
+the same new email both miss the user, both redeem, and the second hits the
+`users.email` unique constraint. `auth.routes.ts` echoes `(error as Error).message`
+verbatim, so the Postgres error text reaches the client — which the tenancy
+architect forbids, because those messages carry host, database and user.
+
+Pre-existing and not caused by the transaction change, but that change is what made
+the window legible. Related: the same raw echo covers every other error on that
+route.
+
+**Fix:** catch `23505` on that path and return a stable code, as part of the phase 27
+Postgres error taxonomy rather than separately. Owner: TEN + PIP. Depends on: 27.
+
+### F3 — The pool has no `connectionTimeoutMillis`
+
+**Found during phase 17.** `pool.ts` sets `max` but no connection timeout, and
+pg-pool queues **without a timer** when that option is unset — so a request for a
+connection that can never be satisfied waits forever instead of failing. That is what
+turned the phase 17 nested-acquisition mistake from a slow request into a permanent,
+process-wide stall: measured 0 of 10 connections acquired, 10 waiting, no recovery.
+
+The specific bug is fixed and `Tx`/`DbOrTx` now carry the reason. This is the defence
+in depth: a few seconds of `connectionTimeoutMillis` turns any future instance of the
+same mistake into a loud, recoverable error.
+
+**Fix:** set `connectionTimeoutMillis` in `pool.ts`. Consider also deleting
+`src/utils/transaction.ts` and `src/utils/sql.ts` — both check a client out of the
+pool, both have zero callers, and `withTransaction` additionally swallows the original
+error if its ROLLBACK throws. Owner: SCH. Depends on: nothing.
+
+### F4 — `redeemInviteCode` is a dead, divergent copy of the invite rules
+
+**Found during phase 17.** It has no callers anywhere in `src/`, sits directly above
+`redeemInviteForLocalSignup`, and still carries the old inline checks
+(`invite.status !== 'active'`, `used_count >= max_uses`) instead of
+`assertInviteUsable` / `nextInviteState`. So the file holds two versions of the invite
+rules, one tested and one not.
+
+This actively cost time: a mutation aimed at the live function silently landed on the
+dead one, because both contain the identical line
+`.where(eq(orgInviteCodes.code_id, invite.code_id));` and a first-occurrence replace
+hit the wrong one. The result read as "the guard caught it" when nothing had been
+tested.
+
+**Fix:** delete it. Owner: TEN. Depends on: nothing.
