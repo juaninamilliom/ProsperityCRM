@@ -54,8 +54,11 @@ const claimedLink = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const RAW_TOKEN = 'raw-token';
-const TOKEN_HASH = crypto.createHash('sha256').update(RAW_TOKEN).digest('hex');
+/** Padded deliberately. With a clean fixture, dropping `.trim()` in
+ *  production changed nothing and the mutation survived - a link pasted with
+ *  a trailing newline out of an email client would then never verify. */
+const RAW_TOKEN = '  raw-token\n';
+const TOKEN_HASH = crypto.createHash('sha256').update(RAW_TOKEN.trim()).digest('hex');
 
 let users: typeof import('../user/user.service.js');
 let invites: typeof import('../invite/invite.service.js');
@@ -145,10 +148,10 @@ describe('verifyMagicLink', () => {
       user: ACTIVE_USER,
     } as never);
 
-    await run();
+    await run('Jane');
 
     expect(invites.redeemInviteForLocalSignup).toHaveBeenCalledWith(
-      expect.objectContaining({ code: 'abc', email: 'a@b.c' }),
+      expect.objectContaining({ code: 'abc', email: 'a@b.c', name: 'Jane' }),
       handle
     );
   });

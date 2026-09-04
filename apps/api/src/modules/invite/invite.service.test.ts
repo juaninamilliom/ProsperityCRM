@@ -101,6 +101,23 @@ describe('redeemInviteForLocalSignup', () => {
     expect(firstArgOf('set')).toMatchObject({ used_count: 1, status: 'used' });
   });
 
+  it('locks the row for the code it was handed, and no other', async () => {
+    const { redeemInviteForLocalSignup } = await import('./invite.service.js');
+    const { handle, firstArgOf } = fakeTx(allStatementsSucceed(USABLE_INVITE));
+
+    await redeemInviteForLocalSignup(SIGNUP, handle as never);
+
+    // The head of the statement, as the counter advance below pins the tail.
+    // This predicate chooses WHICH invite row, and therefore which
+    // organization_id and which role the new account inherits. Keying it on
+    // code_id instead of code typechecks and lints; dropping it entirely lets
+    // a signup redeem whatever row Postgres returns first, across tenants,
+    // and is caught only by an unused-variable lint rule.
+    const { sql, params } = renderSql(firstArgOf('where'));
+    expect(sql).toBe('"org_invite_codes"."code" = $1');
+    expect(params).toEqual([SIGNUP.code]);
+  });
+
   it('advances the counter on this invite row, and only this one', async () => {
     const { redeemInviteForLocalSignup } = await import('./invite.service.js');
     const { handle, firstArgAfter } = fakeTx(allStatementsSucceed(USABLE_INVITE));
@@ -157,13 +174,39 @@ describe('redeemInviteForLocalSignup', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('opens its own transaction when it is not given one', async () => {
+  it('opens its own transaction when it is not given one, and redeems inside it', async () => {
     const { redeemInviteForLocalSignup } = await import('./invite.service.js');
-    transaction.mockResolvedValue({ user: { user_id: 'u1' }, invite: USABLE_INVITE });
+    const { handle, order } = fakeTx(allStatementsSucceed(USABLE_INVITE));
+    // Drives the callback. Resolving the transaction outright left the whole
+    // non-magic-link signup path - lock, check, insert, counter - deletable
+    // with this test still green, because `redeem` never ran.
+    transaction.mockImplementation((callback: (tx: unknown) => unknown) => callback(handle));
 
     await redeemInviteForLocalSignup(SIGNUP);
 
     // The signup route has no transaction of its own, and must keep working.
     expect(transaction).toHaveBeenCalledTimes(1);
+    expect(order()).toContain('for(update)');
+    expect(order()).toContain('insert');
+    expect(order()).toContain('set');
+  });
+
+  it('lets a failing statement escape, so the caller rolls back', async () => {
+    const { redeemInviteForLocalSignup } = await import('./invite.service.js');
+    // The realistic production failure: two magic links for the same new
+    // email, so the second insert hits the users.email unique constraint.
+    const duplicate = new Error(
+      'duplicate key value violates unique constraint "users_email_key"'
+    );
+    const { handle, order } = fakeTx([[USABLE_INVITE], duplicate]);
+
+    await expect(redeemInviteForLocalSignup(SIGNUP, handle as never)).rejects.toThrow(
+      /unique constraint/
+    );
+
+    // It must not reach the counter advance, and must not be swallowed -
+    // either would leave the code spent for a signup that never happened.
+    expect(order()).not.toContain('set');
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

@@ -49,7 +49,10 @@ export function fakeTx(results: unknown[]): FakeTx {
    *  throws by name: returning `undefined` let production destructure it and
    *  fail as `(intermediate value) is not iterable`, several frames from the
    *  cause, which read like a bug in the code under test. */
-  (handle as { then: unknown }).then = (resolve: (value: unknown) => unknown) => {
+  (handle as { then: unknown }).then = (
+    resolve: (value: unknown) => unknown,
+    reject: (reason: unknown) => unknown
+  ) => {
     if (results.length === 0) {
       throw new Error(
         `fakeTx: ran out of queued results after ${calls.length} builder calls ` +
@@ -57,7 +60,12 @@ export function fakeTx(results: unknown[]): FakeTx {
           'The code under test issued more statements than this test queued.'
       );
     }
-    return resolve(results.shift());
+    const next = results.shift();
+    /** A queued Error is a statement that FAILS - a unique violation on the
+     *  user insert, say. Without this the fake can only ever succeed, so the
+     *  rollback path these tests exist to protect had no case where a
+     *  statement could fail at all. */
+    return next instanceof Error ? reject(next) : resolve(next);
   };
 
   const order = () =>
@@ -68,6 +76,16 @@ export function fakeTx(results: unknown[]): FakeTx {
     order,
     firstArgOf: (method) => calls.find((call) => call.method === method)?.args[0],
     firstArgAfter: (marker, method) => {
+      /** Ambiguity in the MARKER is as dangerous as ambiguity in the target:
+       *  a second `set` earlier in the function would silently retarget this
+       *  at a different statement while staying green. Fail loudly instead. */
+      const markers = calls.filter((call) => call.method === marker).length;
+      if (markers > 1) {
+        throw new Error(
+          `fakeTx: "${marker}" appears ${markers} times, so "after ${marker}" is ambiguous. ` +
+            `Call order was: ${calls.map((call) => call.method).join(' > ')}.`
+        );
+      }
       const from = calls.findIndex((call) => call.method === marker);
       if (from === -1) return undefined;
       return calls.slice(from + 1).find((call) => call.method === method)?.args[0];
@@ -84,6 +102,14 @@ export function fakeTx(results: unknown[]): FakeTx {
  *  mutation passed all 240 tests. Rendering the statement makes the operator,
  *  the combinator and the bound values all assertable. */
 export function renderSql(condition: unknown): { sql: string; params: unknown[] } {
+  /** Otherwise drizzle throws `Cannot read properties of undefined`, several
+   *  frames from the cause - the same opaque failure the drained-queue error
+   *  above exists to avoid. */
+  if (!condition) {
+    throw new Error(
+      'renderSql: no condition to render. The statement you anchored on was never issued.'
+    );
+  }
   const { sql, params } = new PgDialect().sqlToQuery(condition as never);
   return { sql, params: params as unknown[] };
 }
