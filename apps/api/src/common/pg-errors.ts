@@ -138,10 +138,14 @@ export function dependentsMessage(dependents: CompanyDependents): string {
 
   if (parts.length === 0) return 'This company still has dependent records.';
 
-  const listed =
-    parts.length === 1
-      ? parts[0]
-      : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  return `This company still has ${listPhrase(parts)}.`;
+}
 
-  return `This company still has ${listed}.`;
+/** "a", "a and b", "a, b and c". Shared so that the other delete guards, whose
+ *  dependents have different nouns and a different subject, read the same to a
+ *  user as this one does. */
+export function listPhrase(parts: string[]): string {
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }

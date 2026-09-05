@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
 import { companyQuerySchema, createCompanySchema, updateCompanySchema } from './company.schema.js';
 import * as service from './company.service.js';
-import { pgErrorOf, SQLSTATE } from '../../common/pg-errors.js';
+import { classify, dependentsMessage, pgErrorOf, SQLSTATE } from '../../common/pg-errors.js';
 
 export const companyRouter = Router();
 
@@ -65,15 +65,28 @@ companyRouter.patch('/:companyId', async (req, res) => {
 });
 
 companyRouter.delete('/:companyId', async (req, res) => {
-  // pipeline_entries.company_id has no cascade on purpose: deleting a company
-  // must never silently delete pipeline history. Explain instead.
-  const entries = await service.countEntriesForCompany(req.params.companyId);
-  if (entries > 0) {
-    return res.status(409).json({
-      message: 'This company has pipeline entries. Move or remove them first.',
-      entry_count: entries,
-    });
+  /** The guard counted pipeline entries only, one of the five foreign keys
+   *  pointing at companies. Contacts and requisitions block the delete and
+   *  surfaced as a bare 500; deals cascade, so deleting a company destroyed
+   *  its deals and their activities silently and reported 204.
+   *
+   *  Counting happens inside the transaction that deletes, under a row lock —
+   *  see deleteCompanyIfUnreferenced. */
+  try {
+    const result = await service.deleteCompanyIfUnreferenced(req.params.companyId);
+    if (!result.deleted) {
+      return res.status(409).json({
+        message: dependentsMessage(result.dependents),
+        dependents: result.dependents,
+      });
+    }
+  } catch (error) {
+    /** A backstop, kept even though the count runs under a lock: if a sixth
+     *  foreign key is added later and the count is not extended, this turns a
+     *  500 into a 409 rather than leaking the driver's text. */
+    const conflict = classify(error, 'delete');
+    if (!conflict) throw error;
+    return res.status(conflict.status).json({ message: conflict.message });
   }
-  await service.deleteCompany(req.params.companyId);
   res.status(204).end();
 });
