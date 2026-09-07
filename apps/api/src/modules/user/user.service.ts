@@ -1,5 +1,14 @@
-import { asc, desc, eq } from 'drizzle-orm';
-import { db, organizations, users } from '../../db/drizzle.js';
+import { asc, desc, eq, or, sql } from 'drizzle-orm';
+import {
+  activities,
+  bdOpportunities,
+  db,
+  entryStatusHistory,
+  organizations,
+  orgInviteCodes,
+  pipelineEntries,
+  users,
+} from '../../db/drizzle.js';
 import type { DbOrTx } from '../../db/drizzle.js';
 import type { User } from '../../types.js';
 
@@ -98,6 +107,60 @@ export async function listAllUsers() {
     .orderBy(desc(users.created_at));
 
   return rows;
+}
+
+export interface UserDependents {
+  entries: number;
+  history: number;
+  activities: number;
+  deals: number;
+  invites: number;
+}
+
+/** Counted only after the delete has failed. Six foreign keys point at users
+ *  and none of them cascades: pipeline_entries.recruiter_id, which is NOT NULL
+ *  (0010:97), entry_status_history.changed_by (0010:116),
+ *  activities.created_by (0010:136), bd_opportunities.owner_id (0010:72), and
+ *  both org_invite_codes audit columns (0004:9,:11).
+ *
+ *  recruiter_id being NOT NULL is why this blocks rather than nulling the
+ *  references out. Reassigning a departing recruiter's pipeline is a feature,
+ *  and it is not this guard's job to improvise one.
+ *
+ *  passkeys and magic_links cascade (0014:5,:33) and are not counted. */
+export async function countUserDependents(userId: string): Promise<UserDependents> {
+  const [entryRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(pipelineEntries)
+    .where(eq(pipelineEntries.recruiter_id, userId));
+
+  const [historyRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(entryStatusHistory)
+    .where(eq(entryStatusHistory.changed_by, userId));
+
+  const [activityRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(activities)
+    .where(eq(activities.created_by, userId));
+
+  const [dealRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(bdOpportunities)
+    .where(eq(bdOpportunities.owner_id, userId));
+
+  const [inviteRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(orgInviteCodes)
+    .where(or(eq(orgInviteCodes.created_by, userId), eq(orgInviteCodes.revoked_by, userId)));
+
+  return {
+    entries: Number(entryRow?.count ?? 0),
+    history: Number(historyRow?.count ?? 0),
+    activities: Number(activityRow?.count ?? 0),
+    deals: Number(dealRow?.count ?? 0),
+    invites: Number(inviteRow?.count ?? 0),
+  };
 }
 
 export async function deleteUser(userId: string) {

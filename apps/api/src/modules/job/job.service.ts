@@ -89,6 +89,23 @@ export async function updateJob(jobId: string, input: JobInput) {
   return row;
 }
 
+export interface JobDependents {
+  entries: number;
+}
+
+/** Counted only after the delete has already failed. pipeline_entries.job_id
+ *  is NO ACTION (0010:95), so the constraint raises 23503 and nothing has been
+ *  destroyed; counting up front would cost a query on every successful delete
+ *  and would still race. */
+export async function countJobDependents(jobId: string): Promise<JobDependents> {
+  const [row] = await db
+    .select({ entries: sql<number>`count(*)::int` })
+    .from(pipelineEntries)
+    .where(eq(pipelineEntries.job_id, jobId));
+
+  return { entries: Number(row?.entries ?? 0) };
+}
+
 export async function deleteJob(jobId: string) {
   await db.delete(jobRequisitions).where(eq(jobRequisitions.job_id, jobId));
 }
