@@ -34,7 +34,7 @@ const migrations = readdirSync(migrationsDir)
 const FROZEN: Record<string, string> = {
   '0001_init.sql': '00b52426950ad03d46a4f68732bc5df8545230e30eb9302e97406d9e3f3af34d',
   '0002_seed_statuses.sql': '14193736095abc64be9560917e5480175b8f068b41dd641f4ac722aaedec8d13',
-  '0003_add_organizations.sql': 'b57f5f8e3ec760ad6d8e068d61864b03045fae7d002222df36194b8bcc1155e4',
+  '0003_add_organizations.sql': '7ffd0960b10514864cdd99177c2939aecb67cb7ca0d182ea7b52896c9f0e697a',
   '0004_invite_codes.sql': '07d3eea06d3e739726bc2fc369d364099b6d64edbe5932a4ab85fc6220d17b0e',
   '0005_local_auth.sql': 'bb8c149b3fe536b4a8bf0b1850430fe864be3414eaa25f8a459033ba0bc1216d',
   '0006_job_requisitions.sql': 'f54bd95709605ae86dca0d83e1e68963995733b65678aec35afe6f1272db4585',

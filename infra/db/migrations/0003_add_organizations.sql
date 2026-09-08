@@ -12,9 +12,10 @@ alter table users
   alter column role set default 'OrgEmployee',
   alter column role type text using role::text;
 
--- Satisfy the CHECK before adding it. 0001 seeded 'Recruiter' and 'Admin', and
--- ADD CONSTRAINT validates against every existing row, so adding it first
--- aborts the whole file on any database that has users.
+-- Satisfy the CHECK before adding it. 0001 allowed only 'Recruiter' and 'Admin'
+-- and defaulted to 'Recruiter' (0001:7), so any row this database already holds
+-- fails the new check. ADD CONSTRAINT validates against every existing row, so
+-- adding it first aborts the whole file on any database that has users.
 update users
   set role = 'OrgEmployee'
   where role is null or role not in ('OrgAdmin', 'OrgEmployee');
@@ -29,9 +30,14 @@ alter table users
 -- Both statements write nothing when users is empty, which is the only shape
 -- of database this file can still run on: every database that has recorded
 -- 0003_add_organizations.sql in schema_migrations skips it entirely.
+-- Only when there is no organization to reuse. Without the second guard this
+-- inserts a Default Organization on a database that already has one and then
+-- the statement below attaches the users to whichever is oldest, leaving the
+-- row just created unused and the users on an unrelated tenant.
 insert into organizations (name, slug)
   select 'Default Organization', 'default'
   where exists (select 1 from users where organization_id is null)
+    and not exists (select 1 from organizations)
   on conflict (slug) do nothing;
 
 update users
