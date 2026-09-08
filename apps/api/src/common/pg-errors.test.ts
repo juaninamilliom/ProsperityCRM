@@ -158,20 +158,28 @@ describe('what reaches the client', () => {
 
 describe('dependentsMessage', () => {
   it('names only the dependents that exist', () => {
-    expect(dependentsMessage({ people: 3, requisitions: 0, entries: 0, deals: 5 })).toBe(
+    expect(dependentsMessage({ people: 3, requisitions: 0, entries: 0, deals: 5, activities: 0 })).toBe(
       'This company still has 3 contacts and 5 deals.'
     );
   });
 
   it('uses the singular for one', () => {
-    expect(dependentsMessage({ people: 1, requisitions: 0, entries: 0, deals: 0 })).toBe(
+    expect(dependentsMessage({ people: 1, requisitions: 0, entries: 0, deals: 0, activities: 0 })).toBe(
       'This company still has 1 contact.'
     );
   });
 
-  it('names all four when all four are present', () => {
-    expect(dependentsMessage({ people: 2, requisitions: 1, entries: 4, deals: 7 })).toBe(
+  it('names all five when all five are present', () => {
+    expect(dependentsMessage({ people: 2, requisitions: 1, entries: 4, deals: 7, activities: 0 })).toBe(
       'This company still has 2 contacts, 1 requisition, 4 pipeline entries and 7 deals.'
     );
+  });
+
+  it('names the activities that would outlive the company', () => {
+    // Only those carrying a person_id or entry_id are counted, so this is the
+    // touch log of somebody who survives the delete.
+    expect(
+      dependentsMessage({ people: 0, requisitions: 0, entries: 0, deals: 0, activities: 3 })
+    ).toBe('This company still has 3 logged activities.');
   });
 });

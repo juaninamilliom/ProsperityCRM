@@ -26,7 +26,7 @@ vi.mock('../../db/drizzle.js', async () => ({
 }));
 
 const COMPANY = '33333333-3333-3333-3333-333333333333';
-const NONE = { people: 0, requisitions: 0, entries: 0, deals: 0 };
+const NONE = { people: 0, requisitions: 0, entries: 0, deals: 0, activities: 0 };
 
 beforeEach(() => {
   transaction.mockReset();
@@ -72,6 +72,16 @@ describe('deleteCompanyIfUnreferenced', () => {
     expect(tx.order()).not.toContain('delete');
   });
 
+  it('issues no delete when an activity would outlive the company', async () => {
+    const { result, tx } = await runDelete([
+      [{ company_id: COMPANY }],
+      [{ ...NONE, activities: 2 }],
+    ]);
+
+    expect(result).toEqual({ deleted: false, dependents: { ...NONE, activities: 2 } });
+    expect(tx.order()).not.toContain('delete');
+  });
+
   it('issues no delete when a contact still refers to the company', async () => {
     const { result, tx } = await runDelete([
       [{ company_id: COMPANY }],
@@ -95,7 +105,7 @@ describe('deleteCompanyIfUnreferenced', () => {
     // "1" fails === 1 in dependentsMessage and renders "1 contacts".
     const { result } = await runDelete([
       [{ company_id: COMPANY }],
-      [{ people: '1', requisitions: '0', entries: '0', deals: '0' }],
+      [{ people: '1', requisitions: '0', entries: '0', deals: '0', activities: '0' }],
     ]);
 
     expect(result).toEqual({ deleted: false, dependents: { ...NONE, people: 1 } });

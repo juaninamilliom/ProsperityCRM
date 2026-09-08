@@ -236,11 +236,24 @@ export async function findDuplicateCompany(
  *  job_requisitions, pipeline_entries) and two cascade: bd_opportunities
  *  (0010:64) and activities (0010:125).
  *
- *  Four are counted. Deals are counted even though they cascade, because a
+ *  All five are counted. Deals are counted even though they cascade, because a
  *  deal has its own identity and its own page, and cascading one also takes
  *  the deal-won activity that records how the company became a client
- *  (0010:126). Activities are deliberately not counted: the touch log has no
- *  independent identity, and it exists as part of the parent.
+ *  (0010:126).
+ *
+ *  Activities are counted only when they would OUTLIVE the company, meaning
+ *  they also carry a person_id or an entry_id. An activity naming only this
+ *  company dies with it and that is right. One that also names a person is
+ *  part of that person's timeline, and the person can survive the delete: the
+ *  people count above only sees people whose CURRENT company is this one
+ *  (0010:44), so somebody who has since moved on, or was never assigned, is
+ *  invisible to it while ActivityComposer has been writing person_id and
+ *  company_id together the whole time (ActivityComposer.tsx:58-59, reached
+ *  from PersonDetailPage.tsx:283).
+ *
+ *  An earlier version of this comment claimed the touch log "has no
+ *  independent identity". That is true only of the rows that name nothing
+ *  else.
  *
  *  One round trip, in the correlated-subquery form this module already uses
  *  at :46-49. Selecting from companies gives existence in the same statement,
@@ -260,6 +273,7 @@ export async function countCompanyDependents(
       requisitions: sql<number>`(select count(*) from job_requisitions j where j.company_id = companies.company_id)::int`,
       entries: sql<number>`(select count(*) from pipeline_entries e where e.company_id = companies.company_id)::int`,
       deals: sql<number>`(select count(*) from bd_opportunities o where o.company_id = companies.company_id)::int`,
+      activities: sql<number>`(select count(*) from activities a where a.company_id = companies.company_id and (a.person_id is not null or a.entry_id is not null))::int`,
     })
     .from(companies)
     .where(eq(companies.company_id, companyId));
@@ -271,6 +285,7 @@ export async function countCompanyDependents(
     requisitions: Number(row.requisitions),
     entries: Number(row.entries),
     deals: Number(row.deals),
+    activities: Number(row.activities),
   };
 }
 
@@ -307,7 +322,11 @@ export async function deleteCompanyIfUnreferenced(companyId: string): Promise<De
     if (!dependents) return { deleted: true };
 
     const total =
-      dependents.people + dependents.requisitions + dependents.entries + dependents.deals;
+      dependents.people +
+      dependents.requisitions +
+      dependents.entries +
+      dependents.deals +
+      dependents.activities;
     if (total > 0) return { deleted: false, dependents };
 
     await tx.delete(companies).where(eq(companies.company_id, companyId));

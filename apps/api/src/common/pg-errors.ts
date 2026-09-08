@@ -120,6 +120,7 @@ export interface CompanyDependents {
   requisitions: number;
   entries: number;
   deals: number;
+  activities: number;
 }
 
 const DEPENDENT_NOUNS: Array<[keyof CompanyDependents, string, string]> = [
@@ -127,6 +128,7 @@ const DEPENDENT_NOUNS: Array<[keyof CompanyDependents, string, string]> = [
   ['requisitions', 'requisition', 'requisitions'],
   ['entries', 'pipeline entry', 'pipeline entries'],
   ['deals', 'deal', 'deals'],
+  ['activities', 'logged activity', 'logged activities'],
 ];
 
 /** Names every dependent that is actually present, because `message` is the

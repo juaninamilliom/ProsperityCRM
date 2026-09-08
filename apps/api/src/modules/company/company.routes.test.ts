@@ -40,7 +40,7 @@ const COMPANY = '33333333-3333-3333-3333-333333333333';
 
 const user = asUser();
 
-const none = { people: 0, requisitions: 0, entries: 0, deals: 0 };
+const none = { people: 0, requisitions: 0, entries: 0, deals: 0, activities: 0 };
 
 let app: Express;
 let auth: string;
@@ -103,7 +103,7 @@ describe('DELETE /companies/:companyId', () => {
   it('names contacts and requisitions, which used to be a bare 500', async () => {
     vi.mocked(companies.deleteCompanyIfUnreferenced).mockResolvedValue({
       deleted: false,
-      dependents: { people: 2, requisitions: 1, entries: 0, deals: 0 },
+      dependents: { ...none, people: 2, requisitions: 1 },
     });
 
     const response = await request(app).delete(`/companies/${COMPANY}`).set('Authorization', auth);
@@ -115,7 +115,7 @@ describe('DELETE /companies/:companyId', () => {
   it('names all four when all four are present', async () => {
     vi.mocked(companies.deleteCompanyIfUnreferenced).mockResolvedValue({
       deleted: false,
-      dependents: { people: 2, requisitions: 1, entries: 4, deals: 7 },
+      dependents: { ...none, people: 2, requisitions: 1, entries: 4, deals: 7 },
     });
 
     const response = await request(app).delete(`/companies/${COMPANY}`).set('Authorization', auth);
@@ -123,6 +123,20 @@ describe('DELETE /companies/:companyId', () => {
     expect(response.body.message).toBe(
       'This company still has 2 contacts, 1 requisition, 4 pipeline entries and 7 deals.'
     );
+  });
+
+  it('refuses on an activity that would outlive the company', async () => {
+    // An activity carrying a person_id belongs to that person's timeline, and
+    // the person can survive this delete. Cascading it is silent loss.
+    vi.mocked(companies.deleteCompanyIfUnreferenced).mockResolvedValue({
+      deleted: false,
+      dependents: { ...none, activities: 2 },
+    });
+
+    const response = await request(app).delete(`/companies/${COMPANY}`).set('Authorization', auth);
+
+    expect(response.status).toBe(409);
+    expect(response.body.message).toBe('This company still has 2 logged activities.');
   });
 
   it('turns a foreign key violation into a 409 rather than a 500', async () => {
