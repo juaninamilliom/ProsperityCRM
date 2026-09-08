@@ -58,10 +58,16 @@ jobRouter.delete('/:id', requireRole('OrgAdmin'), async (req, res) => {
       return res.status(conflict.status).json({ message: conflict.message });
     }
     const dependents = await countJobDependents(req.params.id);
+    /** The count runs after the failure, so the blocking row can be gone by the
+     *  time it lands. Without the fallback that reads as "0 candidates in the
+     *  pipeline. Move or remove them first." */
     return res.status(409).json({
-      message: `This requisition has ${dependents.entries} ${
-        dependents.entries === 1 ? 'candidate' : 'candidates'
-      } in the pipeline. Move or remove them first.`,
+      message:
+        dependents.entries > 0
+          ? `This requisition has ${dependents.entries} ${
+              dependents.entries === 1 ? 'candidate' : 'candidates'
+            } in the pipeline. Move or remove them first.`
+          : 'Something still refers to this requisition.',
       dependents,
     });
   }

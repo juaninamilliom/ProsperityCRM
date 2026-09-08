@@ -127,9 +127,12 @@ opportunityRouter.delete('/:opportunityId', async (req, res) => {
     }
     const dependents = await service.countOpportunityDependents(req.params.opportunityId);
     return res.status(409).json({
-      message: `This deal produced ${dependents.requisitions} ${
-        dependents.requisitions === 1 ? 'requisition' : 'requisitions'
-      }. Detach or delete them first.`,
+      message:
+        dependents.requisitions > 0
+          ? `This deal produced ${dependents.requisitions} ${
+              dependents.requisitions === 1 ? 'requisition' : 'requisitions'
+            }. Detach or delete them first.`
+          : 'Something still refers to this deal.',
       dependents,
     });
   }

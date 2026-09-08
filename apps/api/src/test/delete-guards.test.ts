@@ -139,6 +139,17 @@ describe('DELETE /jobs/:id', () => {
     expect(response.body.message).toContain('1 candidate in the pipeline');
   });
 
+  it('does not say "0 candidates" when the blocker is gone by count time', async () => {
+    // The count runs after the failure, so the row can disappear in between.
+    vi.mocked(jobs.deleteJob).mockRejectedValue(wrapped('23503'));
+    vi.mocked(jobs.countJobDependents).mockResolvedValue({ entries: 0 });
+
+    const response = await request(app).delete(`/jobs/${ID}`).set('Authorization', adminAuth);
+
+    expect(response.status).toBe(409);
+    expect(response.body.message).toBe('Something still refers to this requisition.');
+  });
+
   it('deletes a requisition nothing refers to', async () => {
     vi.mocked(jobs.deleteJob).mockResolvedValue(undefined);
 
@@ -211,6 +222,18 @@ describe('DELETE /opportunities/:opportunityId', () => {
     expect(response.body.message).toBe(
       'This deal produced 2 requisitions. Detach or delete them first.'
     );
+  });
+
+  it('does not say "0 requisitions" when the blocker is gone by count time', async () => {
+    vi.mocked(deals.deleteOpportunity).mockRejectedValue(wrapped('23503'));
+    vi.mocked(deals.countOpportunityDependents).mockResolvedValue({ requisitions: 0 });
+
+    const response = await request(app)
+      .delete(`/opportunities/${ID}`)
+      .set('Authorization', adminAuth);
+
+    expect(response.status).toBe(409);
+    expect(response.body.message).toBe('Something still refers to this deal.');
   });
 
   it('answers a malformed id with a 400 and does not run the count', async () => {
