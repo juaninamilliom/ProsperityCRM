@@ -104,6 +104,35 @@ export async function createEntry(input: CreateEntryInput, organizationId: strin
   return row;
 }
 
+/** The existing entry behind a duplicate 409, enriched the way getEntryById
+ *  enriches: the caller needs the person's name and the requisition title to
+ *  offer "you already pitched Ines for this role - open it?", and a bare id
+ *  cannot render that.
+ *
+ *  Returns null when there is no job_id, because idx_entries_person_job is
+ *  partial - `where job_id is not null` (0010:104-105) - so an entry with no
+ *  requisition cannot collide.
+ *
+ *  Deliberately NOT scoped to the organization. That index carries no
+ *  organization column, unlike idx_people_linkedin (0010:56-57) and
+ *  idx_companies_linkedin (0010:32-33), so a cross-organization pair collides
+ *  and an org filter here would return null for a duplicate the database
+ *  nonetheless rejected, leaving the 409 carrying `existing: null`. That is
+ *  unreachable under one organization and becomes reachable the moment a
+ *  second is onboarded - the same event that closes the org-scoping cut. The
+ *  fix is a one-line index change plus a filter here, decided together. */
+export async function findDuplicateEntry(personId: string, jobId?: string | null) {
+  if (!jobId) return null;
+
+  const [row] = await db
+    .select({ entry_id: pipelineEntries.entry_id })
+    .from(pipelineEntries)
+    .where(and(eq(pipelineEntries.person_id, personId), eq(pipelineEntries.job_id, jobId)))
+    .limit(1);
+
+  return row ? getEntryById(row.entry_id) : null;
+}
+
 export async function updateEntry(id: string, input: UpdateEntryInput) {
   const updateValues: Record<string, unknown> = {};
 
