@@ -127,7 +127,15 @@ export interface UserDependents {
  *  references out. Reassigning a departing recruiter's pipeline is a feature,
  *  and it is not this guard's job to improvise one.
  *
- *  passkeys and magic_links cascade (0014:5,:33) and are not counted. */
+ *  passkeys (0014:5) and auth_challenges (0014:33) cascade and are not
+ *  counted. magic_links does NOT: it is keyed by email and carries no user_id
+ *  and no foreign key to users at all (0014:18-26). An earlier version of this
+ *  comment named magic_links as cascading, which would tell the next reader a
+ *  gap was closed that is not. Deleting a user leaves their outstanding links
+ *  alive, and verifyMagicLink recreates the account from the link's invite_code
+ *  and issues a token (magic-link.service.ts:105-128). That path predates this
+ *  guard and is recorded as F14 in the remediation plan; it belongs to the
+ *  auth module, not here. */
 export async function countUserDependents(userId: string): Promise<UserDependents> {
   const [entryRow] = await db
     .select({ count: sql<number>`count(*)::int` })
