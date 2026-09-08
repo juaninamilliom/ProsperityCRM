@@ -464,3 +464,116 @@ hit the wrong one. The result read as "the guard caught it" when nothing had bee
 tested.
 
 **Fix:** delete it. Owner: TEN. Depends on: nothing.
+
+### F5 — S2's mechanism is wrong, and commit 20 changes nothing on the wire
+
+**Found during PRs 5-7.** The spec says the two `date` columns mirrored as `text`
+mean "the driver's `Date` passes through unconverted and a UTC server renders the
+previous day" (`specs:56`). The driver's `Date` never reaches the API. Drizzle
+installs a per-query type-parser override that returns DATE values unparsed
+(`drizzle-orm/node-postgres/session.cjs:68-70`), so the API already sends
+`YYYY-MM-DD` and the mirror correction changes no bytes. Measured through this
+repo's own drizzle 0.45.2 and pg, one `date` column, four zones: `text()` and
+`date()` both return `"2026-09-12"` in every one.
+
+Two consequences. Commit 20 is truth-in-the-mirror with zero runtime effect, and
+the wrong day is rendered entirely in the browser, so commit 21 is the whole fix.
+The dependency note at `plans:330` — "Deploy skew shows wrong dates; the web parse
+must accept both formats" — rests on a skew that cannot occur; the two commits can
+ship in either order.
+
+**Fix:** none needed; both commits landed. Correct `specs:56` so the next reader
+does not re-derive the wrong mechanism. Owner: SCH.
+
+### F6 — S6's typecheck consequence does not exist
+
+**Found during PRs 5-7.** S6 says dropping the mirror's invented `notNull` will
+"let TypeScript surface the nulls" (`specs:60`). It surfaces none: `npx tsc
+--noEmit` is clean with all five columns widened. `listJobSplits`
+(`job.service.ts:155-172`) has an inferred return type, no interface declares a
+split shape, and the route hands rows straight to `res.json`. Inserts only get
+more permissive, because dropping `notNull()` widens `$inferInsert`.
+
+The commit is still right — the next person to query `job_deal_splits` gets the
+truth, and `apps/web/src/common/types.ts:46,:49,:50` already declared these
+nullable while the API mirror lied — but no absorption work should be budgeted for
+it. Owner: SCH.
+
+### F7 — S8a's index list contradicts the plan's own dependency table
+
+**Found during PRs 5-7.** `specs:62` prescribes "the person index and two activity
+indexes". `plans:331` says commit 25 unblocks 28 and 29 because "the status and job
+guards run FK-shaped counts against unindexed columns" — those are
+`pipeline_entries(job_id)` and `entry_status_history(from/to_status_id)`, none of
+which is among S8a's three. Commit 25 was scoped to its own title instead: every
+foreign key a live delete path traverses. Measured on a database built from the
+chain, foreign keys with no leading index went from 17 to 4.
+
+The four that remain are the three `organization_id` columns and
+`opportunity_contacts.person_id`; neither an organization nor a person has a delete
+route. Owner: SCH.
+
+### F8 — The `Depends: 25` on commits 28 and 29 is not real
+
+**Found during PRs 5-7.** All four columns commit 28 counts are already indexed
+(`0010:59,:79,:106,:149`), and commit 29's counts run only on the error path, after
+a delete has already failed. PR 7 does not need PR 6 and can land ahead of it.
+Owner: PIP.
+
+### F9 — S5 undercounts the foreign keys, and P2's stated fix leaves data loss
+
+**Found during PRs 5-7.** S5 says "one of the three foreign keys pointing at
+companies" (`specs:59`). There are five: `0010:44,:64,:94,:125,:146`. Three block a
+delete and two cascade.
+
+P2's fix says to guard "all three foreign keys and to open deals" (`specs:69`).
+Open-only leaves `signed` and `lost` deals cascading, and cascading a deal takes its
+activities with it (`0010:126`) — including the deal-won note recording how the
+company became a client. Commit 28 blocks on all deals. Owner: PIP.
+
+### F10 — `job_deal_splits` cascades on a job delete, unrecorded
+
+**Found during PRs 5-7.** `0007_job_deal_sheet.sql:10` declares
+`job_id ... on delete cascade`. Deleting a requisition with no candidates silently
+destroys its commission splits, which `apps/web/src/pages/JobDealPage.tsx` edits.
+Same shape as P2, one level down.
+
+Not fixed, and probably should not be: the splits have no meaning without the job.
+Recorded so nobody rediscovers it as a bug. The rule applied throughout PR 7: block
+when the dependent has its own identity and its own page; let it cascade when it
+exists only as part of the parent. Owner: PIP.
+
+### F11 — P7 does not close without a web commit
+
+**Found during PRs 5-7.** Commit 29 makes `DELETE /jobs/:id` explain itself, and
+the only UI caller throws the explanation away:
+`apps/web/src/pages/AdminJobsPage.tsx:88` is
+`onError: () => setDeleteMessage('Failed to remove job. Please try again.')`.
+
+A companion commit must read `error.response.data.message` the way
+`CompaniesPage.tsx:46-51` does. Until then the 409's text reaches nobody. Owner:
+WEB, or `harness:react-architect`. **This is a dependency of "P7 closed".**
+
+### F12 — Only one of the five guarded deletes has a UI caller
+
+**Found during PRs 5-7.** Every `apiClient.delete` in web and extension:
+`apps/web/src/api/jobs.ts:25`, `opportunities.ts:47` (contacts, not deals) and
+`auth.ts:129` (passkeys). `DELETE /companies/:id`, `/statuses/:id`,
+`/opportunities/:id`, `/pipeline-entries/:id` and `/admin/users/:id` have no caller
+anywhere.
+
+This is why commit 28 blocking on all deals costs nothing today, and it is also
+why there is no UI path to clear such a block. Acceptable for API-only routes,
+worth knowing before one of them gets a button. Owner: PIP.
+
+### F13 — `0010`'s header comment still describes the pre-tracking-table runner
+
+**Found during PRs 5-7.** `0010_bd_funnel_and_people.sql:4-5` says "The runner has
+no tracking table and replays every file on every migrate." That has been false
+since the tracking table landed, and it is exactly the reasoning trap that makes
+people edit an applied migration expecting it to take effect. CLAUDE.md already
+flags the claim as stale; the file still carries it.
+
+**Fix:** correct the comment in place. It changes no schema and needs its frozen
+hash flipped in the same commit, the way commit 24 did. Owner: SCH. Depends on:
+nothing.
