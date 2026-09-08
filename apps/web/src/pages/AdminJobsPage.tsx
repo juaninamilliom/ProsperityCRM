@@ -6,6 +6,7 @@ import { fetchOrgUsers } from '../api/users';
 import DatePicker from 'react-datepicker';
 import type { JobRequisitionDTO } from 'src/common';
 import { getSelectStyles } from '../components/selectStyles';
+import { parseDateOnly, toDateOnly } from '../utils/dateOnly';
 
 type SelectOption = { value: string; label: string };
 
@@ -163,11 +164,11 @@ export function AdminJobsPage() {
         <label className="flex flex-col gap-1 text-sm text-ink-2">
           Close Date
           <DatePicker
-            selected={form.close_date ? new Date(form.close_date) : null}
+            selected={parseDateOnly(form.close_date)}
             onChange={(date: Date | null) => {
               setForm((prev) => ({
                 ...prev,
-                close_date: date ? date.toISOString().split('T')[0] : '',
+                close_date: toDateOnly(date),
               }));
             }}
             className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { classify } from '../../common/pg-errors.js';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
 import type { OpportunityStage } from '../../types.js';
 import {
@@ -112,6 +113,28 @@ opportunityRouter.delete('/:opportunityId/contacts/:personId', async (req, res) 
 });
 
 opportunityRouter.delete('/:opportunityId', async (req, res) => {
-  await service.deleteOpportunity(req.params.opportunityId);
+  /** job_requisitions.opportunity_id is NO ACTION (0010:147), so deleting a
+   *  deal that produced a requisition was a bare 500. opportunity_contacts
+   *  (0010:83) and activities (0010:126) cascade and are left alone: neither
+   *  means anything apart from the deal. */
+  try {
+    await service.deleteOpportunity(req.params.opportunityId);
+  } catch (error) {
+    const conflict = classify(error, 'delete');
+    if (!conflict) throw error;
+    if (conflict.code !== 'has_dependents') {
+      return res.status(conflict.status).json({ message: conflict.message });
+    }
+    const dependents = await service.countOpportunityDependents(req.params.opportunityId);
+    return res.status(409).json({
+      message:
+        dependents.requisitions > 0
+          ? `This deal produced ${dependents.requisitions} ${
+              dependents.requisitions === 1 ? 'requisition' : 'requisitions'
+            }. Detach or delete them first.`
+          : 'Something still refers to this deal.',
+      dependents,
+    });
+  }
   res.status(204).end();
 });

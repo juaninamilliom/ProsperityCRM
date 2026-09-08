@@ -2,6 +2,7 @@ import { relations } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  date,
   integer,
   jsonb,
   numeric,
@@ -101,7 +102,7 @@ export const bdOpportunities = pgTable('bd_opportunities', {
     .notNull(),
   fee_percent: numeric('fee_percent'),
   est_annual_value: numeric('est_annual_value'),
-  expected_close: text('expected_close'),
+  expected_close: date('expected_close'),
   owner_id: uuid('owner_id').references(() => users.user_id),
   lost_reason: text('lost_reason'),
   closed_at: timestamp('closed_at', { withTimezone: true }),
@@ -133,7 +134,7 @@ export const jobRequisitions = pgTable('job_requisitions', {
   location: text('location'),
   status: text('status').default('open').notNull(),
   description: text('description'),
-  close_date: text('close_date'),
+  close_date: date('close_date'),
   deal_amount: numeric('deal_amount'),
   weighted_deal_amount: numeric('weighted_deal_amount'),
   owner_name: text('owner_name'),
@@ -149,11 +150,11 @@ export const jobDealSplits = pgTable('job_deal_splits', {
     .references(() => jobRequisitions.job_id, { onDelete: 'cascade' })
     .notNull(),
   teammate_name: text('teammate_name').notNull(),
-  teammate_status: text('teammate_status').default('active').notNull(),
+  teammate_status: text('teammate_status').default('active'),
   split_percent: numeric('split_percent').notNull(),
-  role: text('role').default('lead').notNull(),
-  total_deal: numeric('total_deal').notNull(),
-  weighted_deal: numeric('weighted_deal').notNull(),
+  role: text('role'),
+  total_deal: numeric('total_deal'),
+  weighted_deal: numeric('weighted_deal'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -219,7 +220,7 @@ export const activities = pgTable('activities', {
 export const organizationSkills = pgTable('organization_skills', {
   skill_id: uuid('skill_id').defaultRandom().primaryKey(),
   organization_id: uuid('organization_id')
-    .references(() => organizations.organization_id)
+    .references(() => organizations.organization_id, { onDelete: 'cascade' })
     .notNull(),
   name: text('name').notNull(),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -228,7 +229,7 @@ export const organizationSkills = pgTable('organization_skills', {
 export const orgInviteCodes = pgTable('org_invite_codes', {
   code_id: uuid('code_id').defaultRandom().primaryKey(),
   organization_id: uuid('organization_id')
-    .references(() => organizations.organization_id)
+    .references(() => organizations.organization_id, { onDelete: 'cascade' })
     .notNull(),
   code: text('code').notNull().unique(),
   role: text('role').notNull(),
@@ -239,7 +240,7 @@ export const orgInviteCodes = pgTable('org_invite_codes', {
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   revoked_at: timestamp('revoked_at', { withTimezone: true }),
   revoked_by: uuid('revoked_by').references(() => users.user_id),
-  metadata: jsonb('metadata').default({}).notNull(),
+  metadata: jsonb('metadata').default({}),
 });
 
 // Relations

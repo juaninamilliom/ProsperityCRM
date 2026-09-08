@@ -85,8 +85,8 @@ Render and the web app to Vercel.
 
 | Component | Path | Dev command | Type check | Test command | Trustworthy suite? |
 |---|---|---|---|---|---|
-| api | `apps/api/` | `npm run dev --workspace @prosperity/api` | `npx tsc --noEmit` | `npm test --workspace @prosperity/api` | yes for what it covers - 16 files / 177 tests, deterministic, no DB. Coverage is narrow: schemas, rules, CORS, error handler, and the seed and migration guards. **No test exercises the auth middleware, `requireRole`, the root-admin guard, or any route handler** - `person.routes.ts` can be edited with nothing executing it. |
-| web | `apps/web/` | `npm run dev --workspace @prosperity/web` | `npx tsc --noEmit` | `npm test --workspace @prosperity/web` | yes - 32 files / 147 tests, jsdom, fast and green. Includes token parity and spacing guards. |
+| api | `apps/api/` | `npm run dev --workspace @prosperity/api` | `npx tsc --noEmit` | `npm test --workspace @prosperity/api` | yes for what it covers - 28 files / 297 tests, no DB. Covers schemas, rules, CORS, error handler, the seed and migration guards, and - through `src/test/app-harness.ts` - the real middleware chain, `requireRole`, the root-admin guard and the organization, company, entry and delete-guard route handlers. Still uncovered: the person, job, status, opportunity and activity route handlers, and every service's SQL. See F1 for the one file that is not deterministic. |
+| web | `apps/web/` | `npm run dev --workspace @prosperity/web` | `npx tsc --noEmit` | `npm test --workspace @prosperity/web` | yes - 35 files / 191 tests, jsdom, fast and green. Includes token parity and spacing guards. The `test` script pins `TZ=America/Los_Angeles`: the date-only assertions cannot bite under UTC, where the broken implementation passes all of them. That pin applies to the whole suite, so nothing here runs under UTC. |
 | extension | `apps/extension/` | `npm run dev --workspace @prosperity/extension` | `npx tsc --noEmit` | `npm test --workspace @prosperity/extension` | yes - 1 file / 48 tests, jsdom fixtures captured from real LinkedIn DOM. A selector change without a fixture change is unverified. |
 
 Repo-wide: `npm test`, `npm run typecheck`, `npm run lint` fan out through
@@ -136,6 +136,13 @@ which builds and zips the extension for distribution.
 - Migrations run **once per database, keyed by filename**, and run on **every
   Render deploy** from `main`. Editing an applied migration does nothing.
   Changes need a new file.
+- **The one exception**, and it is narrow: a file may be corrected in place when
+  the correction is for databases that have **not yet run it** - a restore, or a
+  fresh environment - and the file as written would abort there. A new file
+  cannot serve that case, because the run dies at the broken file and never
+  reaches it. Such an edit must flip the file's `FROZEN` hash in
+  `apps/api/src/db/migrations.test.ts` in the same commit, which is what records
+  the choice in git history. `0003_add_organizations.sql` is the precedent.
 - Comments in `0010` and in the BD funnel plan claim the runner replays every
   file. That is stale and predates the tracking table. Do not reason from it.
 - Never reuse migration number `0012`. It was deleted for writing default

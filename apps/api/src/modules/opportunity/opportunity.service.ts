@@ -4,6 +4,7 @@ import {
   bdOpportunities,
   companies,
   db,
+  jobRequisitions,
   opportunityContacts,
 } from '../../db/drizzle.js';
 import type { CreateOpportunityInput, UpdateOpportunityInput } from './opportunity.schema.js';
@@ -217,6 +218,25 @@ export async function removeContact(opportunityId: string, personId: string) {
         eq(opportunityContacts.person_id, personId)
       )
     );
+}
+
+export interface OpportunityDependents {
+  requisitions: number;
+}
+
+/** Counted only after the delete has failed. job_requisitions.opportunity_id is
+ *  NO ACTION (0010:147), so a deal that produced a requisition cannot be
+ *  deleted. opportunity_contacts (0010:83) and activities (0010:126) cascade
+ *  and are not counted: neither has meaning apart from the deal. */
+export async function countOpportunityDependents(
+  opportunityId: string
+): Promise<OpportunityDependents> {
+  const [row] = await db
+    .select({ requisitions: sql<number>`count(*)::int` })
+    .from(jobRequisitions)
+    .where(eq(jobRequisitions.opportunity_id, opportunityId));
+
+  return { requisitions: Number(row?.requisitions ?? 0) };
 }
 
 export async function deleteOpportunity(opportunityId: string) {

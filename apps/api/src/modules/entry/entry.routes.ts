@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
+import { classify } from '../../common/pg-errors.js';
 import {
   createEntry,
   deleteEntry,
+  findDuplicateEntry,
   getEntryById,
   listEntries,
   moveEntry,
@@ -41,7 +43,33 @@ entryRouter.post('/', async (req: AuthenticatedRequest, res) => {
   if (!parsed.success) {
     return res.status(400).json(parsed.error.flatten());
   }
-  res.status(201).json(await createEntry(parsed.data, req.dbUser.organization_id));
+  /** A duplicate entry was an unexplained 500 where person and company both
+   *  return a 409 with the existing row. The body matches theirs verbatim, so a
+   *  page copying either handler renders this with no extra work.
+   *
+   *  classify rather than a bare unique-violation check, which closes two more
+   *  500 classes on the same path: a bad person_id, company_id, job_id,
+   *  current_status_id or recruiter_id raises 23503 and becomes a 400, and
+   *  since createEntrySchema validates those as z.string().min(1), a non-uuid
+   *  string passes zod, reaches the driver as 22P02, and becomes a 400 too. */
+  let created;
+  try {
+    /** Hoisted out of res.json(): with the await inline, a throw from the send
+     *  itself lands in this catch, which then writes a second response and
+     *  raises ERR_HTTP_HEADERS_SENT. The try covers the database call only. */
+    created = await createEntry(parsed.data, req.dbUser.organization_id);
+  } catch (error) {
+    const conflict = classify(error, 'insert');
+    if (!conflict) throw error;
+    if (conflict.code !== 'duplicate') {
+      return res.status(conflict.status).json({ message: conflict.message });
+    }
+    const existing = await findDuplicateEntry(parsed.data.person_id, parsed.data.job_id);
+    return res
+      .status(409)
+      .json({ message: 'This person is already on this requisition', existing });
+  }
+  res.status(201).json(created);
 });
 
 entryRouter.put('/:id', async (req: AuthenticatedRequest, res) => {

@@ -2,13 +2,9 @@ import { Router } from 'express';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
 import { companyQuerySchema, createCompanySchema, updateCompanySchema } from './company.schema.js';
 import * as service from './company.service.js';
+import { classify, dependentsMessage, pgErrorOf, SQLSTATE } from '../../common/pg-errors.js';
 
 export const companyRouter = Router();
-
-/** Postgres unique_violation. Surfaced as 409 plus the existing row so the
- *  caller can offer "you already have this - open it?" rather than an error.
- *  This is exactly the affordance the capture inbox will need. */
-const UNIQUE_VIOLATION = '23505';
 
 companyRouter.get('/', async (req, res) => {
   const parsed = companyQuerySchema.safeParse(req.query);
@@ -38,7 +34,14 @@ companyRouter.post('/', async (req: AuthenticatedRequest, res) => {
   try {
     res.status(201).json(await service.createCompany(req.dbUser.organization_id, parsed.data));
   } catch (error) {
-    if ((error as { code?: string }).code !== UNIQUE_VIOLATION) throw error;
+    /** A unique violation is surfaced as a 409 plus the existing row, so the
+     *  caller can offer "you already have this - open it?". This is exactly
+     *  the affordance the capture inbox will need.
+     *
+     *  Reading `.code` here matched nothing: drizzle wraps the driver error
+     *  and puts the SQLSTATE on `.cause`, so this branch re-threw every
+     *  duplicate into the 500 handler and the web's 409 branch was dead too. */
+    if (pgErrorOf(error)?.code !== SQLSTATE.UNIQUE_VIOLATION) throw error;
     const existing = await service.findDuplicateCompany(
       req.dbUser.organization_id,
       parsed.data.name,
@@ -62,15 +65,28 @@ companyRouter.patch('/:companyId', async (req, res) => {
 });
 
 companyRouter.delete('/:companyId', async (req, res) => {
-  // pipeline_entries.company_id has no cascade on purpose: deleting a company
-  // must never silently delete pipeline history. Explain instead.
-  const entries = await service.countEntriesForCompany(req.params.companyId);
-  if (entries > 0) {
-    return res.status(409).json({
-      message: 'This company has pipeline entries. Move or remove them first.',
-      entry_count: entries,
-    });
+  /** The guard counted pipeline entries only, one of the five foreign keys
+   *  pointing at companies. Contacts and requisitions block the delete and
+   *  surfaced as a bare 500; deals cascade, so deleting a company destroyed
+   *  its deals and their activities silently and reported 204.
+   *
+   *  Counting happens inside the transaction that deletes, under a row lock —
+   *  see deleteCompanyIfUnreferenced. */
+  try {
+    const result = await service.deleteCompanyIfUnreferenced(req.params.companyId);
+    if (!result.deleted) {
+      return res.status(409).json({
+        message: dependentsMessage(result.dependents),
+        dependents: result.dependents,
+      });
+    }
+  } catch (error) {
+    /** A backstop, kept even though the count runs under a lock: if a sixth
+     *  foreign key is added later and the count is not extended, this turns a
+     *  500 into a 409 rather than leaking the driver's text. */
+    const conflict = classify(error, 'delete');
+    if (!conflict) throw error;
+    return res.status(conflict.status).json({ message: conflict.message });
   }
-  await service.deleteCompany(req.params.companyId);
   res.status(204).end();
 });

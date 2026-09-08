@@ -6,8 +6,9 @@ import {
   db,
   jobRequisitions,
   people,
-  pipelineEntries,
 } from '../../db/drizzle.js';
+import type { DbOrTx } from '../../db/drizzle.js';
+import type { CompanyDependents } from '../../common/pg-errors.js';
 import type { CreateCompanyInput, UpdateCompanyInput } from './company.schema.js';
 
 export async function listCompanies(filters: { relationship?: string; search?: string }) {
@@ -231,17 +232,104 @@ export async function findDuplicateCompany(
   return row ?? null;
 }
 
-export async function countEntriesForCompany(companyId: string) {
-  const [result] = await db
+/** Five foreign keys point at companies. Three block a delete (people,
+ *  job_requisitions, pipeline_entries) and two cascade: bd_opportunities
+ *  (0010:64) and activities (0010:125).
+ *
+ *  All five are counted. Deals are counted even though they cascade, because a
+ *  deal has its own identity and its own page, and cascading one also takes
+ *  the deal-won activity that records how the company became a client
+ *  (0010:126).
+ *
+ *  Activities are counted only when they would OUTLIVE the company, meaning
+ *  they also carry a person_id or an entry_id. An activity naming only this
+ *  company dies with it and that is right. One that also names a person is
+ *  part of that person's timeline, and the person can survive the delete: the
+ *  people count above only sees people whose CURRENT company is this one
+ *  (0010:44), so somebody who has since moved on, or was never assigned, is
+ *  invisible to it while ActivityComposer has been writing person_id and
+ *  company_id together the whole time (ActivityComposer.tsx:58-59, reached
+ *  from PersonDetailPage.tsx:283).
+ *
+ *  An earlier version of this comment claimed the touch log "has no
+ *  independent identity". That is true only of the rows that name nothing
+ *  else.
+ *
+ *  One round trip, in the correlated-subquery form this module already uses
+ *  at :46-49. Selecting from companies gives existence in the same statement,
+ *  so a missing company still gets today's idempotent 204 without a second
+ *  query.
+ *
+ *  `::int` AND Number(): count(*) is bigint, node-postgres returns bigint as a
+ *  string, and dependentsMessage compares with === 1 to choose the singular.
+ *  A string "1" would render "1 contacts". */
+export async function countCompanyDependents(
+  companyId: string,
+  runner: DbOrTx = db
+): Promise<CompanyDependents | null> {
+  const [row] = await runner
     .select({
-      count: sql<number>`count(*)::int`,
+      people: sql<number>`(select count(*) from people p where p.current_company_id = companies.company_id)::int`,
+      requisitions: sql<number>`(select count(*) from job_requisitions j where j.company_id = companies.company_id)::int`,
+      entries: sql<number>`(select count(*) from pipeline_entries e where e.company_id = companies.company_id)::int`,
+      deals: sql<number>`(select count(*) from bd_opportunities o where o.company_id = companies.company_id)::int`,
+      activities: sql<number>`(select count(*) from activities a where a.company_id = companies.company_id and (a.person_id is not null or a.entry_id is not null))::int`,
     })
-    .from(pipelineEntries)
-    .where(eq(pipelineEntries.company_id, companyId));
+    .from(companies)
+    .where(eq(companies.company_id, companyId));
 
-  return Number(result?.count ?? 0);
+  if (!row) return null;
+
+  return {
+    people: Number(row.people),
+    requisitions: Number(row.requisitions),
+    entries: Number(row.entries),
+    deals: Number(row.deals),
+    activities: Number(row.activities),
+  };
 }
 
-export async function deleteCompany(companyId: string) {
-  await db.delete(companies).where(eq(companies.company_id, companyId));
+export type DeleteCompanyResult =
+  | { deleted: true }
+  | { deleted: false; dependents: CompanyDependents };
+
+/** Counts and deletes under one transaction, holding a row lock on the parent.
+ *
+ *  The lock is what makes the count true at the moment of the delete. Inserting
+ *  a deal takes FOR KEY SHARE on the referenced companies row, and FOR UPDATE
+ *  conflicts with it, so a deal created between the count and the delete has to
+ *  wait. Measured: with FOR UPDATE held for 3s, the child insert returned after
+ *  2013ms; with no lock held, 46ms.
+ *
+ *  Without it there is no error to catch, because the cascade IS the success
+ *  path — the deal is destroyed and the delete reports 204.
+ *
+ *  The runner parameter is required rather than stylistic: db.transaction holds
+ *  a pooled client for the whole callback, and a statement issued on the
+ *  module-level `db` from inside it asks for a second connection. See the
+ *  deadlock note in db/drizzle.ts. */
+export async function deleteCompanyIfUnreferenced(companyId: string): Promise<DeleteCompanyResult> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ company_id: companies.company_id })
+      .from(companies)
+      .where(eq(companies.company_id, companyId))
+      .for('update');
+
+    if (!row) return { deleted: true };
+
+    const dependents = await countCompanyDependents(companyId, tx);
+    if (!dependents) return { deleted: true };
+
+    const total =
+      dependents.people +
+      dependents.requisitions +
+      dependents.entries +
+      dependents.deals +
+      dependents.activities;
+    if (total > 0) return { deleted: false, dependents };
+
+    await tx.delete(companies).where(eq(companies.company_id, companyId));
+    return { deleted: true };
+  });
 }

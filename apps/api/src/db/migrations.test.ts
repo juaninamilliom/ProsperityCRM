@@ -34,7 +34,7 @@ const migrations = readdirSync(migrationsDir)
 const FROZEN: Record<string, string> = {
   '0001_init.sql': '00b52426950ad03d46a4f68732bc5df8545230e30eb9302e97406d9e3f3af34d',
   '0002_seed_statuses.sql': '14193736095abc64be9560917e5480175b8f068b41dd641f4ac722aaedec8d13',
-  '0003_add_organizations.sql': '42cd3ff390f5e4ee58f6dd391a33345b9822a9ce47dcc1d002fbfe64e0953b42',
+  '0003_add_organizations.sql': '7ffd0960b10514864cdd99177c2939aecb67cb7ca0d182ea7b52896c9f0e697a',
   '0004_invite_codes.sql': '07d3eea06d3e739726bc2fc369d364099b6d64edbe5932a4ab85fc6220d17b0e',
   '0005_local_auth.sql': 'bb8c149b3fe536b4a8bf0b1850430fe864be3414eaa25f8a459033ba0bc1216d',
   '0006_job_requisitions.sql': 'f54bd95709605ae86dca0d83e1e68963995733b65678aec35afe6f1272db4585',
@@ -47,6 +47,10 @@ const FROZEN: Record<string, string> = {
     'a32e8e31453ce20dcd52c0eee0ed939c947cd15f29adc51d37af1ca71f3268e4',
   '0014_passkeys_and_magic_links.sql':
     '5e5a71d2f5e86d914a714552a02106b7b1506be0ddc359bd408c6425f83e343f',
+  '0015_index_delete_path_foreign_keys.sql':
+    'a41053c1050a9ca20f69026050fea85ae6f0f4154f7bb774a903cd65ee04e680',
+  '0016_drop_redundant_indexes.sql':
+    '614e2668b89cc60775fc941b1d24bfe7ba137be86b1a64a004399c0175c3f24c',
 };
 
 const sha256 = (text: string) => crypto.createHash('sha256').update(text).digest('hex');

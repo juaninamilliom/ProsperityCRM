@@ -11,6 +11,7 @@ import { Icon } from '../components/Icon';
 import { getSelectStyles } from '../components/selectStyles';
 import { formatMoney } from './JobsPage';
 import { Button, Card, Chip, SectionLabel, StageDot } from '../components/ui';
+import { formatDateOnly, parseDateOnly, toDateOnly } from '../utils/dateOnly';
 
 const STATUS_TONE = { open: 'ok', on_hold: 'warn', closed: 'off' } as const;
 const STATUS_LABEL = { open: 'Open', on_hold: 'On hold', closed: 'Closed' } as const;
@@ -31,9 +32,12 @@ function formatCurrency(value?: string | number | null) {
   return formatMoney(value);
 }
 
+/** close_date is a `date` column, so it has no time and no zone. Through
+ *  `new Date(...)` it renders as the previous day everywhere west of
+ *  Greenwich. Unreadable values fall back to 'Not set' rather than printing
+ *  'Invalid Date' into the sheet. */
 function formatDate(value?: string | null) {
-  if (!value) return 'Not set';
-  return new Date(value).toLocaleDateString();
+  return formatDateOnly(value) || 'Not set';
 }
 
 function formatRoleLabel(role?: string | null) {
@@ -373,10 +377,9 @@ export function JobDealPage() {
             <label className="flex flex-col gap-1 text-sm text-ink-2">
               Close Date
               <DatePicker
-                selected={jobForm.close_date ? new Date(jobForm.close_date) : null}
+                selected={parseDateOnly(jobForm.close_date)}
                 onChange={(date: Date | null) => {
-                  const value = date ? date.toISOString().split('T')[0] : '';
-                  setJobForm((prev) => ({ ...prev!, close_date: value }));
+                  setJobForm((prev) => ({ ...prev!, close_date: toDateOnly(date) }));
                 }}
                 className="focus-ring h-9 w-full rounded-control border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-3"
                 placeholderText="Select date"
