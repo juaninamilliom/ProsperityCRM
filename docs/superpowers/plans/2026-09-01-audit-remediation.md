@@ -577,3 +577,44 @@ flags the claim as stale; the file still carries it.
 **Fix:** correct the comment in place. It changes no schema and needs its frozen
 hash flipped in the same commit, the way commit 24 did. Owner: SCH. Depends on:
 nothing.
+
+### F14 — An outstanding magic link resurrects a deleted user
+
+**Found by the graph review of PRs 5-7.** `magic_links` is keyed by `email` and has
+no `user_id` and no foreign key to `users` at all (`0014:18-26`), so deleting a user
+leaves their unexpired, unused links alive. `verifyMagicLink` then finds no user
+(`magic-link.service.ts:103`), and if the link carries an `invite_code` it calls
+`redeemInviteForLocalSignup` to **recreate the account** (`:105-121`) and issues a
+session token (`:128`). The recreated account's role comes from the invite, which
+`invite.service.ts:99` allows to be `OrgAdmin`.
+
+The window is narrow — it needs an outstanding link carrying an invite code, for a
+user deleted afterwards, with the code still active and unexhausted — and it predates
+this branch entirely. Commit 0622ba3's guard now blocks any user delete with pipeline,
+deal, activity, history or invite dependents, which shrinks the reachable set further
+without closing it.
+
+A comment added in 0622ba3 asserted that `magic_links` cascades on a user delete. It
+does not; that was corrected in the same PR, because a wrong comment here reads as
+"already handled".
+
+**Fix:** inside `deleteUser`, in the same transaction, delete or expire every
+`magic_links` row for the departing user's email. Consider whether `verifyMagicLink`
+should refuse to create an account at all when the link's email previously belonged to
+a deleted user. Owner: TEN. Depends on: nothing.
+
+### F15 — The web suite never runs under UTC
+
+**Found by the graph review of PRs 5-7.** Commit 12e7e59 pins
+`TZ=America/Los_Angeles` on the web `test` script, which is necessary: the six
+date-only assertions cannot bite under UTC, where parsing a date-only string as UTC
+midnight *is* local midnight and the broken implementation passes all of them.
+
+The pin applies to all 191 tests, so no web test now runs under UTC and a UTC-only
+regression elsewhere would go unseen. CI runs UTC everywhere else.
+
+**Fix:** move the zone into a vitest `globalSetup` that assigns `process.env.TZ`
+before the workers fork, so only the date tests carry it; or add a second CI
+invocation under `TZ=UTC`. Assigning it in a `beforeAll` does not work — Node has
+already resolved the zone — and vitest's `env` option lands too late as well. Both
+were tried. Owner: TST/WEB. Depends on: nothing.
